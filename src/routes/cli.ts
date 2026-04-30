@@ -89,7 +89,7 @@ fi
 echo
 echo "AgentContract CLI installed."
 echo "Next:"
-echo "  agentcontract login --api-url ${origin}"
+echo "  agentcontract login --email sid@usebear.ai --api-url ${origin}"
 echo "  agentcontract skill"
 `;
 }

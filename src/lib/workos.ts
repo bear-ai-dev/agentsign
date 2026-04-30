@@ -17,8 +17,12 @@ export function workosConfigured() {
   return Boolean(env.workosApiKey && env.workosClientId && env.workosCookiePassword);
 }
 
-function workos() {
-  if (!workosConfigured()) return null;
+export function workosApiConfigured() {
+  return Boolean(env.workosApiKey && env.workosClientId);
+}
+
+function workos(requireSession = false) {
+  if (requireSession ? !workosConfigured() : !workosApiConfigured()) return null;
   return new WorkOS(env.workosApiKey, { clientId: env.workosClientId });
 }
 
@@ -73,7 +77,7 @@ function verifyState(state: string | undefined | null): AuthState | null {
 }
 
 export function loginUrl(c: Context, returnTo?: string) {
-  const client = workos();
+  const client = workos(true);
   if (!client) return null;
   const state = signState({
     returnTo: safeReturnTo(returnTo),
@@ -89,7 +93,7 @@ export function loginUrl(c: Context, returnTo?: string) {
 }
 
 export async function completeWorkosCallback(c: Context) {
-  const client = workos();
+  const client = workos(true);
   if (!client) return c.text("WorkOS is not configured", 503);
 
   const code = c.req.query("code");
@@ -137,7 +141,7 @@ export async function authenticateMagicLogin(input: {
 }
 
 export async function logout(c: Context) {
-  const client = workos();
+  const client = workos(true);
   const sessionData = getCookie(c, sessionCookie);
   deleteCookie(c, sessionCookie, { path: "/" });
 
@@ -155,7 +159,7 @@ export async function logout(c: Context) {
 }
 
 export const requireAdminSession: MiddlewareHandler = async (c, next) => {
-  const client = workos();
+  const client = workos(true);
   if (!client) {
     return c.html(authSetupHtml(), 503);
   }
