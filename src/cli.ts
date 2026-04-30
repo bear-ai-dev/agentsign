@@ -2085,7 +2085,7 @@ async function loginWithEmailCode(args: Args) {
 
   await postPublicJson(apiUrl, "/cli/magic/start", { email });
   if (!jsonOutput(args)) {
-    console.error(`Sent a WorkOS login code to ${email}.`);
+    console.error(`Sent an AgentContract login code to ${email}.`);
   }
 
   const code = cleanString(stringArg(args, "code")) ?? await promptSecret("Enter 6-digit login code: ");
