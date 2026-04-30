@@ -49,14 +49,15 @@ agentcontract doctor
 
 Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe a manually created key with `--api-key-stdin`.
 
-Manual API key fallback:
+API key management is also CLI-first after login:
 
-1. Open `https://agentink-pied.vercel.app/dashboard/api-keys`.
-2. Sign in with the Google Workspace account configured in WorkOS.
-3. Click **Create API Key**.
-4. Copy the key once and run the generated `agentcontract init --api-key-stdin` command.
+```bash
+agentcontract keys
+agentcontract key create --key-name "Sid laptop"
+agentcontract key revoke key_...
+```
 
-API keys created this way are stored as SHA-256 hashes and can be revoked from the same page. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use WorkOS-issued keys.
+API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use WorkOS-issued user keys.
 
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
 
@@ -111,7 +112,17 @@ agentcontract agreements --status sent --limit 20
 agentcontract agreement read agr_... --out ./sent-contract.md
 agentcontract agreement audit agr_...
 agentcontract agreement remind agr_...
+agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
+```
+
+Server templates can be inspected and used without opening the template UI:
+
+```bash
+agentcontract templates
+agentcontract template show privacy --markdown
+agentcontract template read privacy --out ./privacy.md
+agentcontract template send nda --to jane@example.com --name "Jane Doe"
 ```
 
 ## CLI contract library
@@ -172,7 +183,7 @@ Editing a built-in such as `privacy` automatically creates a local copy first, s
 agentcontract contract edit privacy
 ```
 
-Read or preview the edited contract, then send it. `contract read` is the agent-native path; `contract preview --open` is only for humans who want the browser rendering.
+Read or preview the edited contract, then send it. `contract read` is the agent-native path; `contract preview` writes local HTML only when a human wants visual rendering.
 
 ```bash
 agentcontract contract read marketplace-mnda \
@@ -187,21 +198,15 @@ agentcontract contract send marketplace-mnda \
   --json
 ```
 
-## Optional Web UI
+## CLI-first sender workflows
 
-AgentContract is CLI-first. Use the web UI only when a human sender wants a form, a sender wants the dashboard, or a recipient uses the signing link. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, and webhooks instead of browser flows.
+Everything a sender needs can be done from the CLI: authenticate, manage API keys, list templates, read contracts, create/edit reusable contracts, capture feedback, preview locally, send, bulk send, remind, cancel, check status, read sent text, view audit events, and download PDFs. The sender dashboard and template forms are optional convenience views only.
 
-The sender dashboard lives at:
-
-```bash
-open https://agentink-pied.vercel.app/dashboard
-```
-
-It shows the latest contracts, recipients, senders, status, read-only preview links, text exports, PDFs, and audit events. The dashboard and sender template forms are WorkOS-protected; recipient signing links remain public token links.
+Recipient signing still uses the public token link in the email because the recipient must review, consent, and type their signature. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, `agentcontract agreement audit`, and webhooks instead of browser flows.
 
 ## WorkOS Auth
 
-The sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google.
+`agentcontract login` uses WorkOS AuthKit with a localhost callback, similar to the YC CLI flow. The optional sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` use the same WorkOS session. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google.
 
 Required production env vars:
 
@@ -236,7 +241,7 @@ npm run cli -- specific-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --preview \
-  --open
+  --preview-file ./specific-contractor-preview.html
 ```
 
 Send the same Specific contributor terms:
@@ -254,18 +259,7 @@ npm run cli -- bear-mnda --to jane@example.com --name "Jane Doe"
 npm run cli -- specific-privacy --to jane@example.com --name "Jane Doe"
 ```
 
-Open the sender UIs:
-
-```bash
-open https://agentink-pied.vercel.app/dashboard
-open https://agentink-pied.vercel.app/templates/nda
-open https://agentink-pied.vercel.app/templates/specific-contractor
-open https://agentink-pied.vercel.app/templates/bear-privacy
-```
-
-After WorkOS is configured, Sid signs into the sender UI, fills receiver name/email, previews the contract, and clicks send. The UI uses a WorkOS-protected server endpoint, so Sid does not need to paste the API key into the browser. Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth.
-
-The lower-level CLI is still available for agents and scripts that need to send custom templates without hand-writing JSON.
+Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth. The lower-level CLI is available for custom templates without hand-writing JSON.
 
 ```bash
 export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
@@ -315,7 +309,7 @@ npm run cli -- send-contract \
   --name "Jane Contractor" \
   --template contractor \
   --preview \
-  --open
+  --preview-file ./specific-contractor-preview.html
 ```
 
 Send the same contributor terms:
@@ -356,10 +350,10 @@ cat ./draft-contract.md | npm run cli -- send-contract \
   --json
 ```
 
-View a sent contract without marking it viewed by the signer:
+Read a sent contract without marking it viewed by the signer:
 
 ```bash
-npm run cli -- view agr_... --open
+npm run cli -- agreement read agr_... --out ./sent-contract.md
 ```
 
 Check state:
@@ -374,15 +368,16 @@ CLI design choices for agents:
 - `agentcontract init` creates a reusable local config so humans and agents do not need to paste keys into every command.
 - `--json` produces machine-readable output for agent chains.
 - `--dry-run` prints the exact API payload without requiring an API key or sending email.
-- `--preview` renders local HTML before sending; `view --open` opens the read-only contract preview after sending.
+- `--preview` renders local HTML before sending; `agreement read` keeps sent-contract review in the terminal.
 - Errors go to stderr with a concrete example command.
 
 ## Specific privacy policy template
 
-Open the browser template UI:
+Inspect the template from the CLI:
 
 ```bash
-open http://localhost:3000/templates/bear-privacy
+agentcontract template show privacy --markdown
+agentcontract template read privacy --out ./specific-privacy.md
 ```
 
 The privacy document body is fixed to the local PDF named `Bear AI Privacy Policy with Jason Zeng.pdf`. The reusable template intentionally does not copy Jason's Common Paper audit block; it only uses the policy text and adds a fresh AgentContract audit trail for each new recipient.
@@ -412,7 +407,12 @@ npm run cli -- specific-privacy \
   --cc janak@usebear.ai
 ```
 
-Template metadata is available through the API:
+Template metadata is available through the CLI or API:
+
+```bash
+agentcontract templates
+agentcontract template show privacy --json
+```
 
 ```bash
 curl http://localhost:3000/v1/templates/privacy \
@@ -423,15 +423,10 @@ curl http://localhost:3000/v1/templates/privacy \
 
 The contractor/contributor document is reconstructed from `Bear AI Contractor with Jason Zeng.pdf` as reusable Specific Marketplace contributor terms. The template keeps the company/service/website/contact placeholders specific and excludes the old Common Paper signature/audit block so each send gets a fresh AgentContract audit trail.
 
-Open the browser template UI:
-
-```bash
-open http://localhost:3000/templates/specific-contractor
-```
-
 Agents can inspect or send it without a browser:
 
 ```bash
+npm run cli -- template show contractor --markdown
 npm run cli -- read contractor --var effective_date="April 29, 2026"
 npm run cli -- specific-contractor \
   --to contributor@example.com \
@@ -576,6 +571,8 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 ## v1 limitations
 
 - Single recipient only; no multi-signer routing.
+- Sender/admin workflows are CLI-complete; the browser dashboard and template forms are optional convenience views.
+- Recipient signing still uses the public token link so the recipient can review, consent, and type their electronic signature.
 - Webhook retries run only while the Node process is alive.
 - `webhook_secret` is generated per agreement because there is no customer model yet.
 - Create and bulk requests support one-off `cc`, but reminders do not persist the original CC list yet.

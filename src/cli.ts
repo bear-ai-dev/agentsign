@@ -354,6 +354,12 @@ Usage:
   agentcontract skill
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
+  agentcontract keys
+  agentcontract key create --key-name "Sid laptop"
+  agentcontract key revoke key_123
+  agentcontract templates
+  agentcontract template read privacy --out ./privacy.md
+  agentcontract template send nda --to jane@example.com --name "Jane Doe"
   agentcontract contracts
   agentcontract read privacy --var effective_date=2026-04-29
   agentcontract agreements --status sent --limit 20
@@ -365,7 +371,7 @@ Usage:
   agentcontract contract feedback partner-msa --note "Use California law and shorten the termination section"
   agentcontract contract edit partner-msa
   agentcontract contract read partner-msa --with-feedback
-  agentcontract contract preview partner-msa --var company_name="Bear AI" --open
+  agentcontract contract preview partner-msa --var company_name="Bear AI" --preview-file ./preview.html
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
   agentcontract bulk-marketplace-onboard --file contributors.json [options]
@@ -375,7 +381,7 @@ Usage:
   agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
   agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
   agentcontract send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor [options]
-  agentcontract preview --template contractor --var company_name="Specific Marketplace" --open
+  agentcontract preview --template contractor --var company_name="Specific Marketplace" --preview-file ./preview.html
   agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
   agentcontract doctor [options]
   agentcontract status <agreement_id> [options]
@@ -389,6 +395,11 @@ Setup:
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract config path             Print the config path
+  agentcontract keys                    List user-owned API keys without opening the dashboard
+  agentcontract key create              Create another user-owned API key from the current key
+  agentcontract key revoke <key_id>     Revoke a user-owned API key
+  agentcontract templates               List server templates from the API
+  agentcontract template read <id>      Print server template markdown from the API
   agentcontract contracts               List built-in and local reusable contracts
   agentcontract read <id>               Print rendered contract text. Works for local contract ids and agr_* ids
   agentcontract contract edit <id>      Open a contract markdown file in $EDITOR
@@ -1173,9 +1184,73 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
+  if (typeof result === "object" && result && "api_keys" in result && Array.isArray(result.api_keys)) {
+    const keys = result as { owner_email?: string; api_keys: Array<{ id: string; name?: string; key_prefix?: string; last4?: string; created_at?: string; last_used_at?: string | null; revoked_at?: string | null }> };
+    console.log(`API keys: ${keys.api_keys.length}`);
+    if (keys.owner_email) console.log(`Owner: ${keys.owner_email}`);
+    for (const key of keys.api_keys) {
+      const status = key.revoked_at ? "revoked" : "active";
+      console.log(`${key.id} [${status}] ${key.name ?? "AgentContract CLI"} ${key.key_prefix ?? ""}...${key.last4 ?? ""}`);
+      if (key.created_at) console.log(`  created: ${key.created_at}`);
+      if (key.last_used_at) console.log(`  last used: ${key.last_used_at}`);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "api_key_created" in result) {
+    const created = result as unknown as { api_key: string; record?: { id?: string; name?: string; key_prefix?: string; last4?: string } };
+    console.log(`Created API key: ${created.record?.id ?? ""}`);
+    if (created.record?.name) console.log(`Name: ${created.record.name}`);
+    if (created.record?.key_prefix) console.log(`Prefix: ${created.record.key_prefix}...${created.record.last4 ?? ""}`);
+    console.log("Copy this key now. AgentContract only stores a hash:");
+    console.log(created.api_key);
+    return;
+  }
+
+  if (typeof result === "object" && result && "api_key_revoked" in result) {
+    const revoked = result as { id?: string };
+    console.log(`Revoked API key: ${revoked.id ?? ""}`);
+    return;
+  }
+
   if (typeof result === "object" && result && "version" in result && "package" in result) {
     const version = result as { package: string; version: string };
     console.log(`${version.package} ${version.version}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "templates" in result && Array.isArray(result.templates)) {
+    const catalog = result as { templates: Array<{ id: string; name: string; description?: string; variables?: Array<{ key?: string; required?: boolean }> }> };
+    console.log(`Templates: ${catalog.templates.length}`);
+    for (const template of catalog.templates) {
+      const variables = template.variables?.length ? ` vars: ${template.variables.map((item) => item.key).filter(Boolean).join(", ")}` : "";
+      console.log(`${template.id} - ${template.name}${variables}`);
+      if (template.description) console.log(`  ${template.description}`);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "server_template" in result) {
+    const detail = result as { template?: { id?: string; name?: string; description?: string; variables?: Array<{ key?: string; label?: string; defaultValue?: string; required?: boolean }>; fields?: Array<{ id?: string; type?: string; required?: boolean }> }; default_template_vars?: Record<string, unknown>; markdown?: string };
+    const template = detail.template ?? {};
+    console.log(`${template.id ?? ""} - ${template.name ?? "Template"}`);
+    if (template.description) console.log(template.description);
+    if (template.variables?.length) {
+      console.log("Variables:");
+      for (const variable of template.variables) {
+        console.log(`  ${variable.key ?? ""}${variable.required ? " *" : ""}: ${variable.defaultValue ?? ""}`);
+      }
+    }
+    if (template.fields?.length) {
+      console.log("Fields:");
+      for (const field of template.fields) {
+        console.log(`  ${field.id ?? ""} (${field.type ?? "text"}${field.required ? ", required" : ""})`);
+      }
+    }
+    if (detail.markdown) {
+      console.log("\n--- markdown ---\n");
+      console.log(detail.markdown);
+    }
     return;
   }
 
@@ -1558,7 +1633,7 @@ async function editContract(args: Args, positional: string[]) {
     markdown_path: contract.path,
     metadata_path: contractMetaPath(id, args),
     editor_opened: Boolean(shouldOpenEditor || args.open),
-    hint: shouldOpenEditor || args.open ? undefined : `Edit ${contract.path} and then run agentcontract contract preview ${id} --open`
+    hint: shouldOpenEditor || args.open ? undefined : `Edit ${contract.path} and then run agentcontract contract read ${id}`
   };
 }
 
@@ -1751,6 +1826,104 @@ async function doctor(args: Args) {
     api: root,
     privacy_template: template
   };
+}
+
+async function listApiKeys(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  return getJson(apiUrl, apiKey, "/v1/api-keys");
+}
+
+async function createApiKeyCommand(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const result = await postJson(apiUrl, apiKey, "/v1/api-keys", {
+    name: stringArg(args, "key-name", "name") ?? "AgentContract CLI"
+  }) as { api_key?: string; record?: unknown };
+  if (!result.api_key) throw new CliError("API did not return a new key");
+  return {
+    api_key_created: true,
+    api_key: result.api_key,
+    record: result.record
+  };
+}
+
+async function revokeApiKeyCommand(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0] ?? stringArg(args, "id", "key-id");
+  if (!id) throw new CliError("key_id is required", "Example: agentcontract key revoke key_123");
+  const result = await postJson(apiUrl, apiKey, `/v1/api-keys/${id}/revoke`, {}) as { revoked?: boolean; id?: string };
+  return {
+    api_key_revoked: true,
+    ...result
+  };
+}
+
+async function keyCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "list";
+  const rest = positional.slice(1);
+  if (action === "list" || action === "ls") return listApiKeys(args);
+  if (action === "create" || action === "new") return createApiKeyCommand(args);
+  if (action === "revoke" || action === "delete" || action === "rm") return revokeApiKeyCommand(args, rest);
+  throw new CliError(`Unknown key command: ${action}`, "Run agentcontract help to see key commands.");
+}
+
+async function listServerTemplates(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  return getJson(apiUrl, apiKey, "/v1/templates");
+}
+
+async function getServerTemplate(args: Args, id: string) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  return getJson(apiUrl, apiKey, `/v1/templates/${id}`) as Promise<{
+    template?: { id?: string; name?: string };
+    markdown?: string;
+    default_template_vars?: Record<string, unknown>;
+  }>;
+}
+
+async function showServerTemplate(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "template") ?? positional[0]);
+  const result = await getServerTemplate(args, id);
+  return {
+    server_template: true,
+    ...result,
+    markdown: args.markdown || args.raw ? result.markdown : undefined
+  };
+}
+
+async function readServerTemplate(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "template") ?? positional[0]);
+  const result = await getServerTemplate(args, id);
+  const vars = {
+    ...(result.default_template_vars ?? {}),
+    ...templateVarsFromArgs(args)
+  };
+  const markdown = applyTemplateVars(result.markdown ?? "", vars);
+  if (jsonOutput(args) && !stringArg(args, "out", "output-file", "output")) {
+    return {
+      server_template: true,
+      ...result,
+      rendered_markdown: markdown
+    };
+  }
+  return writeTextOutput(markdown, args, result.template?.name);
+}
+
+async function templateCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "list";
+  const rest = positional.slice(1);
+  if (action === "list" || action === "ls") return listServerTemplates(args);
+  if (action === "show" || action === "inspect") return showServerTemplate(args, rest);
+  if (action === "read" || action === "text" || action === "render") return readServerTemplate(args, rest);
+  if (action === "preview" || action === "review") {
+    const id = assertContractId(stringArg(args, "id", "template") ?? rest[0]);
+    return sendContract({ ...args, template: id, preview: true });
+  }
+  if (action === "send") {
+    const id = assertContractId(stringArg(args, "id", "template") ?? rest[0]);
+    return sendContract({ ...args, template: id });
+  }
+  if (!["create", "new", "revoke", "delete", "rm"].includes(action)) return showServerTemplate(args, [action, ...rest]);
+  throw new CliError(`Unknown template command: ${action}`, "Run agentcontract help to see template commands.");
 }
 
 async function status(args: Args, positional: string[]) {
@@ -2012,11 +2185,17 @@ draft/revise a contract, capture contract feedback, check signing status, or dow
 agentcontract login
 agentcontract config get
 agentcontract doctor
+agentcontract keys
 
 If the user is not logged in, run \`agentcontract login\`; it opens WorkOS/Google Workspace auth in the browser.
 
 ## Core Commands
 
+agentcontract keys
+agentcontract key create --key-name "Agent laptop"
+agentcontract key revoke key_...
+agentcontract templates
+agentcontract template read privacy --out ./privacy.md
 agentcontract contracts
 agentcontract read privacy --var effective_date="April 29, 2026"
 agentcontract contract show contractor --markdown
@@ -2044,6 +2223,8 @@ agentcontract agreements --status sent --json
 agentcontract status agr_... --json
 agentcontract agreement read agr_... --out ./agreement.md
 agentcontract agreement audit agr_...
+agentcontract agreement remind agr_...
+agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
 
 ## Rules
@@ -2051,6 +2232,7 @@ agentcontract agreement pdf agr_... --out ./signed.pdf
 - Do not send placeholder values.
 - Prefer \`--dry-run --json\` before bulk sends.
 - Use \`contract read --with-feedback\` before sending revised contracts.
+- Prefer CLI/API commands over sender dashboard or template forms.
 - Never print or commit API keys.
 `;
 }
@@ -2218,6 +2400,14 @@ async function main() {
     result = await initConfig(args);
   } else if (command === "config") {
     result = await configCommand(args, positional);
+  } else if (command === "keys" || command === "api-keys") {
+    result = await keyCommand(args, positional.length ? positional : ["list"]);
+  } else if (command === "key" || command === "api-key") {
+    result = await keyCommand(args, positional);
+  } else if (command === "templates" || command === "template-list") {
+    result = await listServerTemplates(args);
+  } else if (command === "template" || command === "server-template") {
+    result = await templateCommand(args, positional);
   } else if (command === "contracts" || command === "contract-list") {
     result = await listContracts(args);
   } else if (command === "contract" || command === "contracts-lib") {

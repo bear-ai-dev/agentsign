@@ -54,11 +54,12 @@ Validate the install:
 
 ```bash
 agentcontract doctor --json
+agentcontract keys --json
 ```
 
 ## Default Workflow
 
-1. Read or dry-run first. Use browser preview only if the human asks for visual rendering.
+1. Read or dry-run first. Use local preview files only if the human asks for visual rendering.
 2. List or inspect the contract before sending if the human did not specify an exact contract id.
 3. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
 4. Use `--json` for all agent-to-agent or script usage.
@@ -70,14 +71,20 @@ agentcontract doctor --json
 Stay in the terminal unless a recipient needs to sign:
 
 ```bash
+agentcontract keys --json
+agentcontract key create --key-name "Agent laptop" --json
+agentcontract templates --json
+agentcontract template read privacy --out ./privacy.md
 agentcontract read privacy --var effective_date="April 29, 2026"
 agentcontract agreements --status sent --limit 20 --json
 agentcontract agreement read agr_... --out ./agreement.md
 agentcontract agreement audit agr_...
+agentcontract agreement remind agr_...
+agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./agreement.pdf
 ```
 
-A human sender can also use the WorkOS-protected dashboard at `https://agentink-pied.vercel.app/dashboard` to see all recent contracts, statuses, previews, PDFs, and audit trails. Prefer CLI/API commands for agent workflows.
+The sender dashboard is optional. Prefer CLI/API commands for all agent and sender workflows.
 
 ## Contract Library
 
@@ -141,7 +148,7 @@ Editing a built-in id creates a local editable copy:
 agentcontract contract edit privacy
 ```
 
-Read and send a saved contract. Use `contract preview --open` only when a human needs browser rendering.
+Read and send a saved contract. Use `contract preview` only when a human needs local HTML rendering.
 
 ```bash
 agentcontract contract read partner-msa \
@@ -230,7 +237,7 @@ agentcontract specific-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --preview \
-  --open
+  --preview-file ./specific-contractor-preview.html
 ```
 
 Custom contract from markdown:
@@ -268,5 +275,5 @@ Webhook payloads are signed with `X-AgentInk-Signature` using HMAC-SHA256 and th
 - Do not send a contract with placeholder values like `{{company_name}}`, `TBD`, or fake recipient emails.
 - Do not expose API keys in chat, logs, git commits, screenshots, or README examples.
 - Use `--dry-run --json` before any bulk send.
-- Use `--preview --open` when contract wording has changed.
+- Use `contract read`, `template read`, or `--dry-run --json` before sending changed wording.
 - Treat AgentContract as demo-grade e-sign infrastructure until counsel-reviewed templates, auth, storage, and operational controls are finalized.

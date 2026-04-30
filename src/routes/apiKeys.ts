@@ -1,9 +1,13 @@
 import { Hono, type Context } from "hono";
 import { createApiKey, listApiKeysForOwner, revokeApiKeyForOwner } from "../lib/apiKeys.js";
+import { requireApiKey } from "../lib/auth.js";
 import { requireAdminSession } from "../lib/workos.js";
+import type { ApiKeyRecord } from "../lib/types.js";
 
 export const apiKeys = new Hono();
 
+apiKeys.use("/v1/api-keys", requireApiKey);
+apiKeys.use("/v1/api-keys/*", requireApiKey);
 apiKeys.use("/dashboard/api-keys", requireAdminSession);
 apiKeys.use("/dashboard/api-keys/*", requireAdminSession);
 
@@ -25,6 +29,23 @@ function escapeHtml(value: unknown) {
 
 function adminUser(c: Context): WorkosUser {
   return ((c as unknown as { get(key: string): unknown }).get("adminUser") ?? {}) as WorkosUser;
+}
+
+function apiKeyRecord(c: Context): ApiKeyRecord | null {
+  return (((c as unknown as { get(key: string): unknown }).get("apiKeyRecord") ?? null) as ApiKeyRecord | null);
+}
+
+function publicApiKey(key: ApiKeyRecord) {
+  return {
+    id: key.id,
+    key_prefix: key.key_prefix,
+    last4: key.last4,
+    name: key.name,
+    owner_email: key.owner_email,
+    created_at: key.created_at,
+    last_used_at: key.last_used_at,
+    revoked_at: key.revoked_at
+  };
 }
 
 function userName(user: WorkosUser) {
@@ -63,6 +84,54 @@ function keyRows(keys: Awaited<ReturnType<typeof listApiKeysForOwner>>) {
     </tr>
   `).join("");
 }
+
+apiKeys.get("/v1/api-keys", async (c) => {
+  const current = apiKeyRecord(c);
+  if (!current?.owner_email) {
+    return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  }
+
+  const keys = await listApiKeysForOwner(current.owner_email);
+  return c.json({
+    owner_email: current.owner_email,
+    api_keys: keys.map(publicApiKey)
+  });
+});
+
+apiKeys.post("/v1/api-keys", async (c) => {
+  const current = apiKeyRecord(c);
+  if (!current?.owner_email) {
+    return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  }
+
+  const body = await c.req.json<{ name?: string }>().catch(() => ({})) as { name?: string };
+  const { key, record } = await createApiKey({
+    name: body.name || "AgentContract CLI",
+    ownerId: current.owner_id,
+    ownerEmail: current.owner_email
+  });
+
+  return c.json({
+    api_key: key,
+    record: publicApiKey(record)
+  }, 201);
+});
+
+apiKeys.post("/v1/api-keys/:id/revoke", async (c) => {
+  const current = apiKeyRecord(c);
+  if (!current?.owner_email) {
+    return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  }
+
+  const id = c.req.param("id");
+  const revoked = await revokeApiKeyForOwner(id, current.owner_email);
+  if (!revoked) return c.json({ error: "API key not found" }, 404);
+
+  return c.json({
+    revoked: true,
+    id
+  });
+});
 
 async function renderApiKeysPage(c: Context, newKey?: string) {
   const user = adminUser(c);

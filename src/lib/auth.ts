@@ -7,11 +7,14 @@ export async function requireApiKey(c: Context, next: Next) {
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
 
   if (token && token === env.apiKey) {
+    c.set("apiKeyBootstrap", true);
     await next();
     return;
   }
 
-  if (token && await verifyStoredApiKey(token)) {
+  const record = token ? await verifyStoredApiKey(token) : null;
+  if (record) {
+    c.set("apiKeyRecord", record);
     await next();
     return;
   }
