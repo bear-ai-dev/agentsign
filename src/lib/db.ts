@@ -108,6 +108,17 @@ async function ensureSchema() {
 }
 
 async function ensureApiKeysSchema() {
+  const apiKeyColumns = [
+    ["key_hash", "TEXT"],
+    ["key_prefix", "TEXT"],
+    ["last4", "TEXT"],
+    ["name", "TEXT"],
+    ["owner_id", "TEXT"],
+    ["owner_email", "TEXT"],
+    ["created_at", "TEXT"],
+    ["last_used_at", "TEXT"],
+    ["revoked_at", "TEXT"]
+  ] as const;
   const sql = `CREATE TABLE IF NOT EXISTS api_keys (
     id TEXT PRIMARY KEY,
     key_hash TEXT NOT NULL UNIQUE,
@@ -123,8 +134,9 @@ async function ensureApiKeysSchema() {
 
   if (pool) {
     await pool.query(sql);
-    await pool.query("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS owner_id TEXT");
-    await pool.query("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS owner_email TEXT");
+    for (const [name, type] of apiKeyColumns) {
+      await pool.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+    }
     await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_owner_email ON api_keys(owner_email)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(revoked_at) WHERE revoked_at IS NULL");
@@ -135,8 +147,9 @@ async function ensureApiKeysSchema() {
   const columns = new Set(
     sqlite!.prepare("PRAGMA table_info(api_keys)").all().map((column) => (column as { name: string }).name)
   );
-  if (!columns.has("owner_id")) sqlite!.exec("ALTER TABLE api_keys ADD COLUMN owner_id TEXT");
-  if (!columns.has("owner_email")) sqlite!.exec("ALTER TABLE api_keys ADD COLUMN owner_email TEXT");
+  for (const [name, type] of apiKeyColumns) {
+    if (!columns.has(name)) sqlite!.exec(`ALTER TABLE api_keys ADD COLUMN ${name} ${type}`);
+  }
   sqlite!.exec(`
     CREATE INDEX IF NOT EXISTS idx_api_keys_owner_email ON api_keys(owner_email);
     CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
