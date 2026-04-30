@@ -105,6 +105,20 @@ cat ./draft-contract.md | agentcontract contract add custom-sow \
   --json
 ```
 
+Capture human feedback as structured local review notes before revising:
+
+```bash
+agentcontract contract feedback custom-sow \
+  --author "Sid" \
+  --note "Make the IP assignment clearer and shorten the termination section." \
+  --json
+
+agentcontract contract read custom-sow --with-feedback
+agentcontract contract edit custom-sow
+```
+
+When feedback is added to a built-in contract, AgentContract creates an editable local copy first. Always re-read with `--with-feedback` before sending a revised contract.
+
 Seed from a built-in contract and edit the local copy:
 
 ```bash

@@ -126,6 +126,20 @@ cat ./draft-contract.md | agentcontract contract add custom-sow \
   --var company_name="Specific Marketplace"
 ```
 
+Capture feedback before sending, then let an agent revise against the note:
+
+```bash
+agentcontract contract feedback custom-sow \
+  --author "Sid" \
+  --note "Make the IP assignment clearer and shorten the termination section."
+
+agentcontract contract read custom-sow --with-feedback
+agentcontract contract edit custom-sow
+agentcontract contract read custom-sow --with-feedback
+```
+
+`contract feedback` also works on built-ins like `nda`, `privacy`, and `contractor`; the CLI creates an editable local copy before storing the feedback.
+
 Seed a new contract from a built-in, then edit it:
 
 ```bash

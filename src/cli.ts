@@ -3,10 +3,11 @@
 import "dotenv/config";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { marked } from "marked";
+import { nanoid } from "nanoid";
 import { applyTemplateVars, defaultTemplateVars, loadTemplate, templateDefinitions, titleFromMarkdown } from "./lib/templates.js";
 
 type Args = Record<string, string | boolean | string[]>;
@@ -31,6 +32,15 @@ type ContractDefinitionForCli = SavedContractDefinition & {
   kind: "built-in" | "local";
   markdown: string;
   path?: string;
+};
+type ContractFeedback = {
+  id: string;
+  contract_id: string;
+  note: string;
+  author?: string;
+  created_at: string;
+  source: string;
+  status: "open";
 };
 
 const cliVersion = "0.1.0";
@@ -156,6 +166,10 @@ function contractMarkdownPath(id: string, args: Args = {}) {
   return join(contractDir(id, args), "contract.md");
 }
 
+function contractFeedbackPath(id: string, args: Args = {}) {
+  return join(contractDir(id, args), "feedback.jsonl");
+}
+
 function builtInContract(id: string): ContractDefinitionForCli | undefined {
   const definition = templateDefinitions[id as keyof typeof templateDefinitions];
   if (!definition) return undefined;
@@ -270,6 +284,65 @@ function writeLocalContract(contract: SavedContractDefinition, markdown: string,
   return readLocalContract(id, args)!;
 }
 
+function ensureLocalContract(id: string, args: Args = {}) {
+  const local = readLocalContract(id, args);
+  if (local) return { contract: local, cloned: false };
+
+  const builtIn = builtInContract(id);
+  if (!builtIn) throw new CliError(`Unknown contract: ${id}`, "Run agentcontract contracts to see available contracts.");
+
+  const now = new Date().toISOString();
+  const contract = writeLocalContract({
+    id: builtIn.id,
+    name: builtIn.name,
+    description: builtIn.description,
+    fields: builtIn.fields,
+    template_vars_default: builtIn.template_vars_default,
+    created_at: now,
+    updated_at: now,
+    source: `built-in:${builtIn.id}`
+  }, builtIn.markdown, args);
+  return { contract, cloned: true };
+}
+
+function readContractFeedback(id: string, args: Args = {}) {
+  const path = contractFeedbackPath(id, args);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line, index) => {
+      try {
+        return JSON.parse(line) as ContractFeedback;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new CliError(`Could not parse feedback line ${index + 1} for ${id}: ${message}`, path);
+      }
+    });
+}
+
+function writeContractFeedback(id: string, feedback: ContractFeedback, args: Args = {}) {
+  const dir = contractDir(id, args);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const path = contractFeedbackPath(id, args);
+  appendFileSync(path, `${JSON.stringify(feedback)}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+  return path;
+}
+
+function feedbackMarkdown(feedback: ContractFeedback[]) {
+  if (!feedback.length) return "";
+  const lines = [
+    "## Contract Feedback",
+    "",
+    ...feedback.map((item, index) => {
+      const author = item.author ? ` by ${item.author}` : "";
+      return `${index + 1}. [${item.created_at}${author}] ${item.note}`;
+    })
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
 function usage() {
   console.log(`AgentContract CLI
 
@@ -284,8 +357,9 @@ Usage:
   agentcontract agreement pdf agr_123 --out ./agreement.pdf
   agentcontract contract show privacy
   agentcontract contract add partner-msa --markdown-file ./partner-msa.md --fields-file ./fields.json
+  agentcontract contract feedback partner-msa --note "Use California law and shorten the termination section"
   agentcontract contract edit partner-msa
-  agentcontract contract read partner-msa
+  agentcontract contract read partner-msa --with-feedback
   agentcontract contract preview partner-msa --var company_name="Bear AI" --open
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
@@ -334,6 +408,11 @@ Options:
   --markdown-stdin                   Read custom contract markdown from stdin
   --fields-json <json>               JSON field definitions array
   --fields-file <path>               JSON field definitions file
+  --note, --feedback <text>          Add feedback to a local contract review thread
+  --feedback-file <path>             Read contract feedback text from a file
+  --feedback-stdin                   Read contract feedback text from stdin
+  --with-feedback                    Include feedback when reading/showing a contract
+  --author <name>                    Human or agent name for contract feedback
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
   --contract-dir <path>              Override local contract library directory for this command
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
@@ -1084,8 +1163,42 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
+  if (typeof result === "object" && result && "contract_feedback" in result) {
+    const feedbackResult = result as unknown as {
+      added?: boolean;
+      cloned_from_builtin?: boolean;
+      contract: { id: string; name: string; kind: string };
+      feedback?: ContractFeedback;
+      feedback_count?: number;
+      feedback_path?: string;
+      next?: string;
+    };
+    if (feedbackResult.added && feedbackResult.feedback) {
+      console.log(`Added feedback: ${feedbackResult.contract.id} - ${feedbackResult.contract.name}`);
+      if (feedbackResult.cloned_from_builtin) console.log("Created editable local copy from built-in contract.");
+      console.log(`Feedback: ${feedbackResult.feedback.note}`);
+      if (feedbackResult.feedback.author) console.log(`Author: ${feedbackResult.feedback.author}`);
+      if (feedbackResult.feedback_path) console.log(`Feedback file: ${feedbackResult.feedback_path}`);
+      if (feedbackResult.feedback_count !== undefined) console.log(`Open feedback: ${feedbackResult.feedback_count}`);
+      if (feedbackResult.next) console.log(`Next: ${feedbackResult.next}`);
+    } else {
+      console.log(`Feedback: ${feedbackResult.contract.id} - ${feedbackResult.contract.name}`);
+      const items = Array.isArray((feedbackResult as { feedback?: unknown }).feedback) ? (feedbackResult as unknown as { feedback: ContractFeedback[] }).feedback : [];
+      if (!items.length) {
+        console.log("No feedback yet.");
+      } else {
+        for (const item of items) {
+          const author = item.author ? ` by ${item.author}` : "";
+          console.log(`- ${item.created_at}${author}: ${item.note}`);
+        }
+      }
+      if (feedbackResult.feedback_path) console.log(`Feedback file: ${feedbackResult.feedback_path}`);
+    }
+    return;
+  }
+
   if (typeof result === "object" && result && "contract" in result) {
-    const detail = result as { contract: { id: string; name: string; kind: string; description?: string; variables?: string[]; path?: string; fields?: Array<{ id?: unknown; type?: unknown; required?: boolean }> }; template_vars_default?: Record<string, unknown>; markdown?: string };
+    const detail = result as { contract: { id: string; name: string; kind: string; description?: string; variables?: string[]; path?: string; fields?: Array<{ id?: unknown; type?: unknown; required?: boolean }> }; template_vars_default?: Record<string, unknown>; feedback?: ContractFeedback[]; markdown?: string };
     console.log(`${detail.contract.id} [${detail.contract.kind}] - ${detail.contract.name}`);
     if (detail.contract.description) console.log(detail.contract.description);
     if (detail.contract.path) console.log(`Path: ${detail.contract.path}`);
@@ -1099,6 +1212,17 @@ function printResult(result: unknown, json: boolean) {
     if (detail.template_vars_default && Object.keys(detail.template_vars_default).length) {
       console.log("Default vars:");
       console.log(JSON.stringify(detail.template_vars_default, null, 2));
+    }
+    if (detail.feedback) {
+      console.log("Feedback:");
+      if (!detail.feedback.length) {
+        console.log("  none");
+      } else {
+        for (const item of detail.feedback) {
+          const author = item.author ? ` by ${item.author}` : "";
+          console.log(`  - ${item.created_at}${author}: ${item.note}`);
+        }
+      }
     }
     if (detail.markdown) {
       console.log("\n--- markdown ---\n");
@@ -1287,9 +1411,11 @@ async function listContracts(args: Args) {
 async function showContract(args: Args, positional: string[]) {
   const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
   const contract = loadContract(id, args);
+  const feedback = args.feedback || args["with-feedback"] ? readContractFeedback(id, args) : undefined;
   return {
     contract: contractSummary(contract),
     template_vars_default: contract.template_vars_default ?? {},
+    feedback,
     markdown: args.markdown || args.raw ? contract.markdown : undefined
   };
 }
@@ -1398,8 +1524,60 @@ async function previewContract(args: Args, positional: string[]) {
 async function readContract(args: Args, positional: string[]) {
   const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
   const contract = loadContract(id, args);
-  const text = args.raw ? contract.markdown : renderedContractMarkdown(args, contract, false);
+  let text = args.raw ? contract.markdown : renderedContractMarkdown(args, contract, false);
+  if (args["with-feedback"] || args.feedback) {
+    const feedback = feedbackMarkdown(readContractFeedback(id, args));
+    text = feedback ? `${text.trimEnd()}\n\n---\n\n${feedback}` : `${text.trimEnd()}\n\n---\n\n## Contract Feedback\n\nNo feedback yet.\n`;
+  }
   return writeTextOutput(text, args, contract.name);
+}
+
+function feedbackNoteFromArgs(args: Args, rest: string[]) {
+  const fromArg = stringArg(args, "note", "feedback", "message");
+  if (fromArg) return fromArg.trim();
+  const feedbackFile = stringArg(args, "feedback-file", "note-file");
+  if (feedbackFile) return readTextFile(feedbackFile, "--feedback-file").trim();
+  if (args["feedback-stdin"]) return readFileSync(0, "utf8").trim();
+  const fromRest = rest.join(" ").trim();
+  return fromRest || undefined;
+}
+
+async function feedbackContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const rest = positional.slice(1);
+  const note = feedbackNoteFromArgs(args, rest);
+
+  if (!note) {
+    const contract = loadContract(id, args);
+    return {
+      contract_feedback: true,
+      contract: contractSummary(contract),
+      feedback: readContractFeedback(id, args),
+      feedback_path: existsSync(contractFeedbackPath(id, args)) ? contractFeedbackPath(id, args) : undefined
+    };
+  }
+
+  const { contract, cloned } = ensureLocalContract(id, args);
+  const feedback: ContractFeedback = {
+    id: `fb_${nanoid(10)}`,
+    contract_id: contract.id,
+    note,
+    author: stringArg(args, "author", "by") ?? configString("sender_name") ?? undefined,
+    created_at: new Date().toISOString(),
+    source: "agentcontract-cli",
+    status: "open"
+  };
+  const feedbackPath = writeContractFeedback(contract.id, feedback, args);
+  return {
+    contract_feedback: true,
+    added: true,
+    cloned_from_builtin: cloned,
+    contract: contractSummary(contract),
+    feedback,
+    feedback_count: readContractFeedback(contract.id, args).length,
+    feedback_path: feedbackPath,
+    next: `agentcontract contract read ${contract.id} --with-feedback`
+  };
 }
 
 async function sendSavedContract(args: Args, positional: string[]) {
@@ -1422,6 +1600,7 @@ async function contractCommand(args: Args, positional: string[]) {
   if (action === "add" || action === "new" || action === "import") return addContract(args, rest);
   if (action === "edit") return editContract(args, rest);
   if (action === "read" || action === "text" || action === "render") return readContract(args, rest);
+  if (action === "feedback" || action === "note" || action === "comment" || action === "review-note") return feedbackContract(args, rest);
   if (action === "preview" || action === "review") return previewContract(args, rest);
   if (action === "send") return sendSavedContract(args, rest);
   throw new CliError(`Unknown contract command: ${action}`, "Run agentcontract help to see contract commands.");
