@@ -59,6 +59,12 @@ agentcontract doctor --json
 agentcontract keys --json
 ```
 
+## Project Memory
+
+Sid is the picky remote acceptance tester. Assume he has no repo context and will bounce off anything vague. Keep flows CLI-first, give exactly copy-pasteable commands, verify from a clean install, and capture breakage with `agentcontract feedback`.
+
+Schema changes must use explicit migrations. `npm run migrate` targets local SQLite by default and Supabase/Postgres when `DATABASE_URL` is present; do not rely on boot-time schema repair as the production migration plan.
+
 ## Default Workflow
 
 1. Read or dry-run first. Use local preview files only if the human asks for visual rendering.

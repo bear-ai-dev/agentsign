@@ -41,6 +41,8 @@
     "build": "tsc && node scripts/copy-assets.mjs",
     "start": "node dist/src/index.js",
     "migrate": "tsx scripts/migrate.ts",
+    "migrate:status": "tsx scripts/migrate.ts --status",
+    "migrate:dry-run": "tsx scripts/migrate.ts --dry-run",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"

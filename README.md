@@ -13,6 +13,29 @@ npm run dev
 
 The default local API key is `ak_local_dev_key_change_me`. Do not use that key in production. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
 
+## Production migrations
+
+`npm run migrate` is production-aware. With no `DATABASE_URL`, it migrates local SQLite. When `DATABASE_URL` is set, it migrates the Supabase/Postgres database, records each SQL file in `schema_migrations`, stores a SHA-256 checksum, and uses a Postgres advisory lock so two deploys cannot migrate at the same time.
+
+For production:
+
+```bash
+vercel env pull /tmp/agentcontract-prod.env --environment=production
+set -a
+source /tmp/agentcontract-prod.env
+set +a
+npm run migrate
+```
+
+Useful checks:
+
+```bash
+npm run migrate -- --status
+npm run migrate -- --dry-run
+```
+
+Do not commit pulled env files. `.env*.local` is ignored, and `/tmp/agentcontract-prod.env` keeps production secrets out of the repo.
+
 ## Public CLI
 
 The npm package is prepared as `@bear-ai-dev/agentcontract` because the unscoped `agentcontract` package name is already taken on npm. The installed commands are both `agentcontract` and the backwards-compatible `agentsign` alias.
@@ -68,6 +91,10 @@ agentcontract key revoke key_...
 API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use email-code or WorkOS-issued user keys.
 
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
+
+## Production acceptance bar
+
+Treat Sid as a remote, picky first user with no local context. Every shipped CLI/server change should be verifiable from a clean machine with only the install command, should have explicit Supabase/Postgres migrations when schema changes, and should give Claude Code a one-command feedback path when anything breaks.
 
 ## Remote tester handoff
 
