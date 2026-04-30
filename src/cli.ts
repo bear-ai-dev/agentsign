@@ -408,12 +408,14 @@ Setup:
   agentcontract agreement read <id>     Print a sent agreement's markdown from the API
 
 Sender / Receiver:
-  --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
+  --from, --from-email, --sender-email <email>
+                                      Human sender. Used as Reply-To and default signed notification target
   --sender-name <name>               Human sender name shown in request email
   --to, --email, --receiver-email    Recipient email
   --name, --receiver-name <name>     Recipient name
   --cc <email[,email]>               CC the signing request email
-  --notify <email[,email]>           Override who gets emailed when the agreement is signed
+  --notify, --notify-email <email[,email]>
+                                      Override who gets emailed when the agreement is signed
 
 Options:
   --api-url <url>                    API base URL. Defaults to AGENTCONTRACT_API_URL or ${defaultApiUrl}
@@ -578,10 +580,12 @@ function validateEmailList(values: string[], label: string) {
   return values.map((email, index) => validateEmail(email, `${label}${values.length > 1 ? ` #${index + 1}` : ""}`));
 }
 
-function listArg(args: Args, key: string) {
-  const value = args[key];
-  if (!value || value === true) return [];
-  const values = Array.isArray(value) ? value : [value];
+function listArg(args: Args, ...keys: string[]) {
+  const values = keys.flatMap((key) => {
+    const value = args[key];
+    if (!value || value === true) return [];
+    return Array.isArray(value) ? value : [value];
+  });
   return values.flatMap((entry) => String(entry).split(",")).map((email) => email.trim()).filter(Boolean);
 }
 
@@ -615,7 +619,7 @@ function apiConfig(args: Args, requireKey = true) {
   const apiKey = apiKeyOption.value ?? defaultApiKey;
   if (requireKey && !apiKey) {
     throw new CliError(
-      "API key missing. Run agentcontract init, set AGENTCONTRACT_API_KEY, or pass --api-key-stdin.",
+      "API key missing. Run agentcontract login --email you@example.com, set AGENTCONTRACT_API_KEY, or pass --api-key-stdin.",
       "For a non-sending preview, run the same command with --dry-run or --preview."
     );
   }
@@ -719,7 +723,7 @@ function jsonOutput(args: Args) {
 }
 
 function senderEmail(args: Args) {
-  const value = cleanString(stringArg(args, "from", "sender-email"))
+  const value = cleanString(stringArg(args, "from", "from-email", "sender-email"))
     ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL)
     ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL)
     ?? configString("sender_email");
@@ -752,7 +756,7 @@ function receiverEmail(args: Args) {
 }
 
 function notificationArgs(args: Args, defaultEmail?: string) {
-  const notify = listArg(args, "notify");
+  const notify = listArg(args, "notify", "notify-email", "notification-email");
   if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL));
   if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL));
   if (notify.length === 0 && cliConfig.notify_email?.length) notify.push(...cliConfig.notify_email);
@@ -776,7 +780,7 @@ function sharedSendOptions(args: Args, fallbackSenderName?: string) {
 function withBearDefaults(args: Args): Args {
   return {
     ...args,
-    from: stringArg(args, "from", "sender-email") ?? bearDefaults.senderEmail,
+    from: stringArg(args, "from", "from-email", "sender-email") ?? bearDefaults.senderEmail,
     "sender-name": stringArg(args, "sender-name") ?? bearDefaults.senderName,
     company: stringArg(args, "company") ?? bearDefaults.companyName,
     website: stringArg(args, "website") ?? bearDefaults.websiteUrl,
@@ -976,7 +980,7 @@ function baseBearMndaPayload(args: Args) {
 function baseBearPrivacyPayload(args: Args) {
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "sender-email") ?? specificPrivacyDefaults.senderEmail,
+    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
     "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
   };
   const payload = basePrivacyPayload(specificArgs);
@@ -989,7 +993,7 @@ function baseBearPrivacyPayload(args: Args) {
 function baseBearContractorPayload(args: Args) {
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "sender-email") ?? specificPrivacyDefaults.senderEmail,
+    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
     "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
   };
   const vars = templateVarsFromArgs(args);
@@ -2392,7 +2396,7 @@ async function initConfig(args: Args) {
     );
   }
 
-  const from = cleanString(stringArg(args, "from", "sender-email"))
+  const from = cleanString(stringArg(args, "from", "from-email", "sender-email"))
     ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL)
     ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL)
     ?? cliConfig.sender_email;
@@ -2400,7 +2404,7 @@ async function initConfig(args: Args) {
     ?? cleanString(process.env.AGENTCONTRACT_SENDER_NAME)
     ?? cleanString(process.env.AGENTSIGN_SENDER_NAME)
     ?? cliConfig.sender_name;
-  const notifyFromArgs = listArg(args, "notify");
+  const notifyFromArgs = listArg(args, "notify", "notify-email", "notification-email");
   const notify_email = notifyFromArgs.length
     ? notifyFromArgs
     : parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL).length
