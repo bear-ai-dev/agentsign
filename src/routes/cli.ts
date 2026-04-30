@@ -55,6 +55,11 @@ function clientIp(c: Context) {
   return (c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "").split(",")[0].trim() || null;
 }
 
+function safeErrorDetail(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/[A-Za-z0-9_-]{24,}/g, "[redacted]");
+}
+
 function installScript(origin: string) {
   return `#!/usr/bin/env bash
 set -euo pipefail
@@ -219,7 +224,7 @@ cli.post("/cli/magic/start", async (c) => {
     });
   } catch (error) {
     console.error("[AgentContract magic login start failed]", error);
-    return c.json({ error: "Could not start email-code login" }, 400);
+    return c.json({ error: "Could not start email-code login", detail: safeErrorDetail(error) }, 400);
   }
 });
 
@@ -255,6 +260,6 @@ cli.post("/cli/magic/verify", async (c) => {
     });
   } catch (error) {
     console.error("[AgentContract magic login verify failed]", error);
-    return c.json({ error: "Invalid or expired login code" }, 400);
+    return c.json({ error: "Invalid or expired login code", detail: safeErrorDetail(error) }, 400);
   }
 });
