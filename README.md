@@ -20,23 +20,38 @@ The CLI is meant for agents and scripts that need to send a mutual NDA without h
 ```bash
 export AGENTSIGN_API_URL=https://agentink-pied.vercel.app
 export AGENTSIGN_API_KEY=ak_local_dev_key_change_me
-export AGENTSIGN_NOTIFY_EMAIL=janak@usebear.ai
+export AGENTSIGN_SENDER_EMAIL=janak@usebear.ai
+export AGENTSIGN_SENDER_NAME="Bear AI"
 
 npm run cli -- send-mnda \
+  --from janak@usebear.ai \
+  --to jane@example.com \
   --name "Jane Doe" \
-  --email jane@example.com \
   --company "Bear AI" \
   --cc sid@usebear.ai
 ```
+
+`--from` is the human sender. The verified `EMAIL_FROM` address is still used for deliverability, while `--from` becomes the email `Reply-To` and the default completion notification address. `--to` is the receiver email. `--email` still works as a backwards-compatible alias.
 
 Use `--json` when another agent or script should parse the result:
 
 ```bash
 npm run cli -- send-mnda \
+  --from janak@usebear.ai \
+  --to jane@example.com \
   --name "Jane Doe" \
-  --email jane@example.com \
   --company "Bear AI" \
-  --notify janak@usebear.ai \
+  --json
+```
+
+Use `--dry-run` to let an agent inspect the exact payload before sending:
+
+```bash
+npm run cli -- send-privacy \
+  --from janak@usebear.ai \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --dry-run \
   --json
 ```
 
@@ -45,6 +60,13 @@ Check state:
 ```bash
 npm run cli -- status agr_...
 ```
+
+CLI design choices for agents:
+
+- `--from` and `--to` map to the human model agents expect, while the API still keeps email deliverability details separate.
+- `--json` produces machine-readable output for agent chains.
+- `--dry-run` prints the exact API payload without requiring an API key or sending email.
+- Errors go to stderr with a concrete example command.
 
 ## Privacy policy template
 
@@ -75,9 +97,10 @@ Agents can send the same privacy policy directly:
 
 ```bash
 npm run cli -- send-privacy \
+  --from janak@usebear.ai \
+  --to jane@example.com \
   --name "Jane Doe" \
-  --email jane@example.com \
-  --notify janak@usebear.ai
+  --cc sid@usebear.ai
 ```
 
 Template metadata is available through the API:
@@ -97,7 +120,7 @@ Bulk send MNDAs from a JSON file:
 ```
 
 ```bash
-npm run cli -- bulk-mnda --file recipients.json --company "Bear AI" --notify janak@usebear.ai
+npm run cli -- bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI"
 ```
 
 ## Send a single NDA
@@ -109,6 +132,8 @@ curl -X POST http://localhost:3000/v1/agreements \
   -d '{
     "recipient": {"name": "Jane Doe", "email": "jane@example.com"},
     "cc": ["sid@example.com"],
+    "sender_email": "sender@example.com",
+    "sender_name": "Bear AI",
     "notification_email": ["sender@example.com"],
     "template": "nda",
     "template_vars": {
@@ -208,6 +233,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 - Webhook retries run only while the Node process is alive.
 - `webhook_secret` is generated per agreement because there is no customer model yet.
 - Create and bulk requests support one-off `cc`, but reminders do not persist the original CC list yet.
+- `sender_email` is stored per agreement, used as request `Reply-To`, and used as the signed-notification target unless `notification_email` is provided.
 - `notification_email` sends a completion email when the recipient signs; webhooks are still the source of truth for machine callbacks.
 - Signature and initials use typed-signature capture for the v1 UI; older drawn image data URLs are still accepted by the API/PDF renderer.
 - PDF rendering is optimized for local/Railway demo use, not high-volume throughput.

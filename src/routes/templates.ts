@@ -83,9 +83,10 @@ templates.get("/templates/privacy", (c) => {
         </div>
 
         <label><span>API key</span><input name="api_key" type="password" value="ak_local_dev_key_change_me" required /></label>
-        <label><span>Recipient name</span><input name="recipient_name" placeholder="Jane Contributor" required /></label>
-        <label><span>Recipient email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
-        <label><span>Notify when signed</span><input name="notification_email" type="email" value="janak@usebear.ai" /></label>
+        <label><span>Sender name</span><input name="sender_name" value="Bear AI" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="janak@usebear.ai" required /></label>
+        <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contributor" required /></label>
+        <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
         <label><span>CC on request</span><input name="cc" type="email" placeholder="sid@usebear.ai" /></label>
 
         <div class="grid gap-3">
@@ -155,7 +156,9 @@ templates.get("/templates/privacy", (c) => {
       return {
         recipient: { name: values.recipient_name || "", email: values.recipient_email || "" },
         cc: values.cc ? [values.cc] : undefined,
-        notification_email: values.notification_email ? [values.notification_email] : undefined,
+        sender_email: values.sender_email || undefined,
+        sender_name: values.sender_name || undefined,
+        notification_email: values.sender_email ? [values.sender_email] : undefined,
         template: "privacy",
         template_vars: templateVars,
         fields,

@@ -12,6 +12,7 @@ function escapeHtml(value: unknown) {
 async function deliverEmail(input: {
   to: string[];
   cc?: string[];
+  replyTo?: string[];
   subject: string;
   html: string;
   text: string;
@@ -21,6 +22,7 @@ async function deliverEmail(input: {
     console.log("[AgentSign email fallback]");
     console.log(`To: ${input.to.join(", ")}`);
     if (input.cc?.length) console.log(`Cc: ${input.cc.join(", ")}`);
+    if (input.replyTo?.length) console.log(`Reply-To: ${input.replyTo.join(", ")}`);
     console.log(`Subject: ${input.subject}`);
     console.log(input.text);
     return;
@@ -38,6 +40,7 @@ async function deliverEmail(input: {
       from: `${env.emailFromName} <${env.emailFrom}>`,
       to: input.to,
       cc: input.cc?.length ? input.cc : undefined,
+      reply_to: input.replyTo?.length ? input.replyTo : undefined,
       subject: input.subject,
       html: input.html,
       text: input.text
@@ -56,15 +59,18 @@ async function deliverEmail(input: {
 export async function sendSigningEmail(input: {
   to: string;
   cc?: string[];
+  replyTo?: string[];
+  senderName?: string;
   recipientName: string;
   documentTitle: string;
   signingUrl: string;
 }) {
   const subject = `Signature requested: ${input.documentTitle}`;
-  const text = `Hi ${input.recipientName},\n\nPlease review and sign ${input.documentTitle}:\n${input.signingUrl}\n\nThank you.`;
-  const html = `<p>Hi ${escapeHtml(input.recipientName)},</p><p>Please review and sign <strong>${escapeHtml(input.documentTitle)}</strong>.</p><p><a href="${escapeHtml(input.signingUrl)}">Open signing link</a></p>`;
+  const senderLine = input.senderName ? `${input.senderName} requested your signature.` : "Please review and sign this agreement.";
+  const text = `Hi ${input.recipientName},\n\n${senderLine}\n\n${input.documentTitle}:\n${input.signingUrl}\n\nThank you.`;
+  const html = `<p>Hi ${escapeHtml(input.recipientName)},</p><p>${escapeHtml(senderLine)}</p><p>Please review and sign <strong>${escapeHtml(input.documentTitle)}</strong>.</p><p><a href="${escapeHtml(input.signingUrl)}">Open signing link</a></p>`;
 
-  await deliverEmail({ to: [input.to], cc: input.cc, subject, html, text, logLabel: "signing" });
+  await deliverEmail({ to: [input.to], cc: input.cc, replyTo: input.replyTo, subject, html, text, logLabel: "signing" });
 }
 
 export async function sendCompletionEmail(input: {

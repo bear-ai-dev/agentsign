@@ -18,6 +18,8 @@ type CreateBody = {
   recipient?: { name?: string; email?: string; cc?: string | string[] };
   cc?: string | string[];
   notification_email?: string | string[];
+  sender_email?: string;
+  sender_name?: string;
   template?: string;
   template_vars?: Record<string, unknown>;
   document_markdown?: string;
@@ -55,10 +57,14 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   const webhookSecret = body.webhook_url ? `whsec_${nanoid(32)}` : null;
   const createdAt = nowIso();
   const documentTitle = titleFromMarkdown(markdown);
-  const notificationEmails = normalizeEmailList(body.notification_email);
+  const senderEmail = normalizeEmailList(body.sender_email)[0] ?? null;
+  const senderName = typeof body.sender_name === "string" ? body.sender_name.trim() : "";
+  const notificationEmails = normalizeEmailList(body.notification_email ?? body.sender_email);
   const metadata = {
     ...(body.metadata ?? {}),
-    ...(notificationEmails.length ? { notification_email: notificationEmails } : {})
+    ...(notificationEmails.length ? { notification_email: notificationEmails } : {}),
+    ...(senderEmail ? { sender_email: senderEmail } : {}),
+    ...(senderName ? { sender_name: senderName } : {})
   };
 
   await run(
@@ -82,12 +88,14 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
 
   await addAuditEvent({ agreementId: id, eventType: "created", data: { source: body.template ? "template" : "raw_markdown" } });
   const cc = normalizeEmailList(body.cc ?? body.recipient?.cc);
-  await addAuditEvent({ agreementId: id, eventType: "sent", data: { recipient_email: body.recipient!.email, cc } });
+  await addAuditEvent({ agreementId: id, eventType: "sent", data: { recipient_email: body.recipient!.email, cc, sender_email: senderEmail } });
 
   const signingUrl = `${baseUrl}/sign/${token}`;
   await sendSigningEmail({
     to: body.recipient!.email!,
     cc,
+    replyTo: senderEmail ? [senderEmail] : undefined,
+    senderName,
     recipientName: body.recipient!.name!,
     documentTitle,
     signingUrl
@@ -134,6 +142,8 @@ agreements.post("/v1/agreements/bulk", async (c) => {
       recipients?: Array<{ name: string; email: string; cc?: string | string[]; template_vars?: Record<string, unknown>; metadata?: Record<string, unknown> }>;
       cc?: string | string[];
       notification_email?: string | string[];
+      sender_email?: string;
+      sender_name?: string;
       fields?: FieldDefinition[];
       webhook_url?: string;
       metadata?: Record<string, unknown>;
@@ -149,6 +159,8 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         template_vars: { ...(body.template_vars_default ?? {}), ...(recipient.template_vars ?? {}) },
         cc: recipient.cc ?? body.cc,
         notification_email: body.notification_email,
+        sender_email: body.sender_email,
+        sender_name: body.sender_name,
         fields: body.fields,
         webhook_url: body.webhook_url,
         metadata: { ...(body.metadata ?? {}), ...(recipient.metadata ?? {}) }
@@ -207,8 +219,13 @@ agreements.post("/v1/agreements/:id/remind", async (c) => {
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   if (agreement.status === "completed" || agreement.status === "cancelled") return c.json({ error: `Cannot remind ${agreement.status} agreement` }, 400);
 
+  const metadata = parseJson<Record<string, unknown>>(agreement.metadata_json, {});
+  const senderEmail = typeof metadata.sender_email === "string" ? metadata.sender_email : "";
+  const senderName = typeof metadata.sender_name === "string" ? metadata.sender_name : "";
   await sendSigningEmail({
     to: agreement.recipient_email,
+    replyTo: senderEmail ? [senderEmail] : undefined,
+    senderName,
     recipientName: agreement.recipient_name,
     documentTitle: agreement.document_title,
     signingUrl: `${env.baseUrl}/sign/${agreement.signing_token}`

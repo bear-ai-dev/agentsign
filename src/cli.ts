@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "dotenv/config";
 import { readFileSync } from "node:fs";
 
 type Args = Record<string, string | boolean | string[]>;
@@ -7,28 +8,48 @@ type Args = Record<string, string | boolean | string[]>;
 const defaultApiUrl = process.env.AGENTSIGN_API_URL ?? process.env.AGENTINK_API_URL ?? "https://agentink-pied.vercel.app";
 const defaultApiKey = process.env.AGENTSIGN_API_KEY ?? process.env.AGENTINK_API_KEY;
 
+class CliError extends Error {
+  usageHint?: string;
+
+  constructor(message: string, usageHint?: string) {
+    super(message);
+    this.name = "CliError";
+    this.usageHint = usageHint;
+  }
+}
+
 function usage() {
   console.log(`AgentSign CLI
 
 Usage:
-  agentsign send-mnda --name "Jane Doe" --email jane@example.com --company "Bear AI" [options]
-  agentsign send-privacy --name "Jane Doe" --email jane@example.com [options]
-  agentsign bulk-mnda --file recipients.json --company "Bear AI" [options]
+  agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
+  agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
+  agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
   agentsign status <agreement_id> [options]
 
+Sender / Receiver:
+  --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
+  --sender-name <name>               Human sender name shown in request email
+  --to, --email, --receiver-email    Recipient email
+  --name, --receiver-name <name>     Recipient name
+  --cc <email[,email]>               CC the signing request email
+  --notify <email[,email]>           Override who gets emailed when the agreement is signed
+
 Options:
-  --api-url <url>          API base URL. Defaults to AGENTSIGN_API_URL or ${defaultApiUrl}
-  --api-key <key>          API key. Defaults to AGENTSIGN_API_KEY or AGENTINK_API_KEY
-  --notify <email[,email]> Email sender when the agreement is signed
-  --cc <email[,email]>     CC the signing request email
-  --webhook-url <url>      Machine webhook for agreement.completed
-  --effective-date <date>  Defaults to today
-  --term-years <years>     Defaults to 2
-  --service <name>         Privacy policy service name. Defaults to Bear AI
-  --website <url>          Privacy policy website. Defaults to https://usebear.ai
-  --contact <email>        Privacy policy contact email. Defaults to sid@usebear.ai
-  --address <text>         Privacy policy company address
-  --json                   Print raw JSON only
+  --api-url <url>                    API base URL. Defaults to AGENTSIGN_API_URL or ${defaultApiUrl}
+  --api-key <key>                    API key. Defaults to AGENTSIGN_API_KEY or AGENTINK_API_KEY
+  --webhook-url <url>                Machine webhook for agreement.completed
+  --effective-date <date>            Defaults to today
+  --term-years <years>               MNDA term. Defaults to 2
+  --service <name>                   Privacy policy service name. Defaults to Bear AI
+  --website <url>                    Privacy policy website. Defaults to https://usebear.ai
+  --contact <email>                  Privacy policy contact email. Defaults to sid@usebear.ai
+  --address <text>                   Privacy policy company address
+  --dry-run                          Print the request without sending it
+  --json                             Print raw JSON only
+
+Environment:
+  AGENTSIGN_API_URL, AGENTSIGN_API_KEY, AGENTSIGN_SENDER_EMAIL, AGENTSIGN_SENDER_NAME, AGENTSIGN_NOTIFY_EMAIL
 
 Bulk JSON can be either an array of recipients or { "recipients": [...] }.
 Each recipient should have "name" and "email".`);
@@ -37,17 +58,33 @@ Each recipient should have "name" and "email".`);
 function parseArgs(argv: string[]) {
   const args: Args = {};
   const positional: string[] = [];
+
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === "-h") {
+      args.help = true;
+      continue;
+    }
+    if (token === "-j") {
+      args.json = true;
+      continue;
+    }
+    if (token === "-n") {
+      args["dry-run"] = true;
+      continue;
+    }
     if (!token.startsWith("--")) {
       positional.push(token);
       continue;
     }
 
-    const key = token.slice(2);
+    const raw = token.slice(2);
+    const equalsIndex = raw.indexOf("=");
+    const key = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const next = argv[i + 1];
-    const value = !next || next.startsWith("--") ? true : next;
-    if (value !== true) i += 1;
+    const value = inlineValue ?? (!next || next.startsWith("-") ? true : next);
+    if (inlineValue === undefined && value !== true) i += 1;
 
     if (args[key] === undefined) {
       args[key] = value;
@@ -55,6 +92,7 @@ function parseArgs(argv: string[]) {
       args[key] = Array.isArray(args[key]) ? [...args[key] as string[], String(value)] : [String(args[key]), String(value)];
     }
   }
+
   return { args, positional };
 }
 
@@ -67,6 +105,11 @@ function stringArg(args: Args, ...keys: string[]) {
   return undefined;
 }
 
+function cleanString(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function listArg(args: Args, key: string) {
   const value = args[key];
   if (!value || value === true) return [];
@@ -74,16 +117,25 @@ function listArg(args: Args, key: string) {
   return values.flatMap((entry) => String(entry).split(",")).map((email) => email.trim()).filter(Boolean);
 }
 
-function requireArg(value: string | undefined, label: string) {
-  if (!value) throw new Error(`${label} is required`);
+function requireArg(value: string | undefined, label: string, example: string) {
+  if (!value) throw new CliError(`${label} is required`, example);
   return value;
 }
 
-function apiConfig(args: Args) {
+function parseEmailList(value: string | undefined) {
+  return value?.split(",").map((email) => email.trim()).filter(Boolean) ?? [];
+}
+
+function apiConfig(args: Args, requireKey = true) {
   const apiUrl = (stringArg(args, "api-url") ?? defaultApiUrl).replace(/\/+$/, "");
   const apiKey = stringArg(args, "api-key") ?? defaultApiKey;
-  if (!apiKey) throw new Error("API key missing. Set AGENTSIGN_API_KEY or pass --api-key.");
-  return { apiUrl, apiKey };
+  if (requireKey && !apiKey) {
+    throw new CliError(
+      "API key missing. Set AGENTSIGN_API_KEY or pass --api-key.",
+      "For a non-sending preview, run the same command with --dry-run."
+    );
+  }
+  return { apiUrl, apiKey: apiKey ?? "" };
 }
 
 function today() {
@@ -106,16 +158,21 @@ function privacyFields() {
 }
 
 async function postJson(apiUrl: string, apiKey: string, path: string, body: unknown) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
   const response = await fetch(`${apiUrl}${path}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: controller.signal
   });
+  clearTimeout(timeout);
+
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error ?? `HTTP ${response.status}`);
+  if (!response.ok) throw new CliError(result.error ?? `HTTP ${response.status}`);
   return result;
 }
 
@@ -124,21 +181,66 @@ async function getJson(apiUrl: string, apiKey: string, path: string) {
     headers: { Authorization: `Bearer ${apiKey}` }
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error ?? `HTTP ${response.status}`);
+  if (!response.ok) throw new CliError(result.error ?? `HTTP ${response.status}`);
   return result;
 }
 
-function baseMndaPayload(args: Args) {
-  const company = requireArg(stringArg(args, "company"), "--company");
+function dryRun(args: Args) {
+  return Boolean(args["dry-run"]);
+}
+
+function jsonOutput(args: Args) {
+  return Boolean(args.json) || stringArg(args, "output") === "json";
+}
+
+function senderEmail(args: Args) {
+  return cleanString(stringArg(args, "from", "sender-email")) ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL);
+}
+
+function senderName(args: Args, fallback?: string) {
+  return cleanString(stringArg(args, "sender-name")) ?? cleanString(process.env.AGENTSIGN_SENDER_NAME) ?? fallback;
+}
+
+function receiverName(args: Args) {
+  return requireArg(
+    stringArg(args, "name", "receiver-name"),
+    "--name / --receiver-name",
+    'Example: agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"'
+  );
+}
+
+function receiverEmail(args: Args) {
+  return requireArg(
+    stringArg(args, "to", "email", "receiver-email"),
+    "--to / --email / --receiver-email",
+    'Example: agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe"'
+  );
+}
+
+function notificationArgs(args: Args, defaultEmail?: string) {
   const notify = listArg(args, "notify");
-  if (notify.length === 0 && process.env.AGENTSIGN_NOTIFY_EMAIL) {
-    notify.push(...process.env.AGENTSIGN_NOTIFY_EMAIL.split(",").map((email) => email.trim()).filter(Boolean));
-  }
+  if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL));
+  if (notify.length === 0 && defaultEmail) notify.push(defaultEmail);
+  return notify;
+}
+
+function sharedSendOptions(args: Args, fallbackSenderName?: string) {
+  const sender_email = senderEmail(args);
   const cc = listArg(args, "cc");
-  const webhookUrl = stringArg(args, "webhook-url");
+  const notify = notificationArgs(args, sender_email);
   return {
     cc: cc.length ? cc : undefined,
+    sender_email,
+    sender_name: senderName(args, fallbackSenderName),
     notification_email: notify.length ? notify : undefined,
+    webhook_url: stringArg(args, "webhook-url")
+  };
+}
+
+function baseMndaPayload(args: Args) {
+  const company = requireArg(stringArg(args, "company"), "--company", 'Example: agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"');
+  return {
+    ...sharedSendOptions(args, company),
     template: "nda",
     template_vars: {
       company_name: company,
@@ -146,27 +248,14 @@ function baseMndaPayload(args: Args) {
       term_years: Number(stringArg(args, "term-years") ?? 2)
     },
     fields: mndaFields(),
-    webhook_url: webhookUrl,
     metadata: { source: "agentsign-cli" }
   };
 }
 
-function notificationArgs(args: Args) {
-  const notify = listArg(args, "notify");
-  if (notify.length === 0 && process.env.AGENTSIGN_NOTIFY_EMAIL) {
-    notify.push(...process.env.AGENTSIGN_NOTIFY_EMAIL.split(",").map((email) => email.trim()).filter(Boolean));
-  }
-  return notify;
-}
-
 function basePrivacyPayload(args: Args) {
   const company = stringArg(args, "company") ?? "Bear AI";
-  const notify = notificationArgs(args);
-  const cc = listArg(args, "cc");
-  const webhookUrl = stringArg(args, "webhook-url");
   return {
-    cc: cc.length ? cc : undefined,
-    notification_email: notify.length ? notify : undefined,
+    ...sharedSendOptions(args, company),
     template: "privacy",
     template_vars: {
       company_name: company,
@@ -179,14 +268,34 @@ function basePrivacyPayload(args: Args) {
       company_address: stringArg(args, "address") ?? "39 Tehama, San Francisco, CA"
     },
     fields: privacyFields(),
-    webhook_url: webhookUrl,
     metadata: { source: "agentsign-cli", template_kind: "privacy_policy" }
+  };
+}
+
+function dryRunResult(command: string, apiUrl: string, path: string, payload: unknown) {
+  return {
+    dry_run: true,
+    command,
+    method: "POST",
+    url: `${apiUrl}${path}`,
+    payload
   };
 }
 
 function printResult(result: unknown, json: boolean) {
   if (json) {
     console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (typeof result === "object" && result && "dry_run" in result) {
+    const dry = result as unknown as { command: string; method: string; url: string; payload: { recipient?: { name?: string; email?: string }; sender_email?: string; notification_email?: string[] } };
+    console.log(`Dry run: ${dry.command}`);
+    console.log(`${dry.method} ${dry.url}`);
+    if (dry.payload.sender_email) console.log(`From / Reply-To: ${dry.payload.sender_email}`);
+    if (dry.payload.recipient?.email) console.log(`To: ${dry.payload.recipient.name ?? ""} <${dry.payload.recipient.email}>`);
+    if (dry.payload.notification_email?.length) console.log(`Notify on signed: ${dry.payload.notification_email.join(", ")}`);
+    console.log(JSON.stringify(dry.payload, null, 2));
     return;
   }
 
@@ -212,46 +321,62 @@ function printResult(result: unknown, json: boolean) {
 }
 
 async function sendMnda(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args);
-  const name = requireArg(stringArg(args, "name"), "--name");
-  const email = requireArg(stringArg(args, "email", "to"), "--email");
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
   const payload = {
-    recipient: { name, email },
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
     ...baseMndaPayload(args)
   };
+  if (dryRun(args)) return dryRunResult("send-mnda", apiUrl, "/v1/agreements", payload);
   return postJson(apiUrl, apiKey, "/v1/agreements", payload);
 }
 
 async function sendPrivacy(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args);
-  const name = requireArg(stringArg(args, "name"), "--name");
-  const email = requireArg(stringArg(args, "email", "to"), "--email");
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
   const payload = {
-    recipient: { name, email },
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
     ...basePrivacyPayload(args)
   };
+  if (dryRun(args)) return dryRunResult("send-privacy", apiUrl, "/v1/agreements", payload);
   return postJson(apiUrl, apiKey, "/v1/agreements", payload);
 }
 
+function normalizeBulkRecipients(parsed: unknown) {
+  const recipients = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === "object" && parsed && "recipients" in parsed
+      ? (parsed as { recipients?: unknown }).recipients
+      : undefined;
+  if (!Array.isArray(recipients) || recipients.length === 0) throw new CliError("Bulk file must contain at least one recipient");
+
+  return recipients.map((recipient, index) => {
+    if (typeof recipient !== "object" || !recipient) throw new CliError(`Recipient ${index + 1} must be an object`);
+    const row = recipient as Record<string, unknown>;
+    const name = String(row.name ?? row.receiver_name ?? "").trim();
+    const email = String(row.email ?? row.receiver_email ?? row.to ?? "").trim();
+    if (!name || !email) throw new CliError(`Recipient ${index + 1} needs name and email`);
+    return { ...row, name, email };
+  });
+}
+
 async function bulkMnda(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args);
-  const file = requireArg(stringArg(args, "file"), "--file");
-  const parsed = JSON.parse(readFileSync(file, "utf8"));
-  const recipients = Array.isArray(parsed) ? parsed : parsed.recipients;
-  if (!Array.isArray(recipients) || recipients.length === 0) throw new Error("Bulk file must contain recipients");
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
+  const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
+  const base = baseMndaPayload(args);
   const payload = {
     recipients,
-    template_vars_default: baseMndaPayload(args).template_vars,
-    ...baseMndaPayload(args)
+    template_vars_default: base.template_vars,
+    ...base
   };
   delete (payload as { template_vars?: unknown }).template_vars;
+  if (dryRun(args)) return dryRunResult("bulk-mnda", apiUrl, "/v1/agreements/bulk", payload);
   return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
 }
 
 async function status(args: Args, positional: string[]) {
   const { apiUrl, apiKey } = apiConfig(args);
   const id = positional[0];
-  if (!id) throw new Error("agreement_id is required");
+  if (!id) throw new CliError("agreement_id is required", "Example: agentsign status agr_123");
   return getJson(apiUrl, apiKey, `/v1/agreements/${id}`);
 }
 
@@ -274,13 +399,18 @@ async function main() {
   } else if (command === "status") {
     result = await status(args, positional);
   } else {
-    throw new Error(`Unknown command: ${command}`);
+    throw new CliError(`Unknown command: ${command}`, "Run agentsign help to see available commands.");
   }
 
-  printResult(result, Boolean(args.json));
+  printResult(result, jsonOutput(args));
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  if (error instanceof CliError) {
+    console.error(`Error: ${error.message}`);
+    if (error.usageHint) console.error(`Hint: ${error.usageHint}`);
+  } else {
+    console.error(error instanceof Error ? error.message : String(error));
+  }
   process.exit(1);
 });
