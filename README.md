@@ -15,7 +15,46 @@ The default API key is `ak_local_dev_key_change_me`. If `RESEND_API_KEY` is empt
 
 ## CLI: send an MNDA
 
-The CLI is meant for agents and scripts that need to send a mutual NDA without hand-writing JSON.
+The fastest path is Bear-specific. These commands bake in Bear AI, Sid as sender, `usebear.ai`, and signed notifications back to Sid.
+
+Preview a specific contractor agreement before sending:
+
+```bash
+npm run cli -- bear-contractor \
+  --to contractor@example.com \
+  --name "Jane Contractor" \
+  --scope "Backend engineering" \
+  --rate 150 \
+  --start-date 2026-05-01 \
+  --preview \
+  --open
+```
+
+Send the same Bear contractor agreement:
+
+```bash
+npm run cli -- bear-contractor \
+  --to contractor@example.com \
+  --name "Jane Contractor" \
+  --scope "Backend engineering" \
+  --rate 150 \
+  --start-date 2026-05-01
+```
+
+Send Bear MNDA or privacy acknowledgement:
+
+```bash
+npm run cli -- bear-mnda --to jane@example.com --name "Jane Doe"
+npm run cli -- bear-privacy --to jane@example.com --name "Jane Doe"
+```
+
+Open the Bear contractor UI:
+
+```bash
+open https://agentink-pied.vercel.app/templates/bear-contractor
+```
+
+The lower-level CLI is still available for agents and scripts that need to send custom templates without hand-writing JSON.
 
 ```bash
 export AGENTSIGN_API_URL=https://agentink-pied.vercel.app

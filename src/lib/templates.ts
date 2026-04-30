@@ -40,8 +40,47 @@ export const privacyTemplateDefinition: TemplateDefinition = {
   ]
 };
 
+export const contractorTemplateDefinition: TemplateDefinition = {
+  id: "contractor",
+  name: "Bear AI Contractor Agreement",
+  description: "Bear AI 1099 contractor agreement with recipient-specific scope, rate, start date, and typed signature.",
+  variables: [
+    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
+    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
+    { key: "scope_of_work", label: "Scope of work", defaultValue: "Backend engineering", required: true },
+    { key: "rate", label: "Hourly rate", defaultValue: "150", required: true },
+    { key: "rate_unit", label: "Rate unit", defaultValue: "hour", required: true },
+    { key: "invoice_frequency", label: "Invoice frequency", defaultValue: "biweekly", required: true },
+    { key: "start_date", label: "Start date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
+    { key: "notice_days", label: "Notice days", defaultValue: "14", required: true }
+  ],
+  fields: [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "address", label: "Address", type: "text", required: true },
+    { id: "tax_id", label: "SSN or EIN (last 4)", type: "text", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ]
+};
+
+export const ndaTemplateDefinition: TemplateDefinition = {
+  id: "nda",
+  name: "Bear AI Mutual NDA",
+  description: "Bear AI mutual non-disclosure agreement for contractor and partner onboarding.",
+  variables: [
+    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
+    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
+    { key: "term_years", label: "Term years", defaultValue: "2", required: true }
+  ],
+  fields: [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ]
+};
+
 export const templateDefinitions = {
-  privacy: privacyTemplateDefinition
+  privacy: privacyTemplateDefinition,
+  contractor: contractorTemplateDefinition,
+  nda: ndaTemplateDefinition
 };
 
 export function loadTemplate(name: string): string {

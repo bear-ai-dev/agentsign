@@ -12,6 +12,16 @@ type Args = Record<string, string | boolean | string[]>;
 
 const defaultApiUrl = process.env.AGENTSIGN_API_URL ?? process.env.AGENTINK_API_URL ?? "https://agentink-pied.vercel.app";
 const defaultApiKey = process.env.AGENTSIGN_API_KEY ?? process.env.AGENTINK_API_KEY;
+const bearDefaults = {
+  companyName: "Bear AI",
+  senderEmail: "sid@usebear.ai",
+  senderName: "Sid from Bear AI",
+  websiteUrl: "https://usebear.ai",
+  contactEmail: "sid@usebear.ai",
+  companyAddress: "39 Tehama, San Francisco, CA",
+  termsName: "Contributor Terms of Use",
+  dataUsePolicyName: "Data Use Policy"
+};
 
 class CliError extends Error {
   usageHint?: string;
@@ -27,6 +37,9 @@ function usage() {
   console.log(`AgentSign CLI
 
 Usage:
+  agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
+  agentsign bear-mnda --to jane@example.com --name "Jane Doe" [options]
+  agentsign bear-privacy --to jane@example.com --name "Jane Doe" [options]
   agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
   agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
   agentsign send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor --var rate=150 [options]
@@ -56,6 +69,9 @@ Options:
   --preview                          Render local HTML preview instead of sending
   --preview-file <path>              Where to write preview HTML
   --open                             Open preview/signing URL in the browser
+  --scope <text>                     Bear contractor scope of work
+  --rate <amount>                    Bear contractor rate
+  --start-date <date>                Bear contractor start date
   --effective-date <date>            Defaults to today
   --term-years <years>               MNDA term. Defaults to 2
   --service <name>                   Privacy policy service name. Defaults to Bear AI
@@ -269,6 +285,20 @@ function sharedSendOptions(args: Args, fallbackSenderName?: string) {
   };
 }
 
+function withBearDefaults(args: Args): Args {
+  return {
+    ...args,
+    from: stringArg(args, "from", "sender-email") ?? bearDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? bearDefaults.senderName,
+    company: stringArg(args, "company") ?? bearDefaults.companyName,
+    website: stringArg(args, "website") ?? bearDefaults.websiteUrl,
+    contact: stringArg(args, "contact") ?? bearDefaults.contactEmail,
+    address: stringArg(args, "address") ?? bearDefaults.companyAddress,
+    "terms-name": stringArg(args, "terms-name") ?? bearDefaults.termsName,
+    "data-use-policy-name": stringArg(args, "data-use-policy-name") ?? bearDefaults.dataUsePolicyName
+  };
+}
+
 function repeatArg(args: Args, key: string) {
   const value = args[key];
   if (!value || value === true) return [];
@@ -410,6 +440,72 @@ function baseContractPayload(args: Args) {
     },
     fields: defaultFieldsFor(template),
     metadata: { source: "agentsign-cli", template_kind: template ?? "custom_markdown" }
+  });
+}
+
+function baseBearMndaPayload(args: Args) {
+  const bearArgs = withBearDefaults(args);
+  const payload = baseMndaPayload(bearArgs);
+  return {
+    ...payload,
+    metadata: { ...(payload.metadata ?? {}), workflow: "bear_mnda", company: bearDefaults.companyName }
+  };
+}
+
+function baseBearPrivacyPayload(args: Args) {
+  const bearArgs = withBearDefaults(args);
+  const payload = basePrivacyPayload(bearArgs);
+  return {
+    ...payload,
+    metadata: { ...(payload.metadata ?? {}), workflow: "bear_privacy_acknowledgement", company: bearDefaults.companyName }
+  };
+}
+
+function baseBearContractorPayload(args: Args) {
+  const bearArgs = withBearDefaults(args);
+  const vars = templateVarsFromArgs(args);
+  const scope = cleanString(stringArg(args, "scope", "scope-of-work", "work", "role")) ?? cleanString(String(vars.scope_of_work ?? ""));
+  const rate = cleanString(stringArg(args, "rate", "hourly-rate")) ?? cleanString(String(vars.rate ?? ""));
+  const startDate = cleanString(stringArg(args, "start-date")) ?? cleanString(String(vars.start_date ?? ""));
+  if (!scope) {
+    throw new CliError(
+      "--scope is required for Bear contractor agreements",
+      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 --preview --open'
+    );
+  }
+  if (!rate) {
+    throw new CliError(
+      "--rate is required for Bear contractor agreements",
+      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
+    );
+  }
+  if (!startDate) {
+    throw new CliError(
+      "--start-date is required for Bear contractor agreements",
+      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
+    );
+  }
+
+  return withCustomContractArgs(bearArgs, {
+    ...sharedSendOptions(bearArgs, bearDefaults.senderName),
+    template: "contractor",
+    template_vars: {
+      company_name: bearDefaults.companyName,
+      effective_date: stringArg(args, "effective-date") ?? today(),
+      scope_of_work: scope,
+      rate,
+      rate_unit: stringArg(args, "rate-unit") ?? "hour",
+      invoice_frequency: stringArg(args, "invoice-frequency") ?? "biweekly",
+      start_date: startDate,
+      notice_days: stringArg(args, "notice-days") ?? "14",
+      ...vars
+    },
+    fields: contractorFields(),
+    metadata: {
+      source: "agentsign-cli",
+      workflow: "bear_contractor_onboarding",
+      company: bearDefaults.companyName
+    }
   });
 }
 
@@ -564,6 +660,45 @@ async function sendContract(args: Args) {
   return result;
 }
 
+async function sendBearMnda(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = {
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
+    ...baseBearMndaPayload(args)
+  };
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return dryRunResult("bear-mnda", apiUrl, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function sendBearPrivacy(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = {
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
+    ...baseBearPrivacyPayload(args)
+  };
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return dryRunResult("bear-privacy", apiUrl, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function sendBearContractor(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = {
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
+    ...baseBearContractorPayload(args)
+  };
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return dryRunResult("bear-contractor", apiUrl, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
 async function preview(args: Args) {
   const payload = {
     recipient: {
@@ -653,6 +788,12 @@ async function main() {
     result = await sendPrivacy(args);
   } else if (command === "send-contract" || command === "send-agreement") {
     result = await sendContract(args);
+  } else if (command === "bear-mnda" || command === "send-bear-mnda") {
+    result = await sendBearMnda(args);
+  } else if (command === "bear-privacy" || command === "send-bear-privacy") {
+    result = await sendBearPrivacy(args);
+  } else if (command === "bear-contractor" || command === "send-bear-contractor") {
+    result = await sendBearContractor(args);
   } else if (command === "preview") {
     result = await preview(args);
   } else if (command === "bulk-mnda" || command === "bulk-nda") {
