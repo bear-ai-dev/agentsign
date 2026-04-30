@@ -1,11 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { addAuditEvent, all, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import { requireApiKey } from "../lib/auth.js";
 import { sendSigningEmail } from "../lib/email.js";
-import { renderPDF } from "../lib/pdf.js";
+import { pdfBufferForAgreement } from "../lib/pdfStorage.js";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templates.js";
 import { auditEventsForApi } from "../lib/audit.js";
 import type { Agreement, FieldDefinition, SignedFields } from "../lib/types.js";
@@ -129,7 +128,10 @@ function agreementForApi(agreement: Agreement) {
     sent_at: agreement.sent_at,
     viewed_at: agreement.viewed_at,
     completed_at: agreement.completed_at,
-    signed_pdf_url: agreement.signed_pdf_path ? `${env.baseUrl}/v1/agreements/${agreement.id}/pdf` : null
+    signed_pdf_url: agreement.status === "completed" ? `${env.baseUrl}/v1/agreements/${agreement.id}/pdf` : null,
+    signed_pdf_saved: Boolean(agreement.signed_pdf_base64),
+    signed_pdf_sha256: agreement.signed_pdf_sha256,
+    signed_pdf_bytes: agreement.signed_pdf_bytes
   };
 }
 
@@ -264,21 +266,9 @@ agreements.get("/v1/agreements/:id/pdf", async (c) => {
   const agreement = await getAgreement(c.req.param("id"));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
 
-  let path = agreement.signed_pdf_path;
-  if (!path || !existsSync(path)) {
-    path = await renderPDF({
-      agreementId: agreement.id,
-      markdown: agreement.document_markdown,
-      fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
-      signedFields: parseJson<SignedFields | undefined>(agreement.signed_fields_json, undefined),
-      auditEvents: await getAuditEvents(agreement.id)
-    });
-    if (agreement.status === "completed") {
-      await run("UPDATE agreements SET signed_pdf_path = ? WHERE id = ?", path, agreement.id);
-    }
-  }
+  const buffer = await pdfBufferForAgreement(agreement);
 
-  return new Response(readFileSync(path), {
+  return new Response(buffer, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.id}.pdf"`

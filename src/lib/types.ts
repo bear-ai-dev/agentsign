@@ -28,6 +28,9 @@ export type Agreement = {
   viewed_at: string | null;
   completed_at: string | null;
   signed_pdf_path: string | null;
+  signed_pdf_base64: string | null;
+  signed_pdf_sha256: string | null;
+  signed_pdf_bytes: number | null;
 };
 
 export type AuditEvent = {

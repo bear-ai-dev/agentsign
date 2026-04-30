@@ -1,11 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { marked } from "marked";
-import { addAuditEvent, getAgreementByToken, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
+import { nanoid } from "nanoid";
+import { addAuditEvent, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
 import { sendCompletionEmail } from "../lib/email.js";
-import { renderPDF } from "../lib/pdf.js";
-import type { Agreement, FieldDefinition, SignedFields } from "../lib/types.js";
+import { renderPDFResult } from "../lib/pdf.js";
+import { pdfBufferForAgreement, pdfSha256 } from "../lib/pdfStorage.js";
+import type { Agreement, AuditEvent, FieldDefinition, SignedFields } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
 
 export const sign = new Hono();
@@ -279,7 +280,12 @@ sign.post("/sign/:token/submit", async (c) => {
   if (agreement.status === "completed") return c.json({ error: "Agreement is already completed" }, 409);
   if (agreement.status === "cancelled") return c.json({ error: "Agreement is cancelled" }, 410);
 
-  const body = await c.req.json<{ fields?: Record<string, unknown>; consent_timestamp?: string }>();
+  let body: { fields?: Record<string, unknown>; consent_timestamp?: string };
+  try {
+    body = await c.req.json<{ fields?: Record<string, unknown>; consent_timestamp?: string }>();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
   const submitted = body.fields ?? {};
   const fields = parseJson<FieldDefinition[]>(agreement.fields_json, []);
   const ip = clientIp(c);
@@ -307,26 +313,82 @@ sign.post("/sign/:token/submit", async (c) => {
     }
   }
 
-  await addAuditEvent({ agreementId: agreement.id, eventType: "signed", ipAddress: ip, userAgent, data: { consent_timestamp: body.consent_timestamp } });
-  await addAuditEvent({ agreementId: agreement.id, eventType: "completed", ipAddress: ip, userAgent });
-
-  const pdfPath = await renderPDF({
-    agreementId: agreement.id,
-    markdown: agreement.document_markdown,
-    fields,
-    signedFields,
-    auditEvents: await getAuditEvents(agreement.id)
-  });
   const completedAt = nowIso();
-  await run(
-    `UPDATE agreements
-     SET status = 'completed', signed_fields_json = ?, completed_at = ?, signed_pdf_path = ?
-     WHERE id = ?`,
-    JSON.stringify(signedFields),
-    completedAt,
-    pdfPath,
-    agreement.id
-  );
+  const signedEvent: AuditEvent = {
+    id: `evt_${nanoid(16)}`,
+    agreement_id: agreement.id,
+    event_type: "signed",
+    ip_address: ip,
+    user_agent: userAgent,
+    data_json: JSON.stringify({ consent_timestamp: body.consent_timestamp }),
+    created_at: signedAt
+  };
+  const completedEvent: AuditEvent = {
+    id: `evt_${nanoid(16)}`,
+    agreement_id: agreement.id,
+    event_type: "completed",
+    ip_address: ip,
+    user_agent: userAgent,
+    data_json: null,
+    created_at: completedAt
+  };
+
+  try {
+    const auditEvents = await getAuditEvents(agreement.id);
+    const pdf = await renderPDFResult({
+      agreementId: agreement.id,
+      markdown: agreement.document_markdown,
+      fields,
+      signedFields,
+      auditEvents: [...auditEvents, signedEvent, completedEvent]
+    });
+    await runTransaction([
+      {
+        sql: `INSERT INTO audit_events (id, agreement_id, event_type, ip_address, user_agent, data_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        params: [signedEvent.id, signedEvent.agreement_id, signedEvent.event_type, signedEvent.ip_address, signedEvent.user_agent, signedEvent.data_json, signedEvent.created_at]
+      },
+      {
+        sql: `INSERT INTO audit_events (id, agreement_id, event_type, ip_address, user_agent, data_json, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        params: [completedEvent.id, completedEvent.agreement_id, completedEvent.event_type, completedEvent.ip_address, completedEvent.user_agent, completedEvent.data_json, completedEvent.created_at]
+      },
+      {
+        sql: `UPDATE agreements
+              SET status = 'completed',
+                  signed_fields_json = ?,
+                  completed_at = ?,
+                  signed_pdf_path = ?,
+                  signed_pdf_base64 = ?,
+                  signed_pdf_sha256 = ?,
+                  signed_pdf_bytes = ?
+              WHERE id = ?`,
+        params: [
+          JSON.stringify(signedFields),
+          completedAt,
+          pdf.path,
+          pdf.buffer.toString("base64"),
+          pdfSha256(pdf.buffer),
+          pdf.buffer.byteLength,
+          agreement.id
+        ]
+      }
+    ]);
+  } catch (error) {
+    console.error("[AgentContract signing failed before completion]", error);
+    try {
+      await addAuditEvent({
+        agreementId: agreement.id,
+        eventType: "signing_failed",
+        ipAddress: ip,
+        userAgent,
+        data: { error: error instanceof Error ? error.message : String(error) }
+      });
+    } catch (auditError) {
+      console.error("[AgentContract signing failure audit failed]", auditError);
+    }
+    return c.json({ error: "Signing failed before completion. Please try again." }, 500);
+  }
 
   const completed = (await getAgreementByToken(token))!;
   if (completed.webhook_url) enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
@@ -361,19 +423,9 @@ sign.get("/sign/:token/pdf", async (c) => {
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
   if (agreement.status !== "completed") return c.json({ error: "Agreement is not completed" }, 400);
 
-  let path = agreement.signed_pdf_path;
-  if (!path || !existsSync(path)) {
-    path = await renderPDF({
-      agreementId: agreement.id,
-      markdown: agreement.document_markdown,
-      fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
-      signedFields: parseJson<SignedFields | undefined>(agreement.signed_fields_json, undefined),
-      auditEvents: await getAuditEvents(agreement.id)
-    });
-    await run("UPDATE agreements SET signed_pdf_path = ? WHERE id = ?", path, agreement.id);
-  }
+  const buffer = await pdfBufferForAgreement(agreement);
 
-  return new Response(readFileSync(path), {
+  return new Response(buffer, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.id}.pdf"`

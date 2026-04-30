@@ -1372,12 +1372,26 @@ function printResult(result: unknown, json: boolean) {
   }
 
   if (typeof result === "object" && result && "id" in result) {
-    const agreement = result as { id: string; status?: string; signing_url?: string; preview_url?: string; signed_pdf_url?: string | null; webhook_secret?: string | null; notification_email?: string[] };
+    const agreement = result as {
+      id: string;
+      status?: string;
+      signing_url?: string;
+      preview_url?: string;
+      signed_pdf_url?: string | null;
+      signed_pdf_saved?: boolean;
+      signed_pdf_sha256?: string | null;
+      signed_pdf_bytes?: number | null;
+      webhook_secret?: string | null;
+      notification_email?: string[];
+    };
     console.log(`Sent agreement: ${agreement.id}`);
     if (agreement.status) console.log(`Status: ${agreement.status}`);
     if (agreement.preview_url) console.log(`Preview URL: ${agreement.preview_url}`);
     if (agreement.signing_url) console.log(`Signing URL: ${agreement.signing_url}`);
     if (agreement.signed_pdf_url) console.log(`Signed PDF: ${agreement.signed_pdf_url}`);
+    if (typeof agreement.signed_pdf_saved === "boolean") console.log(`Signed PDF saved: ${agreement.signed_pdf_saved ? "yes" : "no"}`);
+    if (agreement.signed_pdf_bytes) console.log(`Signed PDF bytes: ${agreement.signed_pdf_bytes}`);
+    if (agreement.signed_pdf_sha256) console.log(`Signed PDF SHA-256: ${agreement.signed_pdf_sha256}`);
     if (agreement.webhook_secret) console.log(`Webhook secret: ${agreement.webhook_secret}`);
     if (agreement.notification_email?.length) console.log(`Notify on signed: ${agreement.notification_email.join(", ")}`);
     return;

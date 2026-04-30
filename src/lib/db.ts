@@ -32,6 +32,35 @@ export async function run(sql: string, ...params: unknown[]) {
   sqlite!.prepare(sql).run(...params);
 }
 
+export async function runTransaction(statements: Array<{ sql: string; params?: unknown[] }>) {
+  await dbReady;
+  if (!statements.length) return;
+
+  if (pool) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const statement of statements) {
+        await client.query(toPg(statement.sql), statement.params ?? []);
+      }
+      await client.query("COMMIT");
+      return;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const transaction = sqlite!.transaction((items: Array<{ sql: string; params?: unknown[] }>) => {
+    for (const statement of items) {
+      sqlite!.prepare(statement.sql).run(...(statement.params ?? []));
+    }
+  });
+  transaction(statements);
+}
+
 export async function get<T>(sql: string, ...params: unknown[]): Promise<T | undefined> {
   await dbReady;
   if (pool) {
@@ -103,8 +132,33 @@ async function ensureSchema() {
     await applyMigrationFile("001_init.sql");
   }
 
+  await ensureAgreementStorageSchema();
   await ensureApiKeysSchema();
   await applyMigrationFile("003_cli_login_codes.sql");
+}
+
+async function ensureAgreementStorageSchema() {
+  const columns = [
+    ["signed_pdf_base64", "TEXT"],
+    ["signed_pdf_sha256", "TEXT"],
+    ["signed_pdf_bytes", "INTEGER"]
+  ] as const;
+
+  if (pool) {
+    for (const [name, type] of columns) {
+      await pool.query(`ALTER TABLE agreements ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+    }
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+    return;
+  }
+
+  const existing = new Set(
+    sqlite!.prepare("PRAGMA table_info(agreements)").all().map((column) => (column as { name: string }).name)
+  );
+  for (const [name, type] of columns) {
+    if (!existing.has(name)) sqlite!.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
+  }
+  sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
 }
 
 async function ensureApiKeysSchema() {

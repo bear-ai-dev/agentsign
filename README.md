@@ -151,6 +151,8 @@ agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
 ```
 
+When an agreement is signed, AgentContract stores the structured field values and the final signed PDF in the database. The API also stores `signed_pdf_sha256` and `signed_pdf_bytes`, so the CLI can prove the downloadable PDF matches the saved document even on Vercel where local files are temporary.
+
 Server templates can be inspected and used without opening the template UI:
 
 ```bash
@@ -614,6 +616,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 - `sender_email` is stored per agreement, used as request `Reply-To`, and used as the signed-notification target unless `notification_email` is provided.
 - `notification_email` sends a completion email when the recipient signs; webhooks are still the source of truth for machine callbacks.
 - Signature and initials use typed-signature capture for the v1 UI; older drawn image data URLs are still accepted by the API/PDF renderer.
+- Signed PDFs are persisted in SQLite/Postgres as base64 plus SHA-256 for v1 durability; high-volume production should move the PDF bytes to object storage while keeping the hash and metadata in the database.
 - PDF rendering is optimized for local/Railway demo use, not high-volume throughput.
 - Template substitution is simple `{{var}}` replacement.
 - Audit logs are append-only by application behavior, not database-level immutability.

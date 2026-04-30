@@ -126,7 +126,7 @@ export function renderDocumentHtml(input: {
 </html>`;
 }
 
-export async function renderPDF(input: {
+export async function renderPDFResult(input: {
   agreementId: string;
   markdown: string;
   fields: FieldDefinition[];
@@ -145,10 +145,21 @@ export async function renderPDF(input: {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
     const pdf = await page.pdf({ format: "Letter", printBackground: true, margin: { top: "0.45in", right: "0.35in", bottom: "0.45in", left: "0.35in" } });
+    const buffer = Buffer.from(pdf);
     const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);
-    writeFileSync(path, pdf);
-    return path;
+    writeFileSync(path, buffer);
+    return { path, buffer };
   } finally {
     await browser.close();
   }
+}
+
+export async function renderPDF(input: {
+  agreementId: string;
+  markdown: string;
+  fields: FieldDefinition[];
+  signedFields?: SignedFields;
+  auditEvents?: AuditEvent[];
+}) {
+  return (await renderPDFResult(input)).path;
 }

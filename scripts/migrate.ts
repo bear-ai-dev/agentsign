@@ -26,4 +26,19 @@ for (const file of files) {
   console.log(`Applied ${file}`);
 }
 
+const agreementColumns = new Set(
+  db.prepare("PRAGMA table_info(agreements)").all().map((column) => (column as { name: string }).name)
+);
+for (const [name, type] of [
+  ["signed_pdf_base64", "TEXT"],
+  ["signed_pdf_sha256", "TEXT"],
+  ["signed_pdf_bytes", "INTEGER"]
+] as const) {
+  if (!agreementColumns.has(name)) {
+    db.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
+    console.log(`Added agreements.${name}`);
+  }
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+
 console.log("Migrations complete");

@@ -15,7 +15,10 @@ CREATE TABLE agreements (
   sent_at TEXT,
   viewed_at TEXT,
   completed_at TEXT,
-  signed_pdf_path TEXT
+  signed_pdf_path TEXT,
+  signed_pdf_base64 TEXT,
+  signed_pdf_sha256 TEXT,
+  signed_pdf_bytes INTEGER
 );
 
 CREATE TABLE audit_events (
