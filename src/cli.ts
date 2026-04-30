@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
 import "dotenv/config";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { marked } from "marked";
+import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "./lib/templates.js";
 
 type Args = Record<string, string | boolean | string[]>;
 
@@ -24,7 +29,10 @@ function usage() {
 Usage:
   agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
   agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
+  agentsign send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor --var rate=150 [options]
+  agentsign preview --template contractor --var company_name="Bear AI" --var rate=150 --open
   agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
+  agentsign view <agreement_id> --open
   agentsign status <agreement_id> [options]
 
 Sender / Receiver:
@@ -39,6 +47,15 @@ Options:
   --api-url <url>                    API base URL. Defaults to AGENTSIGN_API_URL or ${defaultApiUrl}
   --api-key <key>                    API key. Defaults to AGENTSIGN_API_KEY or AGENTINK_API_KEY
   --webhook-url <url>                Machine webhook for agreement.completed
+  --template <name>                  Template for send-contract/preview: nda, privacy, contractor
+  --var <key=value>                  Template variable. Repeatable
+  --vars-json <json>                 Template variables as JSON
+  --vars-file <path>                 Template variables JSON file
+  --markdown-file <path>             Custom markdown contract file
+  --fields-file <path>               JSON field definitions file
+  --preview                          Render local HTML preview instead of sending
+  --preview-file <path>              Where to write preview HTML
+  --open                             Open preview/signing URL in the browser
   --effective-date <date>            Defaults to today
   --term-years <years>               MNDA term. Defaults to 2
   --service <name>                   Privacy policy service name. Defaults to Bear AI
@@ -157,6 +174,21 @@ function privacyFields() {
   ];
 }
 
+function contractorFields() {
+  return [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "address", label: "Address", type: "text", required: true },
+    { id: "tax_id", label: "SSN or EIN (last 4)", type: "text", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ];
+}
+
+function defaultFieldsFor(template: string | undefined) {
+  if (template === "privacy") return privacyFields();
+  if (template === "contractor") return contractorFields();
+  return mndaFields();
+}
+
 async function postJson(apiUrl: string, apiKey: string, path: string, body: unknown) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
@@ -237,9 +269,95 @@ function sharedSendOptions(args: Args, fallbackSenderName?: string) {
   };
 }
 
+function repeatArg(args: Args, key: string) {
+  const value = args[key];
+  if (!value || value === true) return [];
+  return Array.isArray(value) ? value.map(String) : [String(value)];
+}
+
+function parseJsonArg(value: string, label: string) {
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    throw new CliError(`${label} must be valid JSON`);
+  }
+}
+
+function templateVarsFromArgs(args: Args) {
+  const vars: Record<string, unknown> = {};
+  const varsFile = stringArg(args, "vars-file");
+  if (varsFile) Object.assign(vars, parseJsonArg(readFileSync(varsFile, "utf8"), "--vars-file"));
+  const varsJson = stringArg(args, "vars-json");
+  if (varsJson) Object.assign(vars, parseJsonArg(varsJson, "--vars-json"));
+
+  for (const entry of repeatArg(args, "var")) {
+    const eq = entry.indexOf("=");
+    if (eq <= 0) throw new CliError(`Invalid --var "${entry}"`, "Use --var key=value, for example --var rate=150");
+    const key = entry.slice(0, eq).trim();
+    const rawValue = entry.slice(eq + 1).trim();
+    vars[key] = coerceVarValue(rawValue);
+  }
+
+  return vars;
+}
+
+function coerceVarValue(value: string) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (value && !Number.isNaN(Number(value)) && /^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return value;
+}
+
+function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
+  const fieldsFile = stringArg(args, "fields-file");
+  if (!fieldsFile) return fallback;
+  const parsed = JSON.parse(readFileSync(fieldsFile, "utf8")) as unknown;
+  if (!Array.isArray(parsed)) throw new CliError("--fields-file must contain a JSON array of field definitions");
+  return parsed as Array<Record<string, unknown>>;
+}
+
+function markdownFromArgs(args: Args) {
+  const markdownFile = stringArg(args, "markdown-file", "document-file", "contract-file");
+  if (markdownFile) return readFileSync(markdownFile, "utf8");
+  return stringArg(args, "document-markdown", "markdown");
+}
+
+type AgreementPayload = {
+  recipient?: { name: string; email: string };
+  cc?: string[];
+  sender_email?: string;
+  sender_name?: string;
+  notification_email?: string[];
+  template?: string;
+  document_markdown?: string;
+  template_vars?: Record<string, unknown>;
+  fields?: Array<Record<string, unknown>>;
+  webhook_url?: string;
+  metadata?: Record<string, unknown>;
+};
+
+function withCustomContractArgs(args: Args, payload: AgreementPayload) {
+  const templateOverride = stringArg(args, "template");
+  const markdown = markdownFromArgs(args);
+  const template = markdown ? undefined : templateOverride ?? payload.template;
+  const fallbackFields = payload.fields ?? defaultFieldsFor(template);
+  const customized: AgreementPayload = {
+    ...payload,
+    ...(template ? { template } : {}),
+    ...(markdown ? { document_markdown: markdown } : {}),
+    template_vars: {
+      ...(payload.template_vars ?? {}),
+      ...templateVarsFromArgs(args)
+    },
+    fields: fieldsFromArgs(args, fallbackFields)
+  };
+  if (markdown) delete customized.template;
+  return customized;
+}
+
 function baseMndaPayload(args: Args) {
   const company = requireArg(stringArg(args, "company"), "--company", 'Example: agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"');
-  return {
+  return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "nda",
     template_vars: {
@@ -249,12 +367,12 @@ function baseMndaPayload(args: Args) {
     },
     fields: mndaFields(),
     metadata: { source: "agentsign-cli" }
-  };
+  });
 }
 
 function basePrivacyPayload(args: Args) {
   const company = stringArg(args, "company") ?? "Bear AI";
-  return {
+  return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "privacy",
     template_vars: {
@@ -269,7 +387,84 @@ function basePrivacyPayload(args: Args) {
     },
     fields: privacyFields(),
     metadata: { source: "agentsign-cli", template_kind: "privacy_policy" }
-  };
+  });
+}
+
+function baseContractPayload(args: Args) {
+  const template = stringArg(args, "template") ?? (markdownFromArgs(args) ? undefined : "contractor");
+  if (!template && !markdownFromArgs(args)) {
+    throw new CliError("send-contract needs --template or --markdown-file");
+  }
+  const company = stringArg(args, "company") ?? String(templateVarsFromArgs(args).company_name ?? "Bear AI");
+  return withCustomContractArgs(args, {
+    ...sharedSendOptions(args, company),
+    template,
+    template_vars: {
+      company_name: company,
+      effective_date: stringArg(args, "effective-date") ?? today(),
+      rate_unit: stringArg(args, "rate-unit") ?? "hour",
+      invoice_frequency: stringArg(args, "invoice-frequency") ?? "biweekly",
+      notice_days: stringArg(args, "notice-days") ?? "14",
+      start_date: stringArg(args, "start-date") ?? today(),
+      ...templateVarsFromArgs(args)
+    },
+    fields: defaultFieldsFor(template),
+    metadata: { source: "agentsign-cli", template_kind: template ?? "custom_markdown" }
+  });
+}
+
+function previewHtmlFor(payload: AgreementPayload) {
+  const source = payload.document_markdown ?? loadTemplate(payload.template ?? "nda");
+  const rendered = applyTemplateVars(source, {
+    ...(payload.template_vars ?? {}),
+    recipient_name: payload.recipient?.name ?? "Preview Recipient",
+    recipient_email: payload.recipient?.email ?? "preview@example.com"
+  });
+  const title = titleFromMarkdown(rendered);
+  const html = marked.parse(rendered, { async: false }) as string;
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)} | AgentSign Preview</title>
+  <style>
+    body { margin: 0; background: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(100% - 32px, 820px); margin: 32px auto; }
+    header { margin-bottom: 16px; color: #475569; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    article { border: 1px solid #e2e8f0; border-radius: 8px; background: white; padding: 36px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+    h1 { font-size: 30px; line-height: 1.15; margin: 0 0 22px; }
+    h2 { font-size: 18px; margin: 28px 0 8px; }
+    p, li { line-height: 1.68; color: #334155; }
+    hr { border: 0; border-top: 1px solid #e2e8f0; margin: 28px 0; }
+  </style>
+</head>
+<body><main><header>AgentSign contract preview</header><article>${html}</article></main></body>
+</html>`;
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function writePreview(payload: AgreementPayload, args: Args) {
+  const output = resolve(stringArg(args, "preview-file", "output-file", "out") ?? join(tmpdir(), "agentsign-preview.html"));
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, previewHtmlFor(payload));
+  if (args.open) openTarget(output);
+  return { preview: true, path: output, opened: Boolean(args.open), title: titleFromMarkdown(applyTemplateVars(payload.document_markdown ?? loadTemplate(payload.template ?? "nda"), payload.template_vars ?? {})) };
+}
+
+function openTarget(target: string) {
+  const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", target] : [target];
+  const result = spawnSync(command, args, { stdio: "ignore" });
+  if (result.error) throw new CliError(`Could not open ${target}: ${result.error.message}`);
 }
 
 function dryRunResult(command: string, apiUrl: string, path: string, payload: unknown) {
@@ -299,6 +494,14 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
+  if (typeof result === "object" && result && "preview" in result) {
+    const preview = result as unknown as { path: string; opened?: boolean; title?: string };
+    console.log(`Preview: ${preview.path}`);
+    if (preview.title) console.log(`Title: ${preview.title}`);
+    if (preview.opened) console.log("Opened in browser");
+    return;
+  }
+
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
     console.log(`Sent ${result.agreements.length} agreements`);
     for (const agreement of result.agreements) {
@@ -308,10 +511,12 @@ function printResult(result: unknown, json: boolean) {
   }
 
   if (typeof result === "object" && result && "id" in result) {
-    const agreement = result as { id: string; status?: string; signing_url?: string; webhook_secret?: string | null; notification_email?: string[] };
+    const agreement = result as { id: string; status?: string; signing_url?: string; preview_url?: string; signed_pdf_url?: string | null; webhook_secret?: string | null; notification_email?: string[] };
     console.log(`Sent agreement: ${agreement.id}`);
     if (agreement.status) console.log(`Status: ${agreement.status}`);
+    if (agreement.preview_url) console.log(`Preview URL: ${agreement.preview_url}`);
     if (agreement.signing_url) console.log(`Signing URL: ${agreement.signing_url}`);
+    if (agreement.signed_pdf_url) console.log(`Signed PDF: ${agreement.signed_pdf_url}`);
     if (agreement.webhook_secret) console.log(`Webhook secret: ${agreement.webhook_secret}`);
     if (agreement.notification_email?.length) console.log(`Notify on signed: ${agreement.notification_email.join(", ")}`);
     return;
@@ -321,23 +526,53 @@ function printResult(result: unknown, json: boolean) {
 }
 
 async function sendMnda(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = {
     recipient: { name: receiverName(args), email: receiverEmail(args) },
     ...baseMndaPayload(args)
   };
+  if (args.preview) return writePreview(payload, args);
   if (dryRun(args)) return dryRunResult("send-mnda", apiUrl, "/v1/agreements", payload);
-  return postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
 }
 
 async function sendPrivacy(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = {
     recipient: { name: receiverName(args), email: receiverEmail(args) },
     ...basePrivacyPayload(args)
   };
+  if (args.preview) return writePreview(payload, args);
   if (dryRun(args)) return dryRunResult("send-privacy", apiUrl, "/v1/agreements", payload);
-  return postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function sendContract(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = {
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
+    ...baseContractPayload(args)
+  };
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return dryRunResult("send-contract", apiUrl, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function preview(args: Args) {
+  const payload = {
+    recipient: {
+      name: stringArg(args, "name", "receiver-name") ?? "Preview Recipient",
+      email: stringArg(args, "to", "email", "receiver-email") ?? "preview@example.com"
+    },
+    ...baseContractPayload(args)
+  };
+  return writePreview(payload, { ...args, preview: true });
 }
 
 function normalizeBulkRecipients(parsed: unknown) {
@@ -359,7 +594,7 @@ function normalizeBulkRecipients(parsed: unknown) {
 }
 
 async function bulkMnda(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const file = requireArg(stringArg(args, "file"), "--file", "Example: agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
   const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
   const base = baseMndaPayload(args);
@@ -369,6 +604,12 @@ async function bulkMnda(args: Args) {
     ...base
   };
   delete (payload as { template_vars?: unknown }).template_vars;
+  if (args.preview) {
+    return writePreview({
+      recipient: { name: recipients[0].name, email: recipients[0].email },
+      ...base
+    }, args);
+  }
   if (dryRun(args)) return dryRunResult("bulk-mnda", apiUrl, "/v1/agreements/bulk", payload);
   return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
 }
@@ -378,6 +619,22 @@ async function status(args: Args, positional: string[]) {
   const id = positional[0];
   if (!id) throw new CliError("agreement_id is required", "Example: agentsign status agr_123");
   return getJson(apiUrl, apiKey, `/v1/agreements/${id}`);
+}
+
+async function view(args: Args, positional: string[]) {
+  const result = await status(args, positional) as {
+    id: string;
+    preview_url?: string;
+    signing_url?: string;
+    signed_pdf_url?: string | null;
+  };
+  const target = args.pdf && result.signed_pdf_url
+    ? result.signed_pdf_url
+    : args.signing
+      ? result.signing_url
+      : result.preview_url ?? result.signing_url;
+  if (args.open && target) openTarget(target);
+  return result;
 }
 
 async function main() {
@@ -394,8 +651,14 @@ async function main() {
     result = await sendMnda(args);
   } else if (command === "send-privacy") {
     result = await sendPrivacy(args);
+  } else if (command === "send-contract" || command === "send-agreement") {
+    result = await sendContract(args);
+  } else if (command === "preview") {
+    result = await preview(args);
   } else if (command === "bulk-mnda" || command === "bulk-nda") {
     result = await bulkMnda(args);
+  } else if (command === "view") {
+    result = await view(args, positional);
   } else if (command === "status") {
     result = await status(args, positional);
   } else {

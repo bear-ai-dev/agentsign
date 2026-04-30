@@ -55,6 +55,58 @@ npm run cli -- send-privacy \
   --json
 ```
 
+Customize and preview a contract before sending:
+
+```bash
+npm run cli -- send-contract \
+  --from sid@usebear.ai \
+  --sender-name "Sid from Bear AI" \
+  --to contractor@example.com \
+  --name "Jane Contractor" \
+  --template contractor \
+  --company "Bear AI" \
+  --var scope_of_work="Backend engineering" \
+  --var rate=150 \
+  --var start_date=2026-05-01 \
+  --preview \
+  --open
+```
+
+Send the same customized contractor agreement:
+
+```bash
+npm run cli -- send-contract \
+  --from sid@usebear.ai \
+  --sender-name "Sid from Bear AI" \
+  --to contractor@example.com \
+  --name "Jane Contractor" \
+  --template contractor \
+  --company "Bear AI" \
+  --var scope_of_work="Backend engineering" \
+  --var rate=150 \
+  --var start_date=2026-05-01
+```
+
+Use custom markdown and fields from files:
+
+```bash
+npm run cli -- send-contract \
+  --from sid@usebear.ai \
+  --to contractor@example.com \
+  --name "Jane Contractor" \
+  --markdown-file ./contracts/custom.md \
+  --vars-file ./contracts/jane-vars.json \
+  --fields-file ./contracts/signing-fields.json \
+  --dry-run \
+  --json
+```
+
+View a sent contract without marking it viewed by the signer:
+
+```bash
+npm run cli -- view agr_... --open
+```
+
 Check state:
 
 ```bash
@@ -66,6 +118,7 @@ CLI design choices for agents:
 - `--from` and `--to` map to the human model agents expect, while the API still keeps email deliverability details separate.
 - `--json` produces machine-readable output for agent chains.
 - `--dry-run` prints the exact API payload without requiring an API key or sending email.
+- `--preview` renders local HTML before sending; `view --open` opens the read-only contract preview after sending.
 - Errors go to stderr with a concrete example command.
 
 ## Privacy policy template

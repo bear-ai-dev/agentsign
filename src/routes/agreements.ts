@@ -101,7 +101,15 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     signingUrl
   });
 
-  return { id, status: "sent", signing_url: signingUrl, webhook_secret: webhookSecret, notification_email: notificationEmails, created_at: createdAt };
+  return {
+    id,
+    status: "sent",
+    preview_url: `${baseUrl}/preview/${token}`,
+    signing_url: signingUrl,
+    webhook_secret: webhookSecret,
+    notification_email: notificationEmails,
+    created_at: createdAt
+  };
 }
 
 function agreementForApi(agreement: Agreement) {
@@ -115,6 +123,7 @@ function agreementForApi(agreement: Agreement) {
     webhook_url: agreement.webhook_url,
     webhook_secret: agreement.webhook_secret,
     metadata: parseJson<Record<string, unknown> | null>(agreement.metadata_json, null),
+    preview_url: `${env.baseUrl}/preview/${agreement.signing_token}`,
     signing_url: `${env.baseUrl}/sign/${agreement.signing_token}`,
     created_at: agreement.created_at,
     sent_at: agreement.sent_at,
