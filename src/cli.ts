@@ -351,6 +351,7 @@ function usage() {
 
 Usage:
   agentcontract login
+  agentcontract login --email sid@usebear.ai
   agentcontract skill
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
@@ -391,6 +392,7 @@ The legacy "agentsign" command name is also supported when installed from npm.
 
 Setup:
   agentcontract login                    Browser login via WorkOS/Google Workspace, saves config automatically
+  agentcontract login --email <email>    Email-code WorkOS login. Use when browser redirect is blocked
   agentcontract skill                    Install/update the AI-agent skill
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
@@ -418,6 +420,8 @@ Options:
   --api-key <key>                    API key. Defaults to AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY
   --api-key-stdin                    Read API key from stdin for init/send commands
   --key-name <name>                  Name for a key created by login. Defaults to AgentContract CLI
+  --email <email>                    Use email-code login instead of browser login
+  --code <123456>                    Login code for email-code login. Omit to type it interactively
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor
@@ -2055,7 +2059,63 @@ type CliExchangeResponse = {
   owner_id?: string;
 };
 
+async function promptSecret(question: string) {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return cleanString(await rl.question(question));
+  } finally {
+    rl.close();
+  }
+}
+
+async function loginWithEmailCode(args: Args) {
+  if (configLoadError && !args.force) {
+    throw new CliError(
+      `Existing config at ${configPath} could not be read: ${configLoadError}`,
+      "Pass --force to overwrite it."
+    );
+  }
+
+  const apiUrl = normalizeApiUrl(cleanString(stringArg(args, "api-url")) ?? cliConfig.api_url ?? defaultApiUrl);
+  const email = validateEmail(
+    requireArg(stringArg(args, "email", "login-email"), "--email", "Example: agentcontract login --email sid@usebear.ai"),
+    "--email"
+  );
+  const keyName = cleanString(stringArg(args, "key-name")) ?? "AgentContract CLI";
+
+  await postPublicJson(apiUrl, "/cli/magic/start", { email });
+  if (!jsonOutput(args)) {
+    console.error(`Sent a WorkOS login code to ${email}.`);
+  }
+
+  const code = cleanString(stringArg(args, "code")) ?? await promptSecret("Enter 6-digit login code: ");
+  if (!code) throw new CliError("Login code is required", "Run agentcontract login --email you@example.com again.");
+
+  const exchanged = await postPublicJson(apiUrl, "/cli/magic/verify", { email, code, name: keyName }) as CliExchangeResponse;
+  if (!exchanged.api_key) throw new CliError("Email-code login did not return an API key");
+  const ownerEmail = cleanString(exchanged.owner_email) ?? email;
+  const nextConfig: CliConfig = {
+    ...cliConfig,
+    api_url: apiUrl,
+    api_key: exchanged.api_key,
+    sender_email: validateEmail(ownerEmail, "owner_email")
+  };
+  writeCliConfig(nextConfig);
+
+  return {
+    login_complete: true,
+    config_path: configPath,
+    api_url: apiUrl,
+    owner_email: ownerEmail,
+    config: publicConfig(false, nextConfig)
+  };
+}
+
 async function login(args: Args) {
+  if (stringArg(args, "email", "login-email")) {
+    return loginWithEmailCode(args);
+  }
+
   if (configLoadError && !args.force) {
     throw new CliError(
       `Existing config at ${configPath} could not be read: ${configLoadError}`,
@@ -2183,11 +2243,12 @@ draft/revise a contract, capture contract feedback, check signing status, or dow
 ## Setup
 
 agentcontract login
+agentcontract login --email sid@usebear.ai
 agentcontract config get
 agentcontract doctor
 agentcontract keys
 
-If the user is not logged in, run \`agentcontract login\`; it opens WorkOS/Google Workspace auth in the browser.
+If the user is not logged in, run \`agentcontract login --email <email>\`; it sends a WorkOS email code and stores a local API key after verification. Browser login is also available with \`agentcontract login\` once the WorkOS redirect URI is registered.
 
 ## Core Commands
 

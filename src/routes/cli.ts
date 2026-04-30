@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
 import { createCliLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
-import { requireAdminSession } from "../lib/workos.js";
+import { authenticateMagicLogin, createMagicLoginCode, requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
 
@@ -43,6 +43,16 @@ function allowedLocalRedirect(value: string | undefined) {
   } catch {
     return null;
   }
+}
+
+function validEmail(value: unknown) {
+  const email = typeof value === "string" ? value.trim() : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+function clientIp(c: Context) {
+  return (c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "").split(",")[0].trim() || null;
 }
 
 function installScript(origin: string) {
@@ -193,4 +203,58 @@ cli.post("/cli/exchange", async (c) => {
     owner_email: result.ownerEmail,
     owner_id: result.ownerId
   });
+});
+
+cli.post("/cli/magic/start", async (c) => {
+  const body = await c.req.json<{ email?: string }>().catch(() => ({})) as { email?: string };
+  const email = validEmail(body.email);
+  if (!email) return c.json({ error: "A valid email is required" }, 400);
+
+  try {
+    const magic = await createMagicLoginCode(email);
+    return c.json({
+      ok: true,
+      email,
+      expires_at: magic.expiresAt
+    });
+  } catch (error) {
+    console.error("[AgentContract magic login start failed]", error);
+    return c.json({ error: "Could not start email-code login" }, 400);
+  }
+});
+
+cli.post("/cli/magic/verify", async (c) => {
+  const body = await c.req.json<{ email?: string; code?: string; name?: string }>().catch(() => ({})) as {
+    email?: string;
+    code?: string;
+    name?: string;
+  };
+  const email = validEmail(body.email);
+  const code = typeof body.code === "string" ? body.code.trim() : "";
+  if (!email) return c.json({ error: "A valid email is required" }, 400);
+  if (!/^[0-9]{6}$/.test(code)) return c.json({ error: "A 6-digit login code is required" }, 400);
+
+  try {
+    const auth = await authenticateMagicLogin({
+      email,
+      code,
+      ipAddress: clientIp(c),
+      userAgent: c.req.header("user-agent") ?? null
+    });
+    const user = auth.user;
+    if (!user?.email) return c.json({ error: "Authenticated user has no email address" }, 400);
+    const { key } = await createApiKey({
+      name: body.name || "AgentContract CLI",
+      ownerId: user.id ?? null,
+      ownerEmail: user.email
+    });
+    return c.json({
+      api_key: key,
+      owner_email: user.email,
+      owner_id: user.id
+    });
+  } catch (error) {
+    console.error("[AgentContract magic login verify failed]", error);
+    return c.json({ error: "Invalid or expired login code" }, 400);
+  }
 });

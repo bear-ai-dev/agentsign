@@ -13,13 +13,13 @@ YC-style setup for a new machine:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
 agentcontract skill
 ```
 
 Requires Node.js 20+ and npm. The install script uses the hosted prebuilt package, so a remote tester does not need the repo or local build setup.
 
-`agentcontract login` opens WorkOS/Google Workspace in the browser and saves a local config. `agentcontract skill` installs or updates this skill for the selected AI agent.
+`agentcontract login --email` sends a WorkOS six-digit code and saves a local config after verification. Browser login is also available with `agentcontract login --api-url https://agentink-pied.vercel.app` once the WorkOS redirect URI is registered. `agentcontract skill` installs or updates this skill for the selected AI agent.
 
 Until the npm package is published, install directly:
 

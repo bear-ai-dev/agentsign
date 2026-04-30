@@ -27,7 +27,13 @@ agentcontract skill
 
 Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
 
-`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. `agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
+`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. If browser redirect setup is blocked, use email-code login instead:
+
+```bash
+agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+```
+
+`agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
 
 The browser onboarding page is:
 
@@ -69,20 +75,20 @@ Sid can test without Janak or Codex around:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
 agentcontract doctor --json
 agentcontract templates
 agentcontract template read privacy --out ./privacy.md
 agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-run --json
 ```
 
-If login opens the wrong browser or does not open one, run:
+The login command emails a six-digit WorkOS code. Paste it into the terminal when prompted. Browser login is also supported once the WorkOS redirect URI is registered:
 
 ```bash
-agentcontract login --api-url https://agentink-pied.vercel.app --no-open
+agentcontract login --api-url https://agentink-pied.vercel.app
 ```
 
-Then copy the printed URL into a browser on the same laptop. After login, he can send a real test to himself:
+After login, he can send a real test to himself:
 
 ```bash
 agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --cc janak@usebear.ai

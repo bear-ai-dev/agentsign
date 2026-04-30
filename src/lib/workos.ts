@@ -22,6 +22,12 @@ function workos() {
   return new WorkOS(env.workosApiKey, { clientId: env.workosClientId });
 }
 
+function requireWorkos() {
+  const client = workos();
+  if (!client) throw new Error("WorkOS is not configured");
+  return client;
+}
+
 function cookieOptions(c: Context) {
   return {
     path: "/",
@@ -107,6 +113,27 @@ export async function completeWorkosCallback(c: Context) {
     maxAge: 60 * 60 * 24 * 30
   });
   return c.redirect(state.returnTo);
+}
+
+export async function createMagicLoginCode(email: string) {
+  const client = requireWorkos();
+  return client.userManagement.createMagicAuth({ email });
+}
+
+export async function authenticateMagicLogin(input: {
+  email: string;
+  code: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}) {
+  const client = requireWorkos();
+  return client.userManagement.authenticateWithMagicAuth({
+    clientId: env.workosClientId,
+    email: input.email,
+    code: input.code,
+    ipAddress: input.ipAddress ?? undefined,
+    userAgent: input.userAgent ?? undefined
+  });
 }
 
 export async function logout(c: Context) {
