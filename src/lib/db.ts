@@ -119,7 +119,7 @@ async function ensureApiKeysSchema() {
     ["last_used_at", "TEXT"],
     ["revoked_at", "TEXT"]
   ] as const;
-  const sql = `CREATE TABLE IF NOT EXISTS api_keys (
+  const sql = `CREATE TABLE IF NOT EXISTS agentcontract_api_keys (
     id TEXT PRIMARY KEY,
     key_hash TEXT NOT NULL UNIQUE,
     key_prefix TEXT NOT NULL,
@@ -135,25 +135,25 @@ async function ensureApiKeysSchema() {
   if (pool) {
     await pool.query(sql);
     for (const [name, type] of apiKeyColumns) {
-      await pool.query(`ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+      await pool.query(`ALTER TABLE agentcontract_api_keys ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
-    await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_owner_email ON api_keys(owner_email)");
-    await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)");
-    await pool.query("CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(revoked_at) WHERE revoked_at IS NULL");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_owner_email ON agentcontract_api_keys(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_hash ON agentcontract_api_keys(key_hash)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_active ON agentcontract_api_keys(revoked_at) WHERE revoked_at IS NULL");
     return;
   }
 
   sqlite!.exec(sql);
   const columns = new Set(
-    sqlite!.prepare("PRAGMA table_info(api_keys)").all().map((column) => (column as { name: string }).name)
+    sqlite!.prepare("PRAGMA table_info(agentcontract_api_keys)").all().map((column) => (column as { name: string }).name)
   );
   for (const [name, type] of apiKeyColumns) {
-    if (!columns.has(name)) sqlite!.exec(`ALTER TABLE api_keys ADD COLUMN ${name} ${type}`);
+    if (!columns.has(name)) sqlite!.exec(`ALTER TABLE agentcontract_api_keys ADD COLUMN ${name} ${type}`);
   }
   sqlite!.exec(`
-    CREATE INDEX IF NOT EXISTS idx_api_keys_owner_email ON api_keys(owner_email);
-    CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
-    CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(revoked_at) WHERE revoked_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_owner_email ON agentcontract_api_keys(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_hash ON agentcontract_api_keys(key_hash);
+    CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_active ON agentcontract_api_keys(revoked_at) WHERE revoked_at IS NULL;
   `);
 }
 

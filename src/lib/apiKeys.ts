@@ -4,6 +4,8 @@ import { all, get, nowIso, run } from "./db.js";
 import { env } from "./env.js";
 import type { ApiKeyRecord } from "./types.js";
 
+const apiKeysTable = "agentcontract_api_keys";
+
 export type ApiKeyOwner = {
   ownerId?: string | null;
   ownerEmail?: string | null;
@@ -37,7 +39,7 @@ export async function createApiKey(input: ApiKeyOwner & { name?: string }) {
   };
 
   await run(
-    `INSERT INTO api_keys (id, key_hash, key_prefix, last4, name, owner_id, owner_email, created_at)
+    `INSERT INTO ${apiKeysTable} (id, key_hash, key_prefix, last4, name, owner_id, owner_email, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     record.id,
     record.key_hash,
@@ -55,25 +57,25 @@ export async function createApiKey(input: ApiKeyOwner & { name?: string }) {
 export async function listApiKeysForOwner(ownerEmail: string | null | undefined) {
   if (!ownerEmail) return [];
   return all<ApiKeyRecord>(
-    "SELECT * FROM api_keys WHERE owner_email = ? ORDER BY created_at DESC",
+    `SELECT * FROM ${apiKeysTable} WHERE owner_email = ? ORDER BY created_at DESC`,
     ownerEmail
   );
 }
 
 export async function revokeApiKeyForOwner(id: string, ownerEmail: string | null | undefined) {
   if (!ownerEmail) return false;
-  await run("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND owner_email = ? AND revoked_at IS NULL", nowIso(), id, ownerEmail);
-  const record = await get<ApiKeyRecord>("SELECT * FROM api_keys WHERE id = ? AND owner_email = ?", id, ownerEmail);
+  await run(`UPDATE ${apiKeysTable} SET revoked_at = ? WHERE id = ? AND owner_email = ? AND revoked_at IS NULL`, nowIso(), id, ownerEmail);
+  const record = await get<ApiKeyRecord>(`SELECT * FROM ${apiKeysTable} WHERE id = ? AND owner_email = ?`, id, ownerEmail);
   return Boolean(record?.revoked_at);
 }
 
 export async function verifyStoredApiKey(key: string) {
   const record = await get<ApiKeyRecord>(
-    "SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL",
+    `SELECT * FROM ${apiKeysTable} WHERE key_hash = ? AND revoked_at IS NULL`,
     hashApiKey(key)
   );
   if (!record) return null;
 
-  await run("UPDATE api_keys SET last_used_at = ? WHERE id = ?", nowIso(), record.id);
+  await run(`UPDATE ${apiKeysTable} SET last_used_at = ? WHERE id = ?`, nowIso(), record.id);
   return record;
 }
