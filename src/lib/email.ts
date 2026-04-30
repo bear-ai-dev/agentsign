@@ -19,7 +19,7 @@ async function deliverEmail(input: {
   logLabel: string;
 }) {
   if (!env.resendApiKey) {
-    console.log("[AgentSign email fallback]");
+    console.log("[AgentContract email fallback]");
     console.log(`To: ${input.to.join(", ")}`);
     if (input.cc?.length) console.log(`Cc: ${input.cc.join(", ")}`);
     if (input.replyTo?.length) console.log(`Reply-To: ${input.replyTo.join(", ")}`);
@@ -53,7 +53,7 @@ async function deliverEmail(input: {
   if (!response.ok) {
     throw new Error(`Resend email failed: ${result.message ?? response.statusText}`);
   }
-  console.log(`[AgentSign email sent] ${input.logLabel}: ${result.id ?? "accepted"} to ${input.to.join(", ")}${input.cc?.length ? ` cc ${input.cc.join(", ")}` : ""}`);
+  console.log(`[AgentContract email sent] ${input.logLabel}: ${result.id ?? "accepted"} to ${input.to.join(", ")}${input.cc?.length ? ` cc ${input.cc.join(", ")}` : ""}`);
 }
 
 export async function sendSigningEmail(input: {

@@ -13,7 +13,7 @@ auth.get("/auth/callback", async (c) => {
   try {
     return await completeWorkosCallback(c);
   } catch (error) {
-    console.error("[AgentSign WorkOS callback failed]", error);
+    console.error("[AgentContract WorkOS callback failed]", error);
     return c.redirect("/login");
   }
 });

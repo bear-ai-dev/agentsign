@@ -174,11 +174,11 @@ function clientIp(c: Context) {
 function authSetupHtml() {
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AgentSign Auth Setup</title><script src="https://cdn.tailwindcss.com"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AgentContract Auth Setup</title><script src="https://cdn.tailwindcss.com"></script></head>
 <body class="bg-slate-50 text-slate-950">
   <main class="mx-auto max-w-2xl px-6 py-16">
     <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <p class="text-sm font-semibold uppercase tracking-widest text-slate-500">AgentSign Admin</p>
+      <p class="text-sm font-semibold uppercase tracking-widest text-slate-500">AgentContract Admin</p>
       <h1 class="mt-2 text-2xl font-semibold">WorkOS auth is not configured</h1>
       <p class="mt-3 text-slate-700">Set <code>WORKOS_API_KEY</code>, <code>WORKOS_CLIENT_ID</code>, and <code>WORKOS_COOKIE_PASSWORD</code> in the deployment environment, then redeploy.</p>
     </div>

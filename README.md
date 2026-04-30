@@ -1,6 +1,6 @@
-# AgentSign
+# AgentContract
 
-AgentSign is a demo-grade, agent-native contract signing API for mass-sending NDAs, privacy acknowledgements, and contractor agreements.
+AgentContract is an agent-native contract sending API and public CLI for marketplace onboarding. It can send NDAs, privacy acknowledgements, and contractor agreements, then notify your app or sender when a recipient signs.
 
 ## Quickstart
 
@@ -11,7 +11,53 @@ npm run migrate
 npm run dev
 ```
 
-The default API key is `ak_local_dev_key_change_me`. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
+The default local API key is `ak_local_dev_key_change_me`. Do not use that key in production. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
+
+## Public CLI
+
+The npm package is prepared as `@bear-ai-dev/agentcontract` because the unscoped `agentcontract` package name is already taken on npm. The installed commands are both `agentcontract` and the backwards-compatible `agentsign` alias.
+
+After publishing:
+
+```bash
+npm install -g @bear-ai-dev/agentcontract
+export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
+export AGENTCONTRACT_API_KEY=<your production API key>
+
+agentcontract doctor
+```
+
+Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
+
+```bash
+agentcontract marketplace-onboard \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --cc sid@usebear.ai
+```
+
+Bulk marketplace onboarding from a JSON file:
+
+```json
+[
+  { "name": "Alice Contributor", "email": "alice@example.com" },
+  { "name": "Bob Contributor", "email": "bob@example.com" }
+]
+```
+
+```bash
+agentcontract bulk-marketplace-onboard --file contributors.json --cc sid@usebear.ai
+```
+
+Preview without sending:
+
+```bash
+agentcontract marketplace-onboard \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --preview \
+  --open
+```
 
 ## WorkOS Auth
 
@@ -85,10 +131,10 @@ After WorkOS is configured, Sid signs into the sender UI, fills receiver name/em
 The lower-level CLI is still available for agents and scripts that need to send custom templates without hand-writing JSON.
 
 ```bash
-export AGENTSIGN_API_URL=https://agentink-pied.vercel.app
-export AGENTSIGN_API_KEY=ak_local_dev_key_change_me
-export AGENTSIGN_SENDER_EMAIL=janak@usebear.ai
-export AGENTSIGN_SENDER_NAME="Bear AI"
+export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
+export AGENTCONTRACT_API_KEY=<your production API key>
+export AGENTCONTRACT_SENDER_EMAIL=janak@usebear.ai
+export AGENTCONTRACT_SENDER_NAME="Bear AI"
 
 npm run cli -- send-mnda \
   --from janak@usebear.ai \
@@ -196,7 +242,7 @@ Open the browser template UI:
 open http://localhost:3000/templates/bear-privacy
 ```
 
-The privacy document body is fixed to the local PDF named `Bear AI Privacy Policy with Jason Zeng.pdf`. The reusable template intentionally does not copy Jason's Common Paper audit block; it only uses the policy text and adds a fresh AgentSign audit trail for each new recipient.
+The privacy document body is fixed to the local PDF named `Bear AI Privacy Policy with Jason Zeng.pdf`. The reusable template intentionally does not copy Jason's Common Paper audit block; it only uses the policy text and adds a fresh AgentContract audit trail for each new recipient.
 
 The fixed policy values are:
 

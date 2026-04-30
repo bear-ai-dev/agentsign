@@ -15,7 +15,7 @@ const SIGN_HTML = String.raw`<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{document_title}} | AgentSign</title>
+  <title>{{document_title}} | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { color-scheme: light; }
@@ -64,7 +64,7 @@ const SIGN_HTML = String.raw`<!doctype html>
   <main class="shell">
     <header class="topbar">
       <div>
-        <div class="brand">AgentSign</div>
+        <div class="brand">AgentContract</div>
         <h1 class="m-0 text-xl font-semibold tracking-normal">{{document_title}}</h1>
       </div>
       <span class="status-pill">Review and sign</span>
@@ -154,7 +154,7 @@ const PREVIEW_HTML = String.raw`<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{document_title}} | AgentSign Preview</title>
+  <title>{{document_title}} | AgentContract Preview</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -169,7 +169,7 @@ const PREVIEW_HTML = String.raw`<!doctype html>
   <main class="mx-auto max-w-4xl px-4 py-6 sm:py-8">
     <header class="mb-4 flex items-center justify-between gap-4">
       <div>
-        <p class="text-xs font-bold uppercase tracking-widest text-slate-500">AgentSign preview</p>
+        <p class="text-xs font-bold uppercase tracking-widest text-slate-500">AgentContract preview</p>
         <h1 class="text-xl font-semibold tracking-normal">{{document_title}}</h1>
       </div>
       <a class="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700" href="/sign/{{token}}">Go to signing</a>
@@ -343,7 +343,7 @@ sign.post("/sign/:token/submit", async (c) => {
       });
       await addAuditEvent({ agreementId: completed.id, eventType: "notification_sent", data: { to: notificationEmails } });
     } catch (error) {
-      console.error("[AgentSign completion notification failed]", error);
+      console.error("[AgentContract completion notification failed]", error);
       await addAuditEvent({
         agreementId: completed.id,
         eventType: "notification_failed",

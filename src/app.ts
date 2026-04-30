@@ -10,10 +10,10 @@ export const app = new Hono();
 
 app.use("*", logger());
 app.onError((error, c) => {
-  console.error("[AgentSign error]", error);
+  console.error("[AgentContract error]", error);
   return c.text("Internal Server Error", 500);
 });
-app.get("/", (c) => c.json({ name: "AgentSign", version: "0.1.0", ok: true }));
+app.get("/", (c) => c.json({ name: "AgentContract", version: "0.1.0", ok: true }));
 app.get("/favicon.ico", (c) => new Response(null, { status: 204 }));
 app.route("/", auth);
 app.route("/", agreements);

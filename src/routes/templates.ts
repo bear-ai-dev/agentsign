@@ -71,7 +71,7 @@ function renderPrivacyTemplatePage(c: Context) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Specific Privacy Policy | AgentSign</title>
+  <title>Specific Privacy Policy | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -241,7 +241,7 @@ templates.get("/templates/bear-contractor", (c) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bear Contractor Agreement | AgentSign</title>
+  <title>Bear Contractor Agreement | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }

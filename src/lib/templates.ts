@@ -1,8 +1,10 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { FieldDefinition } from "./types.js";
 
 const templateNames = new Set(["nda", "privacy", "contractor"]);
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 export type TemplateVariable = {
   key: string;
@@ -80,7 +82,19 @@ export function loadTemplate(name: string): string {
   if (!templateNames.has(name)) {
     throw new Error(`Unknown template: ${name}`);
   }
-  return readFileSync(join(process.cwd(), "src", "templates", `${name}.md`), "utf8");
+
+  const filename = `${name}.md`;
+  const candidates = [
+    join(moduleDir, "..", "templates", filename),
+    join(process.cwd(), "src", "templates", filename),
+    join(process.cwd(), "dist", "src", "templates", filename)
+  ];
+  const path = candidates.find((candidate) => existsSync(candidate));
+  if (!path) {
+    throw new Error(`Template ${filename} was not found. Rebuild the package or reinstall AgentContract.`);
+  }
+
+  return readFileSync(path, "utf8");
 }
 
 export function defaultTemplateVars(definition: TemplateDefinition) {

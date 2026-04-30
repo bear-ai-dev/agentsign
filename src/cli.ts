@@ -10,8 +10,8 @@ import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "./lib/templa
 
 type Args = Record<string, string | boolean | string[]>;
 
-const defaultApiUrl = process.env.AGENTSIGN_API_URL ?? process.env.AGENTINK_API_URL ?? "https://agentink-pied.vercel.app";
-const defaultApiKey = process.env.AGENTSIGN_API_KEY ?? process.env.AGENTINK_API_KEY;
+const defaultApiUrl = process.env.AGENTCONTRACT_API_URL ?? process.env.AGENTSIGN_API_URL ?? process.env.AGENTINK_API_URL ?? "https://agentink-pied.vercel.app";
+const defaultApiKey = process.env.AGENTCONTRACT_API_KEY ?? process.env.AGENTSIGN_API_KEY ?? process.env.AGENTINK_API_KEY;
 const bearDefaults = {
   companyName: "Bear AI",
   senderEmail: "sid@usebear.ai",
@@ -44,20 +44,24 @@ class CliError extends Error {
 }
 
 function usage() {
-  console.log(`AgentSign CLI
+  console.log(`AgentContract CLI
 
 Usage:
-  agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
-  agentsign bear-mnda --to jane@example.com --name "Jane Doe" [options]
-  agentsign specific-privacy --to jane@example.com --name "Jane Doe" [options]
-  agentsign bear-privacy --to jane@example.com --name "Jane Doe" [options]
-  agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
-  agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
-  agentsign send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor --var rate=150 [options]
-  agentsign preview --template contractor --var company_name="Bear AI" --var rate=150 --open
-  agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
-  agentsign view <agreement_id> --open
-  agentsign status <agreement_id> [options]
+  agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
+  agentcontract bulk-marketplace-onboard --file contributors.json [options]
+  agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
+  agentcontract bear-mnda --to jane@example.com --name "Jane Doe" [options]
+  agentcontract specific-privacy --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
+  agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor --var rate=150 [options]
+  agentcontract preview --template contractor --var company_name="Bear AI" --var rate=150 --open
+  agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
+  agentcontract doctor [options]
+  agentcontract view <agreement_id> --open
+  agentcontract status <agreement_id> [options]
+
+The legacy "agentsign" command name is also supported when installed from npm.
 
 Sender / Receiver:
   --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
@@ -68,8 +72,8 @@ Sender / Receiver:
   --notify <email[,email]>           Override who gets emailed when the agreement is signed
 
 Options:
-  --api-url <url>                    API base URL. Defaults to AGENTSIGN_API_URL or ${defaultApiUrl}
-  --api-key <key>                    API key. Defaults to AGENTSIGN_API_KEY or AGENTINK_API_KEY
+  --api-url <url>                    API base URL. Defaults to AGENTCONTRACT_API_URL or ${defaultApiUrl}
+  --api-key <key>                    API key. Defaults to AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY
   --webhook-url <url>                Machine webhook for agreement.completed
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor
   --var <key=value>                  Template variable. Repeatable
@@ -92,7 +96,8 @@ Options:
   --json                             Print raw JSON only
 
 Environment:
-  AGENTSIGN_API_URL, AGENTSIGN_API_KEY, AGENTSIGN_SENDER_EMAIL, AGENTSIGN_SENDER_NAME, AGENTSIGN_NOTIFY_EMAIL
+  AGENTCONTRACT_API_URL, AGENTCONTRACT_API_KEY, AGENTCONTRACT_SENDER_EMAIL, AGENTCONTRACT_SENDER_NAME, AGENTCONTRACT_NOTIFY_EMAIL
+  Legacy aliases: AGENTSIGN_API_URL, AGENTSIGN_API_KEY, AGENTSIGN_SENDER_EMAIL, AGENTSIGN_SENDER_NAME, AGENTSIGN_NOTIFY_EMAIL
 
 Bulk JSON can be either an array of recipients or { "recipients": [...] }.
 Each recipient should have "name" and "email".`);
@@ -174,7 +179,7 @@ function apiConfig(args: Args, requireKey = true) {
   const apiKey = stringArg(args, "api-key") ?? defaultApiKey;
   if (requireKey && !apiKey) {
     throw new CliError(
-      "API key missing. Set AGENTSIGN_API_KEY or pass --api-key.",
+      "API key missing. Set AGENTCONTRACT_API_KEY, AGENTSIGN_API_KEY, or pass --api-key.",
       "For a non-sending preview, run the same command with --dry-run."
     );
   }
@@ -252,18 +257,18 @@ function jsonOutput(args: Args) {
 }
 
 function senderEmail(args: Args) {
-  return cleanString(stringArg(args, "from", "sender-email")) ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL);
+  return cleanString(stringArg(args, "from", "sender-email")) ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL) ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL);
 }
 
 function senderName(args: Args, fallback?: string) {
-  return cleanString(stringArg(args, "sender-name")) ?? cleanString(process.env.AGENTSIGN_SENDER_NAME) ?? fallback;
+  return cleanString(stringArg(args, "sender-name")) ?? cleanString(process.env.AGENTCONTRACT_SENDER_NAME) ?? cleanString(process.env.AGENTSIGN_SENDER_NAME) ?? fallback;
 }
 
 function receiverName(args: Args) {
   return requireArg(
     stringArg(args, "name", "receiver-name"),
     "--name / --receiver-name",
-    'Example: agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"'
+    'Example: agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"'
   );
 }
 
@@ -271,12 +276,13 @@ function receiverEmail(args: Args) {
   return requireArg(
     stringArg(args, "to", "email", "receiver-email"),
     "--to / --email / --receiver-email",
-    'Example: agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe"'
+    'Example: agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe"'
   );
 }
 
 function notificationArgs(args: Args, defaultEmail?: string) {
   const notify = listArg(args, "notify");
+  if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL));
   if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL));
   if (notify.length === 0 && defaultEmail) notify.push(defaultEmail);
   return notify;
@@ -396,7 +402,7 @@ function withCustomContractArgs(args: Args, payload: AgreementPayload) {
 }
 
 function baseMndaPayload(args: Args) {
-  const company = requireArg(stringArg(args, "company"), "--company", 'Example: agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"');
+  const company = requireArg(stringArg(args, "company"), "--company", 'Example: agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"');
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "nda",
@@ -406,7 +412,7 @@ function baseMndaPayload(args: Args) {
       term_years: Number(stringArg(args, "term-years") ?? 2)
     },
     fields: mndaFields(),
-    metadata: { source: "agentsign-cli" }
+    metadata: { source: "agentcontract-cli" }
   });
 }
 
@@ -419,7 +425,7 @@ function basePrivacyPayload(args: Args) {
       effective_date: stringArg(args, "effective-date") ?? specificPrivacyDefaults.effectiveDate
     },
     fields: privacyFields(),
-    metadata: { source: "agentsign-cli", template_kind: "privacy_policy", company }
+    metadata: { source: "agentcontract-cli", template_kind: "privacy_policy", company }
   });
 }
 
@@ -442,7 +448,7 @@ function baseContractPayload(args: Args) {
       ...templateVarsFromArgs(args)
     },
     fields: defaultFieldsFor(template),
-    metadata: { source: "agentsign-cli", template_kind: template ?? "custom_markdown" }
+    metadata: { source: "agentcontract-cli", template_kind: template ?? "custom_markdown" }
   });
 }
 
@@ -477,19 +483,19 @@ function baseBearContractorPayload(args: Args) {
   if (!scope) {
     throw new CliError(
       "--scope is required for Bear contractor agreements",
-      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 --preview --open'
+      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 --preview --open'
     );
   }
   if (!rate) {
     throw new CliError(
       "--rate is required for Bear contractor agreements",
-      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
+      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
     );
   }
   if (!startDate) {
     throw new CliError(
       "--start-date is required for Bear contractor agreements",
-      'Example: agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
+      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
     );
   }
 
@@ -509,7 +515,7 @@ function baseBearContractorPayload(args: Args) {
     },
     fields: contractorFields(),
     metadata: {
-      source: "agentsign-cli",
+      source: "agentcontract-cli",
       workflow: "bear_contractor_onboarding",
       company: bearDefaults.companyName
     }
@@ -530,7 +536,7 @@ function previewHtmlFor(payload: AgreementPayload) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(title)} | AgentSign Preview</title>
+  <title>${escapeHtml(title)} | AgentContract Preview</title>
   <style>
     body { margin: 0; background: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     main { width: min(100% - 32px, 820px); margin: 32px auto; }
@@ -542,7 +548,7 @@ function previewHtmlFor(payload: AgreementPayload) {
     hr { border: 0; border-top: 1px solid #e2e8f0; margin: 28px 0; }
   </style>
 </head>
-<body><main><header>AgentSign contract preview</header><article>${html}</article></main></body>
+<body><main><header>AgentContract preview</header><article>${html}</article></main></body>
 </html>`;
 }
 
@@ -556,7 +562,7 @@ function escapeHtml(value: unknown) {
 }
 
 function writePreview(payload: AgreementPayload, args: Args) {
-  const output = resolve(stringArg(args, "preview-file", "output-file", "out") ?? join(tmpdir(), "agentsign-preview.html"));
+  const output = resolve(stringArg(args, "preview-file", "output-file", "out") ?? join(tmpdir(), "agentcontract-preview.html"));
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, previewHtmlFor(payload));
   if (args.open) openTarget(output);
@@ -687,7 +693,7 @@ async function sendBearPrivacy(args: Args) {
     ...baseBearPrivacyPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("specific-privacy", apiUrl, "/v1/agreements", payload);
+  if (dryRun(args)) return dryRunResult(String(args.command_name ?? "specific-privacy"), apiUrl, "/v1/agreements", payload);
   const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
@@ -737,7 +743,7 @@ function normalizeBulkRecipients(parsed: unknown) {
 
 async function bulkMnda(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
-  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentsign bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
   const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
   const base = baseMndaPayload(args);
   const payload = {
@@ -756,10 +762,64 @@ async function bulkMnda(args: Args) {
   return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
 }
 
+async function bulkMarketplaceOnboard(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-marketplace-onboard --file contributors.json --from sid@usebear.ai");
+  const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
+  const base = baseBearPrivacyPayload(args);
+  const payload = {
+    recipients,
+    template_vars_default: base.template_vars,
+    ...base
+  };
+  delete (payload as { template_vars?: unknown }).template_vars;
+  if (args.preview) {
+    return writePreview({
+      recipient: { name: recipients[0].name, email: recipients[0].email },
+      ...base
+    }, args);
+  }
+  if (dryRun(args)) return dryRunResult("bulk-marketplace-onboard", apiUrl, "/v1/agreements/bulk", payload);
+  return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
+}
+
+async function doctor(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, false);
+  const root = await fetch(apiUrl).then(async (response) => ({
+    ok: response.ok,
+    status: response.status,
+    body: await response.json().catch(() => null)
+  })).catch((error: unknown) => ({
+    ok: false,
+    status: null,
+    error: error instanceof Error ? error.message : String(error)
+  }));
+
+  const template = apiKey
+    ? await getJson(apiUrl, apiKey, "/v1/templates/privacy").then((result) => ({
+      ok: true,
+      name: typeof result === "object" && result && "template" in result
+        ? (result as { template?: { name?: string } }).template?.name
+        : undefined
+    })).catch((error: unknown) => ({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }))
+    : { ok: false, error: "AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY is not set" };
+
+  return {
+    cli: "agentcontract",
+    api_url: apiUrl,
+    api_key_present: Boolean(apiKey),
+    api: root,
+    privacy_template: template
+  };
+}
+
 async function status(args: Args, positional: string[]) {
   const { apiUrl, apiKey } = apiConfig(args);
   const id = positional[0];
-  if (!id) throw new CliError("agreement_id is required", "Example: agentsign status agr_123");
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract status agr_123");
   return getJson(apiUrl, apiKey, `/v1/agreements/${id}`);
 }
 
@@ -797,20 +857,24 @@ async function main() {
     result = await sendContract(args);
   } else if (command === "bear-mnda" || command === "send-bear-mnda") {
     result = await sendBearMnda(args);
-  } else if (command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
-    result = await sendBearPrivacy(args);
+  } else if (command === "marketplace-onboard" || command === "onboard-contributor" || command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
+    result = await sendBearPrivacy({ ...args, command_name: command });
   } else if (command === "bear-contractor" || command === "send-bear-contractor") {
     result = await sendBearContractor(args);
   } else if (command === "preview") {
     result = await preview(args);
   } else if (command === "bulk-mnda" || command === "bulk-nda") {
     result = await bulkMnda(args);
+  } else if (command === "bulk-marketplace-onboard" || command === "bulk-onboard-contributors") {
+    result = await bulkMarketplaceOnboard(args);
+  } else if (command === "doctor") {
+    result = await doctor(args);
   } else if (command === "view") {
     result = await view(args, positional);
   } else if (command === "status") {
     result = await status(args, positional);
   } else {
-    throw new CliError(`Unknown command: ${command}`, "Run agentsign help to see available commands.");
+    throw new CliError(`Unknown command: ${command}`, "Run agentcontract help to see available commands.");
   }
 
   printResult(result, jsonOutput(args));

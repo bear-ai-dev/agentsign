@@ -1,17 +1,47 @@
 {
-  "name": "agentsign",
+  "name": "@bear-ai-dev/agentcontract",
   "version": "0.1.0",
-  "private": true,
+  "description": "Agent-native contract sending CLI and signing API for marketplace onboarding.",
+  "private": false,
   "type": "module",
   "bin": {
+    "agentcontract": "dist/src/cli.js",
     "agentsign": "dist/src/cli.js"
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "src/templates",
+    "README.md",
+    ".env.example"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bear-ai-dev/agentsign.git"
+  },
+  "keywords": [
+    "contracts",
+    "esign",
+    "cli",
+    "marketplace",
+    "onboarding",
+    "agents"
+  ],
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "cli": "tsx src/cli.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "migrate": "tsx scripts/migrate.ts"
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "start": "node dist/src/index.js",
+    "migrate": "tsx scripts/migrate.ts",
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.8",
