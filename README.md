@@ -83,6 +83,55 @@ agentcontract marketplace-onboard \
   --json
 ```
 
+## CLI contract library
+
+The CLI has a local contract workspace for reusable contracts. It stores editable markdown and metadata under `~/.agentcontract/contracts` by default. Override that with `AGENTCONTRACT_CONTRACTS_DIR` or `--contract-dir`.
+
+List current contracts before sending:
+
+```bash
+agentcontract contracts
+agentcontract contract show privacy --markdown
+```
+
+Create a new reusable contract from markdown and signing fields:
+
+```bash
+agentcontract contract add partner-msa \
+  --markdown-file ./contracts/partner-msa.md \
+  --fields-file ./contracts/signing-fields.json \
+  --var company_name="Bear AI" \
+  --var effective_date=2026-04-29
+```
+
+Seed a new contract from a built-in, then edit it:
+
+```bash
+agentcontract contract add marketplace-mnda --from-template nda --var company_name="Specific Marketplace"
+agentcontract contract edit marketplace-mnda
+```
+
+Editing a built-in such as `privacy` automatically creates a local copy first, so package files stay untouched:
+
+```bash
+agentcontract contract edit privacy
+```
+
+Preview the edited contract, then send it:
+
+```bash
+agentcontract contract preview marketplace-mnda \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --open
+
+agentcontract contract send marketplace-mnda \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --cc sid@usebear.ai \
+  --json
+```
+
 ## WorkOS Auth
 
 The sender/admin UI routes under `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public.

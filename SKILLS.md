@@ -50,10 +50,63 @@ agentcontract doctor --json
 ## Default Workflow
 
 1. Preview or dry-run first.
-2. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
-3. Use `--json` for all agent-to-agent or script usage.
-4. Store the returned `id`, `signing_url`, and `webhook_secret` in the calling system if a webhook is configured.
-5. Check status with `agentcontract status <agreement_id> --json`.
+2. List or inspect the contract before sending if the human did not specify an exact contract id.
+3. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
+4. Use `--json` for all agent-to-agent or script usage.
+5. Store the returned `id`, `signing_url`, and `webhook_secret` in the calling system if a webhook is configured.
+6. Check status with `agentcontract status <agreement_id> --json`.
+
+## Contract Library
+
+List current contracts:
+
+```bash
+agentcontract contracts --json
+```
+
+Inspect the exact text before sending:
+
+```bash
+agentcontract contract show privacy --markdown
+```
+
+Add a reusable contract from markdown:
+
+```bash
+agentcontract contract add partner-msa \
+  --markdown-file ./contracts/partner-msa.md \
+  --fields-file ./contracts/signing-fields.json \
+  --var company_name="Bear AI" \
+  --var effective_date=2026-04-29 \
+  --json
+```
+
+Seed from a built-in contract and edit the local copy:
+
+```bash
+agentcontract contract add marketplace-mnda --from-template nda --var company_name="Specific Marketplace"
+agentcontract contract edit marketplace-mnda
+```
+
+Editing a built-in id creates a local editable copy:
+
+```bash
+agentcontract contract edit privacy
+```
+
+Preview and send a saved contract:
+
+```bash
+agentcontract contract preview partner-msa \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --open
+
+agentcontract contract send partner-msa \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --json
+```
 
 ## Send Specific Marketplace Privacy Acknowledgement
 

@@ -2,11 +2,11 @@
 
 import "dotenv/config";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { marked } from "marked";
-import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "./lib/templates.js";
+import { applyTemplateVars, defaultTemplateVars, loadTemplate, templateDefinitions, titleFromMarkdown } from "./lib/templates.js";
 
 type Args = Record<string, string | boolean | string[]>;
 type CliConfig = {
@@ -16,10 +16,26 @@ type CliConfig = {
   sender_name?: string;
   notify_email?: string[];
 };
+type SavedContractDefinition = {
+  id: string;
+  name: string;
+  description?: string;
+  fields: Array<Record<string, unknown>>;
+  template_vars_default?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  source?: string;
+};
+type ContractDefinitionForCli = SavedContractDefinition & {
+  kind: "built-in" | "local";
+  markdown: string;
+  path?: string;
+};
 
 const cliVersion = "0.1.0";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
+const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
 let configLoadError: string | undefined;
 const cliConfig = loadCliConfig();
 const defaultApiUrl = cleanString(process.env.AGENTCONTRACT_API_URL)
@@ -113,12 +129,158 @@ function publicConfig(showSecrets = false, config: CliConfig = cliConfig) {
   };
 }
 
+function contractLibraryDir(args: Args = {}) {
+  return resolve(stringArg(args, "contract-dir", "contracts-dir") ?? contractsDir);
+}
+
+function assertContractId(value: string | undefined) {
+  if (!value) {
+    throw new CliError("contract id is required", "Example: agentcontract contract show privacy");
+  }
+  if (!/^[a-z0-9][a-z0-9_-]{0,80}$/i.test(value)) {
+    throw new CliError("contract id must use letters, numbers, dashes, or underscores", "Example: partner-msa");
+  }
+  return value.toLowerCase();
+}
+
+function contractDir(id: string, args: Args = {}) {
+  return join(contractLibraryDir(args), id);
+}
+
+function contractMetaPath(id: string, args: Args = {}) {
+  return join(contractDir(id, args), "contract.json");
+}
+
+function contractMarkdownPath(id: string, args: Args = {}) {
+  return join(contractDir(id, args), "contract.md");
+}
+
+function builtInContract(id: string): ContractDefinitionForCli | undefined {
+  const definition = templateDefinitions[id as keyof typeof templateDefinitions];
+  if (!definition) return undefined;
+  return {
+    id: definition.id,
+    name: definition.name,
+    description: definition.description,
+    fields: definition.fields,
+    template_vars_default: defaultTemplateVars(definition),
+    created_at: "built-in",
+    updated_at: "built-in",
+    source: "built-in",
+    kind: "built-in",
+    markdown: loadTemplate(definition.id)
+  };
+}
+
+function builtInContracts() {
+  return Object.keys(templateDefinitions)
+    .map((id) => builtInContract(id))
+    .filter(Boolean) as ContractDefinitionForCli[];
+}
+
+function readLocalContract(id: string, args: Args = {}): ContractDefinitionForCli | undefined {
+  const metaPath = contractMetaPath(id, args);
+  const markdownPath = contractMarkdownPath(id, args);
+  if (!existsSync(metaPath) || !existsSync(markdownPath)) return undefined;
+  const parsed = parseJsonObjectFile(metaPath, `contract ${id} metadata`);
+  const meta = parsed as Partial<SavedContractDefinition>;
+  if (!meta.id || !meta.name || !Array.isArray(meta.fields)) {
+    throw new CliError(`Contract ${id} metadata is invalid`, `${metaPath} must include id, name, and fields.`);
+  }
+  return {
+    id: String(meta.id),
+    name: String(meta.name),
+    description: typeof meta.description === "string" ? meta.description : undefined,
+    fields: meta.fields as Array<Record<string, unknown>>,
+    template_vars_default: meta.template_vars_default && typeof meta.template_vars_default === "object" && !Array.isArray(meta.template_vars_default)
+      ? meta.template_vars_default as Record<string, unknown>
+      : {},
+    created_at: typeof meta.created_at === "string" ? meta.created_at : "",
+    updated_at: typeof meta.updated_at === "string" ? meta.updated_at : "",
+    source: typeof meta.source === "string" ? meta.source : undefined,
+    kind: "local",
+    markdown: readTextFile(markdownPath, `contract ${id} markdown`),
+    path: markdownPath
+  };
+}
+
+function readLocalContracts(args: Args = {}) {
+  const dir = contractLibraryDir(args);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      try {
+        return readLocalContract(entry.name, args);
+      } catch {
+        return undefined;
+      }
+    })
+    .filter(Boolean) as ContractDefinitionForCli[];
+}
+
+function loadContract(id: string, args: Args = {}) {
+  const contract = readLocalContract(id, args) ?? builtInContract(id);
+  if (!contract) {
+    throw new CliError(`Unknown contract: ${id}`, "Run agentcontract contracts to see available contracts.");
+  }
+  return contract;
+}
+
+function contractSummary(contract: ContractDefinitionForCli) {
+  return {
+    id: contract.id,
+    name: contract.name,
+    kind: contract.kind,
+    description: contract.description,
+    variables: Object.keys(contract.template_vars_default ?? {}),
+    fields: contract.fields.map((field) => ({
+      id: field.id,
+      type: field.type,
+      required: field.required === true
+    })),
+    path: contract.path
+  };
+}
+
+function extractTemplateVariables(markdown: string) {
+  const variables = new Set<string>();
+  for (const match of markdown.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) {
+    const key = match[1];
+    if (key !== "recipient_name" && key !== "recipient_email") variables.add(key);
+  }
+  return [...variables].sort();
+}
+
+function defaultContractVars(markdown: string, seed: Record<string, unknown> = {}) {
+  return {
+    ...Object.fromEntries(extractTemplateVariables(markdown).map((key) => [key, ""])),
+    ...seed
+  };
+}
+
+function writeLocalContract(contract: SavedContractDefinition, markdown: string, args: Args = {}) {
+  const id = assertContractId(contract.id);
+  const dir = contractDir(id, args);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  writeFileSync(contractMarkdownPath(id, args), markdown);
+  writeFileSync(contractMetaPath(id, args), `${JSON.stringify({ ...contract, id }, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(contractMetaPath(id, args), 0o600);
+  return readLocalContract(id, args)!;
+}
+
 function usage() {
   console.log(`AgentContract CLI
 
 Usage:
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
+  agentcontract contracts
+  agentcontract contract show privacy
+  agentcontract contract add partner-msa --markdown-file ./partner-msa.md --fields-file ./fields.json
+  agentcontract contract edit partner-msa
+  agentcontract contract preview partner-msa --var company_name="Bear AI" --open
+  agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
   agentcontract bulk-marketplace-onboard --file contributors.json [options]
   agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
@@ -140,6 +302,8 @@ Setup:
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract config path             Print the config path
+  agentcontract contracts               List built-in and local reusable contracts
+  agentcontract contract edit <id>      Open a contract markdown file in $EDITOR
 
 Sender / Receiver:
   --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
@@ -160,6 +324,9 @@ Options:
   --vars-file <path>                 Template variables JSON file
   --markdown-file <path>             Custom markdown contract file
   --fields-file <path>               JSON field definitions file
+  --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
+  --contract-dir <path>              Override local contract library directory for this command
+  --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
   --preview                          Render local HTML preview instead of sending
   --preview-file <path>              Where to write preview HTML
   --open                             Open preview/signing URL in the browser
@@ -835,6 +1002,60 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
+  if (typeof result === "object" && result && "contracts" in result && Array.isArray(result.contracts)) {
+    const catalog = result as { contracts_dir?: string; contracts: Array<{ id: string; name: string; kind: string; description?: string; variables?: string[]; path?: string }> };
+    console.log(`Contracts: ${catalog.contracts.length}`);
+    if (catalog.contracts_dir) console.log(`Local library: ${catalog.contracts_dir}`);
+    for (const contract of catalog.contracts) {
+      const variables = contract.variables?.length ? ` vars: ${contract.variables.join(", ")}` : "";
+      console.log(`${contract.id} [${contract.kind}] - ${contract.name}${variables}`);
+      if (contract.description) console.log(`  ${contract.description}`);
+      if (contract.path) console.log(`  ${contract.path}`);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "contract_saved" in result) {
+    const saved = result as unknown as { contract: { id: string; name: string; kind: string }; markdown_path: string; metadata_path: string };
+    console.log(`Saved contract: ${saved.contract.id} - ${saved.contract.name}`);
+    console.log(`Markdown: ${saved.markdown_path}`);
+    console.log(`Metadata: ${saved.metadata_path}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "contract_edit" in result) {
+    const edit = result as unknown as { contract: { id: string; name: string }; cloned_from_builtin?: boolean; markdown_path: string; metadata_path: string; editor_opened?: boolean; hint?: string };
+    console.log(`${edit.cloned_from_builtin ? "Created editable copy" : "Editable contract"}: ${edit.contract.id} - ${edit.contract.name}`);
+    console.log(`Markdown: ${edit.markdown_path}`);
+    console.log(`Metadata: ${edit.metadata_path}`);
+    if (edit.editor_opened) console.log("Editor opened");
+    if (edit.hint) console.log(`Next: ${edit.hint}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "contract" in result) {
+    const detail = result as { contract: { id: string; name: string; kind: string; description?: string; variables?: string[]; path?: string; fields?: Array<{ id?: unknown; type?: unknown; required?: boolean }> }; template_vars_default?: Record<string, unknown>; markdown?: string };
+    console.log(`${detail.contract.id} [${detail.contract.kind}] - ${detail.contract.name}`);
+    if (detail.contract.description) console.log(detail.contract.description);
+    if (detail.contract.path) console.log(`Path: ${detail.contract.path}`);
+    if (detail.contract.variables?.length) console.log(`Variables: ${detail.contract.variables.join(", ")}`);
+    if (detail.contract.fields?.length) {
+      console.log("Fields:");
+      for (const field of detail.contract.fields) {
+        console.log(`  ${field.id ?? ""} (${field.type ?? "text"}${field.required ? ", required" : ""})`);
+      }
+    }
+    if (detail.template_vars_default && Object.keys(detail.template_vars_default).length) {
+      console.log("Default vars:");
+      console.log(JSON.stringify(detail.template_vars_default, null, 2));
+    }
+    if (detail.markdown) {
+      console.log("\n--- markdown ---\n");
+      console.log(detail.markdown);
+    }
+    return;
+  }
+
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
     console.log(`Sent ${result.agreements.length} agreements`);
     for (const agreement of result.agreements) {
@@ -945,6 +1166,183 @@ async function preview(args: Args) {
     ...baseContractPayload(args)
   };
   return writePreview(payload, { ...args, preview: true });
+}
+
+function contractPayload(args: Args, contract: ContractDefinitionForCli, requireRecipient: boolean) {
+  const recipientName = requireRecipient
+    ? receiverName(args)
+    : stringArg(args, "name", "receiver-name") ?? "Preview Recipient";
+  const recipientEmail = requireRecipient
+    ? receiverEmail(args)
+    : stringArg(args, "to", "email", "receiver-email")
+      ? validateEmail(stringArg(args, "to", "email", "receiver-email")!, "--to / receiver email")
+      : "preview@example.com";
+  return {
+    recipient: { name: recipientName, email: recipientEmail },
+    ...sharedSendOptions(args),
+    document_markdown: contract.markdown,
+    template_vars: {
+      ...(contract.template_vars_default ?? {}),
+      ...templateVarsFromArgs(args)
+    },
+    fields: fieldsFromArgs(args, contract.fields),
+    metadata: {
+      source: "agentcontract-cli",
+      workflow: "contract_library",
+      contract_id: contract.id,
+      contract_kind: contract.kind,
+      contract_name: contract.name
+    }
+  };
+}
+
+async function listContracts(args: Args) {
+  const local = readLocalContracts(args);
+  const localIds = new Set(local.map((contract) => contract.id));
+  return {
+    contracts_dir: contractLibraryDir(args),
+    contracts: [
+      ...local.map(contractSummary),
+      ...builtInContracts()
+        .filter((contract) => !localIds.has(contract.id))
+        .map(contractSummary)
+    ]
+  };
+}
+
+async function showContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const contract = loadContract(id, args);
+  return {
+    contract: contractSummary(contract),
+    template_vars_default: contract.template_vars_default ?? {},
+    markdown: args.markdown || args.raw ? contract.markdown : undefined
+  };
+}
+
+async function addContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const fromTemplate = stringArg(args, "from-template", "template");
+  if (fromTemplate && !builtInContract(fromTemplate)) {
+    throw new CliError(`Unknown built-in template: ${fromTemplate}`, "Use nda, privacy, or contractor.");
+  }
+  const existingLocal = readLocalContract(id, args);
+  const existingBuiltIn = builtInContract(id);
+  if ((existingLocal || existingBuiltIn) && !args.force) {
+    throw new CliError(
+      `Contract ${id} already exists${existingBuiltIn && !existingLocal ? " as a built-in contract" : ""}.`,
+      "Choose a new id or pass --force to create/replace the local copy."
+    );
+  }
+
+  const seeded = fromTemplate ? builtInContract(fromTemplate)! : undefined;
+  const markdown = markdownFromArgs(args) ?? seeded?.markdown;
+  if (!markdown) {
+    throw new CliError(
+      "--markdown-file or --from-template is required",
+      "Example: agentcontract contract add partner-msa --markdown-file ./partner-msa.md"
+    );
+  }
+
+  const now = new Date().toISOString();
+  const vars = defaultContractVars(markdown, {
+    ...(seeded?.template_vars_default ?? {}),
+    ...templateVarsFromArgs(args)
+  });
+  const fallbackFields = seeded?.fields ?? defaultFieldsFor(stringArg(args, "field-preset") ?? "nda");
+  const contract = writeLocalContract({
+    id,
+    name: stringArg(args, "contract-name", "title") ?? stringArg(args, "name") ?? seeded?.name ?? titleFromMarkdown(applyTemplateVars(markdown, vars)),
+    description: stringArg(args, "description") ?? seeded?.description,
+    fields: fieldsFromArgs(args, fallbackFields),
+    template_vars_default: vars,
+    created_at: existingLocal?.created_at || now,
+    updated_at: now,
+    source: fromTemplate ? `built-in:${fromTemplate}` : stringArg(args, "source") ?? "local"
+  }, markdown, args);
+
+  return {
+    contract_saved: true,
+    contract: contractSummary(contract),
+    template_vars_default: contract.template_vars_default,
+    markdown_path: contract.path,
+    metadata_path: contractMetaPath(id, args)
+  };
+}
+
+async function editContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  let contract = readLocalContract(id, args);
+  let cloned = false;
+  if (!contract) {
+    const builtIn = builtInContract(id);
+    if (!builtIn) throw new CliError(`Unknown contract: ${id}`, "Run agentcontract contracts to see available contracts.");
+    const now = new Date().toISOString();
+    contract = writeLocalContract({
+      id: builtIn.id,
+      name: builtIn.name,
+      description: builtIn.description,
+      fields: builtIn.fields,
+      template_vars_default: builtIn.template_vars_default,
+      created_at: now,
+      updated_at: now,
+      source: `built-in:${builtIn.id}`
+    }, builtIn.markdown, args);
+    cloned = true;
+  }
+
+  const editor = stringArg(args, "editor") ?? process.env.VISUAL ?? process.env.EDITOR;
+  const shouldOpenEditor = !args["no-open"] && !args["print-path"] && !jsonOutput(args) && editor;
+  if (shouldOpenEditor) {
+    const result = spawnSync(editor, [contract.path!], { stdio: "inherit" });
+    if (result.error) throw new CliError(`Could not open editor ${editor}: ${result.error.message}`);
+    if (result.status && result.status !== 0) throw new CliError(`Editor exited with status ${result.status}`);
+    const current = readLocalContract(id, args)!;
+    writeLocalContract({ ...current, updated_at: new Date().toISOString() }, readTextFile(contract.path!, `contract ${id} markdown`), args);
+    contract = readLocalContract(id, args)!;
+  } else if (args.open) {
+    openTarget(contract.path!);
+  }
+
+  return {
+    contract_edit: true,
+    cloned_from_builtin: cloned,
+    contract: contractSummary(contract),
+    markdown_path: contract.path,
+    metadata_path: contractMetaPath(id, args),
+    editor_opened: Boolean(shouldOpenEditor || args.open),
+    hint: shouldOpenEditor || args.open ? undefined : `Edit ${contract.path} and then run agentcontract contract preview ${id} --open`
+  };
+}
+
+async function previewContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const contract = loadContract(id, args);
+  return writePreview(contractPayload(args, contract, false), { ...args, preview: true });
+}
+
+async function sendSavedContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const contract = loadContract(id, args);
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = contractPayload(args, contract, true);
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return dryRunResult("contract send", apiUrl, "/v1/agreements", payload);
+  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function contractCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "list";
+  const rest = positional.slice(1);
+  if (action === "list" || action === "ls") return listContracts(args);
+  if (action === "show" || action === "inspect" || action === "cat") return showContract(args, rest);
+  if (action === "add" || action === "new" || action === "import") return addContract(args, rest);
+  if (action === "edit") return editContract(args, rest);
+  if (action === "preview" || action === "review") return previewContract(args, rest);
+  if (action === "send") return sendSavedContract(args, rest);
+  throw new CliError(`Unknown contract command: ${action}`, "Run agentcontract help to see contract commands.");
 }
 
 function normalizeBulkRecipients(parsed: unknown) {
@@ -1191,6 +1589,10 @@ async function main() {
     result = await initConfig(args);
   } else if (command === "config") {
     result = await configCommand(args, positional);
+  } else if (command === "contracts" || command === "contract-list") {
+    result = await listContracts(args);
+  } else if (command === "contract" || command === "contracts-lib") {
+    result = await contractCommand(args, positional);
   } else if (command === "send-mnda" || command === "send-nda") {
     result = await sendMnda(args);
   } else if (command === "send-privacy") {
