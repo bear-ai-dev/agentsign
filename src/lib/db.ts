@@ -99,9 +99,15 @@ async function ensureSchema() {
   const exists = usePostgres
     ? await pool!.query("SELECT to_regclass('public.agreements') AS table_name").then((result) => result.rows[0]?.table_name)
     : sqlite!.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'agreements'").get();
-  if (exists) return;
+  if (!exists) {
+    await applyMigrationFile("001_init.sql");
+  }
 
-  const migrationPath = join(process.cwd(), "migrations", "001_init.sql");
+  await applyMigrationFile("002_api_keys.sql");
+}
+
+async function applyMigrationFile(filename: string) {
+  const migrationPath = join(process.cwd(), "migrations", filename);
   if (!existsSync(migrationPath)) {
     throw new Error(`Missing migration file: ${migrationPath}`);
   }
@@ -111,7 +117,8 @@ async function ensureSchema() {
       .replaceAll("CREATE TABLE agreements", "CREATE TABLE IF NOT EXISTS agreements")
       .replaceAll("CREATE TABLE audit_events", "CREATE TABLE IF NOT EXISTS audit_events")
       .replaceAll("CREATE TABLE webhook_deliveries", "CREATE TABLE IF NOT EXISTS webhook_deliveries")
-      .replaceAll("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ");
+      .replaceAll("CREATE TABLE api_keys", "CREATE TABLE IF NOT EXISTS api_keys")
+      .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
     await pool!.query(sql);
   } else {
     sqlite!.exec(sql);

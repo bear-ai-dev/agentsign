@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { agreements } from "./routes/agreements.js";
+import { apiKeys } from "./routes/apiKeys.js";
 import { auth } from "./routes/auth.js";
 import { sign } from "./routes/sign.js";
 import { templates } from "./routes/templates.js";
@@ -16,6 +17,7 @@ app.onError((error, c) => {
 app.get("/", (c) => c.json({ name: "AgentContract", version: "0.1.0", ok: true }));
 app.get("/favicon.ico", (c) => new Response(null, { status: 204 }));
 app.route("/", auth);
+app.route("/", apiKeys);
 app.route("/", agreements);
 app.route("/", sign);
 app.route("/", templates);

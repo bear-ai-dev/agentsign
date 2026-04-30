@@ -36,8 +36,8 @@ function redirectUri(c: Context) {
 }
 
 function safeReturnTo(value: string | undefined | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/templates/bear-contractor";
-  if (value.startsWith("/login") || value.startsWith("/auth/callback")) return "/templates/bear-contractor";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  if (value.startsWith("/login") || value.startsWith("/auth/callback")) return "/dashboard";
   return value;
 }
 

@@ -41,3 +41,16 @@ export type AuditEvent = {
 };
 
 export type SignedFields = Record<string, unknown>;
+
+export type ApiKeyRecord = {
+  id: string;
+  key_hash: string;
+  key_prefix: string;
+  last4: string;
+  name: string;
+  owner_id: string | null;
+  owner_email: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};

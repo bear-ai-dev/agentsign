@@ -24,13 +24,20 @@ npm install -g @bear-ai-dev/agentcontract
 Configure once. Never print or commit the API key.
 
 ```bash
-export AGENTCONTRACT_API_KEY=<production-api-key>
 agentcontract init \
   --api-url https://agentink-pied.vercel.app \
   --sender-email sid@usebear.ai \
   --sender-name "Sid from Specific" \
   --notify sid@usebear.ai
 ```
+
+To get the key, the human should sign in through WorkOS/Google Workspace at:
+
+```bash
+open https://agentink-pied.vercel.app/dashboard/api-keys
+```
+
+They create an API key there and paste it into `agentcontract init` using the generated `--api-key-stdin` command. The full key is shown once; AgentContract stores only a hash.
 
 When pulling from a secret manager, pipe the key instead of putting it in argv:
 

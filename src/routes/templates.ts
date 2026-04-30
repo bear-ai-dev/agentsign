@@ -192,6 +192,7 @@ async function renderDashboard(c: Context) {
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/bear-privacy">Privacy</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/nda">NDA</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/specific-contractor">Contractor</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/dashboard/api-keys">API Keys</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/logout">Sign out</a>
       </nav>
     </div>

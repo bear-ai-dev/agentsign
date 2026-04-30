@@ -21,7 +21,6 @@ After publishing:
 
 ```bash
 npm install -g @bear-ai-dev/agentcontract
-export AGENTCONTRACT_API_KEY=<your production API key>
 agentcontract init \
   --api-url https://agentink-pied.vercel.app \
   --sender-email sid@usebear.ai \
@@ -38,6 +37,15 @@ agentcontract doctor
 ```
 
 `agentcontract init` stores credentials in `~/.agentcontract/config.json` with file mode `0600`. Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe the key with `--api-key-stdin`.
+
+Sid gets his production API key from WorkOS auth:
+
+1. Open `https://agentink-pied.vercel.app/dashboard/api-keys`.
+2. Sign in with the Google Workspace account configured in WorkOS.
+3. Click **Create API Key**.
+4. Copy the key once and run the generated `agentcontract init --api-key-stdin` command.
+
+API keys created this way are stored as SHA-256 hashes and can be revoked from the same page. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use WorkOS-issued keys.
 
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
 
@@ -182,7 +190,7 @@ It shows the latest contracts, recipients, senders, status, read-only preview li
 
 ## WorkOS Auth
 
-The sender/admin UI routes under `/dashboard` and `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public.
+The sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google.
 
 Required production env vars:
 
@@ -198,6 +206,7 @@ In the WorkOS dashboard, configure:
 - Redirect URI: `https://agentink-pied.vercel.app/auth/callback`
 - Sign-in endpoint: `https://agentink-pied.vercel.app/login`
 - Sign-out redirect: `https://agentink-pied.vercel.app/`
+- Google Workspace / Google OAuth connection for the allowed company domain
 
 Generate a cookie password locally:
 
