@@ -17,6 +17,7 @@ agreements.use("/v1/*", requireApiKey);
 type CreateBody = {
   recipient?: { name?: string; email?: string; cc?: string | string[] };
   cc?: string | string[];
+  notification_email?: string | string[];
   template?: string;
   template_vars?: Record<string, unknown>;
   document_markdown?: string;
@@ -50,6 +51,11 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   const webhookSecret = body.webhook_url ? `whsec_${nanoid(32)}` : null;
   const createdAt = nowIso();
   const documentTitle = titleFromMarkdown(markdown);
+  const notificationEmails = normalizeEmailList(body.notification_email);
+  const metadata = {
+    ...(body.metadata ?? {}),
+    ...(notificationEmails.length ? { notification_email: notificationEmails } : {})
+  };
 
   await run(
     `INSERT INTO agreements (
@@ -64,7 +70,7 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     JSON.stringify(body.fields),
     body.webhook_url ?? null,
     webhookSecret,
-    body.metadata ? JSON.stringify(body.metadata) : null,
+    Object.keys(metadata).length ? JSON.stringify(metadata) : null,
     token,
     createdAt,
     createdAt
@@ -83,7 +89,7 @@ async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     signingUrl
   });
 
-  return { id, status: "sent", signing_url: signingUrl, webhook_secret: webhookSecret, created_at: createdAt };
+  return { id, status: "sent", signing_url: signingUrl, webhook_secret: webhookSecret, notification_email: notificationEmails, created_at: createdAt };
 }
 
 function agreementForApi(agreement: Agreement) {
@@ -123,6 +129,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
       template_vars_default?: Record<string, unknown>;
       recipients?: Array<{ name: string; email: string; cc?: string | string[]; template_vars?: Record<string, unknown>; metadata?: Record<string, unknown> }>;
       cc?: string | string[];
+      notification_email?: string | string[];
       fields?: FieldDefinition[];
       webhook_url?: string;
       metadata?: Record<string, unknown>;
@@ -137,6 +144,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         document_markdown: body.document_markdown,
         template_vars: { ...(body.template_vars_default ?? {}), ...(recipient.template_vars ?? {}) },
         cc: recipient.cc ?? body.cc,
+        notification_email: body.notification_email,
         fields: body.fields,
         webhook_url: body.webhook_url,
         metadata: { ...(body.metadata ?? {}), ...(recipient.metadata ?? {}) }

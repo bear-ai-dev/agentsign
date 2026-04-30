@@ -3,8 +3,9 @@ import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { marked } from "marked";
 import { addAuditEvent, getAgreementByToken, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
+import { sendCompletionEmail } from "../lib/email.js";
 import { renderPDF } from "../lib/pdf.js";
-import type { FieldDefinition, SignedFields } from "../lib/types.js";
+import type { Agreement, FieldDefinition, SignedFields } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
 
 export const sign = new Hono();
@@ -14,7 +15,7 @@ const SIGN_HTML = String.raw`<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{document_title}} | AgentInk</title>
+  <title>{{document_title}} | AgentSign</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .contract h1 { font-size: 1.875rem; line-height: 1.15; font-weight: 700; margin-bottom: 1.5rem; }
@@ -118,6 +119,13 @@ function escapeHtml(value: unknown) {
 
 function clientIp(c: Context) {
   return (c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "").split(",")[0].trim() || null;
+}
+
+function notificationEmailsFor(agreement: Agreement) {
+  const metadata = parseJson<Record<string, unknown>>(agreement.metadata_json, {});
+  const value = metadata.notification_email;
+  const emails = Array.isArray(value) ? value : value ? [value] : [];
+  return emails.map((email) => String(email).trim()).filter(Boolean);
 }
 
 function renderField(field: FieldDefinition) {
@@ -239,6 +247,27 @@ sign.post("/sign/:token/submit", async (c) => {
 
   const completed = (await getAgreementByToken(token))!;
   if (completed.webhook_url) enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
+  const notificationEmails = notificationEmailsFor(completed);
+  if (notificationEmails.length) {
+    try {
+      await sendCompletionEmail({
+        to: notificationEmails,
+        recipientName: completed.recipient_name,
+        recipientEmail: completed.recipient_email,
+        documentTitle: completed.document_title,
+        agreementId: completed.id,
+        signedPdfUrl: `${new URL(c.req.url).origin}/sign/${token}/pdf`
+      });
+      await addAuditEvent({ agreementId: completed.id, eventType: "notification_sent", data: { to: notificationEmails } });
+    } catch (error) {
+      console.error("[AgentSign completion notification failed]", error);
+      await addAuditEvent({
+        agreementId: completed.id,
+        eventType: "notification_failed",
+        data: { to: notificationEmails, error: error instanceof Error ? error.message : String(error) }
+      });
+    }
+  }
 
   return c.json({ ok: true, agreement_id: agreement.id, signed_pdf_url: `/sign/${token}/pdf` });
 });
