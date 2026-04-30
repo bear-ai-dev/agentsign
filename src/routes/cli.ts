@@ -136,7 +136,7 @@ cli.get("/cli", (c) => {
   <main class="mx-auto max-w-3xl px-5 py-10">
     <p class="text-sm font-semibold text-slate-500">AgentContract</p>
     <h1 class="mt-2 text-3xl font-semibold">CLI for agent-native contract sending</h1>
-    <p class="mt-3 text-slate-700">Install, authenticate with WorkOS/Google Workspace, then send and track contracts from Claude Code or any local agent.</p>
+    <p class="mt-3 text-slate-700">Install, authenticate with an email code, then send and track contracts from Claude Code or any local agent. WorkOS/Google can be enabled as an optional browser login.</p>
 
     <section class="mt-6 rounded-lg border border-slate-200 bg-white p-4">
       <h2 class="font-semibold">Install</h2>
@@ -145,7 +145,7 @@ cli.get("/cli", (c) => {
 
     <section class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h2 class="font-semibold">Authenticate</h2>
-      <pre class="mt-3 overflow-x-auto rounded bg-slate-950 p-3 text-sm text-slate-100"><code>agentcontract login --api-url ${escapeHtml(origin)}</code></pre>
+      <pre class="mt-3 overflow-x-auto rounded bg-slate-950 p-3 text-sm text-slate-100"><code>agentcontract login --email you@example.com --api-url ${escapeHtml(origin)}</code></pre>
     </section>
 
     <section class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
