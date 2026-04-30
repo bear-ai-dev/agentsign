@@ -392,7 +392,7 @@ The legacy "agentsign" command name is also supported when installed from npm.
 
 Setup:
   agentcontract login                    Browser login via WorkOS/Google Workspace, saves config automatically
-  agentcontract login --email <email>    Email-code WorkOS login. Use when browser redirect is blocked
+  agentcontract login --email <email>    Email-code login. Use when browser redirect is blocked
   agentcontract skill                    Install/update the AI-agent skill
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
@@ -2248,7 +2248,7 @@ agentcontract config get
 agentcontract doctor
 agentcontract keys
 
-If the user is not logged in, run \`agentcontract login --email <email>\`; it sends a WorkOS email code and stores a local API key after verification. Browser login is also available with \`agentcontract login\` once the WorkOS redirect URI is registered.
+If the user is not logged in, run \`agentcontract login --email <email>\`; it sends an email code and stores a local API key after verification. Browser WorkOS login is also available with \`agentcontract login\` once the WorkOS redirect URI is registered.
 
 ## Core Commands
 

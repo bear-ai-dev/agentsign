@@ -27,7 +27,7 @@ agentcontract skill
 
 Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
 
-`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. If browser redirect setup is blocked, use email-code login instead:
+`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login requires the WorkOS redirect URI to be registered. For the remote CLI flow, use email-code login:
 
 ```bash
 agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
@@ -82,7 +82,7 @@ agentcontract template read privacy --out ./privacy.md
 agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-run --json
 ```
 
-The login command emails a six-digit WorkOS code. Paste it into the terminal when prompted. Browser login is also supported once the WorkOS redirect URI is registered:
+The login command emails a six-digit AgentContract code. Paste it into the terminal when prompted. Browser WorkOS login is also supported once the WorkOS redirect URI is registered:
 
 ```bash
 agentcontract login --api-url https://agentink-pied.vercel.app

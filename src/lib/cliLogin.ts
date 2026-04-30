@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { nanoid } from "nanoid";
 import { hashApiKey } from "./apiKeys.js";
 import { get, nowIso, run } from "./db.js";
@@ -6,12 +6,11 @@ import type { CliLoginCode } from "./types.js";
 
 const ttlMs = 5 * 60 * 1000;
 
-export async function createCliLoginCode(input: {
+async function insertLoginCode(code: string, input: {
   keyName?: string | null;
   ownerId?: string | null;
   ownerEmail?: string | null;
 }) {
-  const code = `clc_${randomBytes(24).toString("base64url")}`;
   const createdAt = nowIso();
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
 
@@ -28,6 +27,22 @@ export async function createCliLoginCode(input: {
   );
 
   return code;
+}
+
+export async function createCliLoginCode(input: {
+  keyName?: string | null;
+  ownerId?: string | null;
+  ownerEmail?: string | null;
+}) {
+  return insertLoginCode(`clc_${randomBytes(24).toString("base64url")}`, input);
+}
+
+export async function createEmailLoginCode(input: {
+  keyName?: string | null;
+  ownerId?: string | null;
+  ownerEmail?: string | null;
+}) {
+  return insertLoginCode(String(randomInt(100000, 1_000_000)), input);
 }
 
 export async function consumeCliLoginCode(code: string) {

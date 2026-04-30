@@ -2,8 +2,9 @@ import { Hono, type Context } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
-import { createCliLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
-import { authenticateMagicLogin, createMagicLoginCode, requireAdminSession } from "../lib/workos.js";
+import { createCliLoginCode, createEmailLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
+import { sendCliLoginCodeEmail } from "../lib/email.js";
+import { requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
 
@@ -53,11 +54,6 @@ function validEmail(value: unknown) {
 
 function clientIp(c: Context) {
   return (c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "").split(",")[0].trim() || null;
-}
-
-function safeErrorDetail(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.replace(/[A-Za-z0-9_-]{24,}/g, "[redacted]");
 }
 
 function installScript(origin: string) {
@@ -211,20 +207,24 @@ cli.post("/cli/exchange", async (c) => {
 });
 
 cli.post("/cli/magic/start", async (c) => {
-  const body = await c.req.json<{ email?: string }>().catch(() => ({})) as { email?: string };
+  const body = await c.req.json<{ email?: string; name?: string }>().catch(() => ({})) as { email?: string; name?: string };
   const email = validEmail(body.email);
   if (!email) return c.json({ error: "A valid email is required" }, 400);
 
   try {
-    const magic = await createMagicLoginCode(email);
+    const code = await createEmailLoginCode({
+      keyName: body.name || "AgentContract CLI",
+      ownerEmail: email
+    });
+    await sendCliLoginCodeEmail({ to: email, code, expiresInMinutes: 5 });
     return c.json({
       ok: true,
       email,
-      expires_at: magic.expiresAt
+      expires_in_minutes: 5
     });
   } catch (error) {
-    console.error("[AgentContract magic login start failed]", error);
-    return c.json({ error: "Could not start email-code login", detail: safeErrorDetail(error) }, 400);
+    console.error("[AgentContract email login start failed]", error);
+    return c.json({ error: "Could not start email-code login" }, 400);
   }
 });
 
@@ -240,26 +240,21 @@ cli.post("/cli/magic/verify", async (c) => {
   if (!/^[0-9]{6}$/.test(code)) return c.json({ error: "A 6-digit login code is required" }, 400);
 
   try {
-    const auth = await authenticateMagicLogin({
-      email,
-      code,
-      ipAddress: clientIp(c),
-      userAgent: c.req.header("user-agent") ?? null
-    });
-    const user = auth.user;
-    if (!user?.email) return c.json({ error: "Authenticated user has no email address" }, 400);
+    const login = await consumeCliLoginCode(code);
+    if (!login || login.ownerEmail !== email) return c.json({ error: "Invalid or expired login code" }, 400);
     const { key } = await createApiKey({
-      name: body.name || "AgentContract CLI",
-      ownerId: user.id ?? null,
-      ownerEmail: user.email
+      name: body.name || login.keyName || "AgentContract CLI",
+      ownerId: login.ownerId ?? null,
+      ownerEmail: email
     });
+    console.info(`[AgentContract email login verified] ${email} from ${clientIp(c) ?? "unknown ip"}`);
     return c.json({
       api_key: key,
-      owner_email: user.email,
-      owner_id: user.id
+      owner_email: email,
+      owner_id: login.ownerId
     });
   } catch (error) {
-    console.error("[AgentContract magic login verify failed]", error);
-    return c.json({ error: "Invalid or expired login code", detail: safeErrorDetail(error) }, 400);
+    console.error("[AgentContract email login verify failed]", error);
+    return c.json({ error: "Invalid or expired login code" }, 400);
   }
 });

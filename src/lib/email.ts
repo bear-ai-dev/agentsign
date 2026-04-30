@@ -98,3 +98,25 @@ export async function sendCompletionEmail(input: {
 
   await deliverEmail({ to: input.to, subject, html, text, logLabel: "completion" });
 }
+
+export async function sendCliLoginCodeEmail(input: {
+  to: string;
+  code: string;
+  expiresInMinutes: number;
+}) {
+  const subject = "Your AgentContract login code";
+  const text = [
+    "Use this code to finish AgentContract CLI login:",
+    "",
+    input.code,
+    "",
+    `This code expires in ${input.expiresInMinutes} minutes.`
+  ].join("\n");
+  const html = [
+    "<p>Use this code to finish AgentContract CLI login:</p>",
+    `<p style="font-size:28px;font-weight:700;letter-spacing:4px">${escapeHtml(input.code)}</p>`,
+    `<p>This code expires in ${input.expiresInMinutes} minutes.</p>`
+  ].join("");
+
+  await deliverEmail({ to: [input.to], subject, html, text, logLabel: "cli-login" });
+}
