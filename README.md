@@ -63,14 +63,16 @@ Bulk marketplace onboarding from a JSON file:
 agentcontract bulk-marketplace-onboard --file contributors.json --cc sid@usebear.ai
 ```
 
-Preview without sending:
+Read the contract text without opening a browser:
 
 ```bash
-agentcontract marketplace-onboard \
+agentcontract read privacy \
+  --var effective_date="April 29, 2026"
+
+agentcontract contract read privacy \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --preview \
-  --open
+  --out ./specific-privacy.md
 ```
 
 Use `--dry-run --json` before a real send when an agent is preparing a contract:
@@ -83,6 +85,16 @@ agentcontract marketplace-onboard \
   --json
 ```
 
+After sending, agents can stay in the terminal:
+
+```bash
+agentcontract agreements --status sent --limit 20
+agentcontract agreement read agr_... --out ./sent-contract.md
+agentcontract agreement audit agr_...
+agentcontract agreement remind agr_...
+agentcontract agreement pdf agr_... --out ./signed.pdf
+```
+
 ## CLI contract library
 
 The CLI has a local contract workspace for reusable contracts. It stores editable markdown and metadata under `~/.agentcontract/contracts` by default. Override that with `AGENTCONTRACT_CONTRACTS_DIR` or `--contract-dir`.
@@ -92,6 +104,7 @@ List current contracts before sending:
 ```bash
 agentcontract contracts
 agentcontract contract show privacy --markdown
+agentcontract contract read privacy --var effective_date="April 29, 2026"
 ```
 
 Create a new reusable contract from markdown and signing fields:
@@ -117,13 +130,13 @@ Editing a built-in such as `privacy` automatically creates a local copy first, s
 agentcontract contract edit privacy
 ```
 
-Preview the edited contract, then send it:
+Read or preview the edited contract, then send it. `contract read` is the agent-native path; `contract preview --open` is only for humans who want the browser rendering.
 
 ```bash
-agentcontract contract preview marketplace-mnda \
+agentcontract contract read marketplace-mnda \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --open
+  --out ./marketplace-mnda.md
 
 agentcontract contract send marketplace-mnda \
   --to contributor@example.com \
@@ -131,6 +144,10 @@ agentcontract contract send marketplace-mnda \
   --cc sid@usebear.ai \
   --json
 ```
+
+## Optional Web UI
+
+AgentContract is CLI-first. Use the web UI only when a human sender wants a form, or when a recipient uses the signing link. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, and webhooks instead of browser flows.
 
 ## WorkOS Auth
 
@@ -433,6 +450,19 @@ curl -X POST http://localhost:3000/v1/agreements \
   -H "Authorization: Bearer ak_local_dev_key_change_me" \
   -H "Content-Type: application/json" \
   -d '{"recipient":{"name":"Jane Doe","email":"jane@example.com"},"document_markdown":"# Test Agreement\n\nHello {{name}}","template_vars":{"name":"Jane"},"fields":[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]}'
+```
+
+## Read agreement text
+
+```bash
+curl http://localhost:3000/v1/agreements/agr_.../document \
+  -H "Authorization: Bearer ak_local_dev_key_change_me"
+```
+
+The CLI wrapper is usually easier for agents:
+
+```bash
+agentcontract agreement read agr_... --out ./agreement.md
 ```
 
 ## Webhook signature verification

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import "dotenv/config";
+import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -276,9 +277,15 @@ Usage:
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
   agentcontract contracts
+  agentcontract read privacy --var effective_date=2026-04-29
+  agentcontract agreements --status sent --limit 20
+  agentcontract agreement read agr_123 --out ./agreement.md
+  agentcontract agreement audit agr_123
+  agentcontract agreement pdf agr_123 --out ./agreement.pdf
   agentcontract contract show privacy
   agentcontract contract add partner-msa --markdown-file ./partner-msa.md --fields-file ./fields.json
   agentcontract contract edit partner-msa
+  agentcontract contract read partner-msa
   agentcontract contract preview partner-msa --var company_name="Bear AI" --open
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
@@ -292,7 +299,6 @@ Usage:
   agentcontract preview --template contractor --var company_name="Bear AI" --var rate=150 --open
   agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
   agentcontract doctor [options]
-  agentcontract view <agreement_id> --open
   agentcontract status <agreement_id> [options]
   agentcontract version
 
@@ -303,7 +309,9 @@ Setup:
   agentcontract config get              Show saved config with secrets masked
   agentcontract config path             Print the config path
   agentcontract contracts               List built-in and local reusable contracts
+  agentcontract read <id>               Print rendered contract text. Works for local contract ids and agr_* ids
   agentcontract contract edit <id>      Open a contract markdown file in $EDITOR
+  agentcontract agreement read <id>     Print a sent agreement's markdown from the API
 
 Sender / Receiver:
   --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
@@ -329,6 +337,7 @@ Options:
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
   --preview                          Render local HTML preview instead of sending
   --preview-file <path>              Where to write preview HTML
+  --out, --output-file <path>        Write text/PDF output to a file
   --open                             Open preview/signing URL in the browser
   --scope <text>                     Bear contractor scope of work
   --rate <amount>                    Bear contractor rate
@@ -565,6 +574,17 @@ async function getJson(apiUrl: string, apiKey: string, path: string) {
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new CliError(result.error ?? `HTTP ${response.status}`);
   return result;
+}
+
+async function downloadBinary(apiUrl: string, apiKey: string, path: string) {
+  const response = await fetch(`${apiUrl}${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` }
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}));
+    throw new CliError(result.error ?? `HTTP ${response.status}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 function dryRun(args: Args) {
@@ -924,6 +944,24 @@ function writePreview(payload: AgreementPayload, args: Args) {
   return { preview: true, path: output, opened: Boolean(args.open), title: titleFromMarkdown(applyTemplateVars(payload.document_markdown ?? loadTemplate(payload.template ?? "nda"), payload.template_vars ?? {})) };
 }
 
+function writeTextOutput(text: string, args: Args, title?: string) {
+  const outputArg = stringArg(args, "out", "output-file", "output");
+  if (!outputArg) return { text_output: true, title, text };
+  const output = resolve(outputArg);
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, text);
+  if (args.open) openTarget(output);
+  return { text_output: true, title, path: output, opened: Boolean(args.open), bytes: Buffer.byteLength(text) };
+}
+
+function writeBinaryOutput(data: Buffer, args: Args, defaultFilename: string) {
+  const output = resolve(stringArg(args, "out", "output-file", "output") ?? defaultFilename);
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, data);
+  if (args.open) openTarget(output);
+  return { file_output: true, path: output, opened: Boolean(args.open), bytes: data.byteLength };
+}
+
 function openTarget(target: string) {
   const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", target] : [target];
@@ -963,6 +1001,26 @@ function printResult(result: unknown, json: boolean) {
     console.log(`Preview: ${preview.path}`);
     if (preview.title) console.log(`Title: ${preview.title}`);
     if (preview.opened) console.log("Opened in browser");
+    return;
+  }
+
+  if (typeof result === "object" && result && "text_output" in result) {
+    const text = result as unknown as { title?: string; text?: string; path?: string; opened?: boolean; bytes?: number };
+    if (text.path) {
+      console.log(`Wrote text: ${text.path}`);
+      if (text.bytes !== undefined) console.log(`Bytes: ${text.bytes}`);
+      if (text.opened) console.log("Opened");
+    } else {
+      console.log(text.text ?? "");
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "file_output" in result) {
+    const file = result as unknown as { path: string; opened?: boolean; bytes?: number };
+    console.log(`Wrote file: ${file.path}`);
+    if (file.bytes !== undefined) console.log(`Bytes: ${file.bytes}`);
+    if (file.opened) console.log("Opened");
     return;
   }
 
@@ -1057,10 +1115,16 @@ function printResult(result: unknown, json: boolean) {
   }
 
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
-    console.log(`Sent ${result.agreements.length} agreements`);
-    for (const agreement of result.agreements) {
-      console.log(`${agreement.id}: ${agreement.signing_url}`);
+    const list = result as { agreements: Array<{ id: string; status?: string; signing_url?: string; document_title?: string; recipient?: { name?: string; email?: string }; created_at?: string }>; next_cursor?: string | null };
+    console.log(`Agreements: ${list.agreements.length}`);
+    for (const agreement of list.agreements) {
+      const recipient = agreement.recipient?.email ? ` ${agreement.recipient.name ?? ""} <${agreement.recipient.email}>` : "";
+      const title = agreement.document_title ? ` - ${agreement.document_title}` : "";
+      const status = agreement.status ? ` [${agreement.status}]` : "";
+      const url = agreement.signing_url ? ` ${agreement.signing_url}` : "";
+      console.log(`${agreement.id}${status}${recipient}${title}${url}`);
     }
+    if (list.next_cursor) console.log(`Next cursor: ${list.next_cursor}`);
     return;
   }
 
@@ -1166,6 +1230,23 @@ async function preview(args: Args) {
     ...baseContractPayload(args)
   };
   return writePreview(payload, { ...args, preview: true });
+}
+
+function renderedContractMarkdown(args: Args, contract: ContractDefinitionForCli, requireRecipient = false) {
+  const recipientName = requireRecipient
+    ? receiverName(args)
+    : stringArg(args, "name", "receiver-name") ?? "Preview Recipient";
+  const recipientEmail = requireRecipient
+    ? receiverEmail(args)
+    : stringArg(args, "to", "email", "receiver-email")
+      ? validateEmail(stringArg(args, "to", "email", "receiver-email")!, "--to / receiver email")
+      : "preview@example.com";
+  return applyTemplateVars(contract.markdown, {
+    ...(contract.template_vars_default ?? {}),
+    ...templateVarsFromArgs(args),
+    recipient_name: recipientName,
+    recipient_email: recipientEmail
+  });
 }
 
 function contractPayload(args: Args, contract: ContractDefinitionForCli, requireRecipient: boolean) {
@@ -1321,6 +1402,13 @@ async function previewContract(args: Args, positional: string[]) {
   return writePreview(contractPayload(args, contract, false), { ...args, preview: true });
 }
 
+async function readContract(args: Args, positional: string[]) {
+  const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
+  const contract = loadContract(id, args);
+  const text = args.raw ? contract.markdown : renderedContractMarkdown(args, contract, false);
+  return writeTextOutput(text, args, contract.name);
+}
+
 async function sendSavedContract(args: Args, positional: string[]) {
   const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
   const contract = loadContract(id, args);
@@ -1340,6 +1428,7 @@ async function contractCommand(args: Args, positional: string[]) {
   if (action === "show" || action === "inspect" || action === "cat") return showContract(args, rest);
   if (action === "add" || action === "new" || action === "import") return addContract(args, rest);
   if (action === "edit") return editContract(args, rest);
+  if (action === "read" || action === "text" || action === "render") return readContract(args, rest);
   if (action === "preview" || action === "review") return previewContract(args, rest);
   if (action === "send") return sendSavedContract(args, rest);
   throw new CliError(`Unknown contract command: ${action}`, "Run agentcontract help to see contract commands.");
@@ -1450,6 +1539,94 @@ async function status(args: Args, positional: string[]) {
   const id = positional[0];
   if (!id) throw new CliError("agreement_id is required", "Example: agentcontract status agr_123");
   return getJson(apiUrl, apiKey, `/v1/agreements/${id}`);
+}
+
+async function listAgreements(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const query = new URLSearchParams();
+  const statusFilter = stringArg(args, "status");
+  const limit = stringArg(args, "limit");
+  const cursor = stringArg(args, "cursor");
+  if (statusFilter) query.set("status", statusFilter);
+  if (limit) query.set("limit", limit);
+  if (cursor) query.set("cursor", cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJson(apiUrl, apiKey, `/v1/agreements${suffix}`);
+}
+
+async function readAgreement(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0];
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement read agr_123");
+  const result = await getJson(apiUrl, apiKey, `/v1/agreements/${id}/document`) as {
+    document_title?: string;
+    document_markdown?: string;
+  };
+  if (jsonOutput(args) && !stringArg(args, "out", "output-file", "output")) return result;
+  return writeTextOutput(result.document_markdown ?? "", args, result.document_title);
+}
+
+async function auditAgreement(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0];
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement audit agr_123");
+  const result = await getJson(apiUrl, apiKey, `/v1/agreements/${id}/audit`) as {
+    agreement_id?: string;
+    audit_events?: Array<{ event_type?: string; created_at?: string; ip_address?: string | null; user_agent?: string | null; data?: unknown }>;
+  };
+  if (jsonOutput(args)) return result;
+  const lines = [
+    `Audit Trail: ${result.agreement_id ?? id}`,
+    "",
+    ...(result.audit_events ?? []).map((event) => {
+      const ip = event.ip_address ? ` ip=${event.ip_address}` : "";
+      const ua = event.user_agent ? ` ua=${event.user_agent}` : "";
+      return `- ${event.created_at ?? ""} ${event.event_type ?? "event"}${ip}${ua}`;
+    })
+  ];
+  return writeTextOutput(`${lines.join("\n")}\n`, args, `Audit ${result.agreement_id ?? id}`);
+}
+
+async function remindAgreement(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0];
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement remind agr_123");
+  return postJson(apiUrl, apiKey, `/v1/agreements/${id}/remind`, {});
+}
+
+async function cancelAgreement(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0];
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement cancel agr_123");
+  return postJson(apiUrl, apiKey, `/v1/agreements/${id}/cancel`, {});
+}
+
+async function pdfAgreement(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0];
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement pdf agr_123 --out agreement.pdf");
+  const pdf = await downloadBinary(apiUrl, apiKey, `/v1/agreements/${id}/pdf`);
+  return writeBinaryOutput(pdf, args, `${id}.pdf`);
+}
+
+async function agreementCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "list";
+  const rest = positional.slice(1);
+  if (action === "list" || action === "ls") return listAgreements(args);
+  if (action === "show" || action === "status") return status(args, rest);
+  if (action === "read" || action === "text" || action === "document") return readAgreement(args, rest);
+  if (action === "audit") return auditAgreement(args, rest);
+  if (action === "remind") return remindAgreement(args, rest);
+  if (action === "cancel") return cancelAgreement(args, rest);
+  if (action === "pdf" || action === "download-pdf") return pdfAgreement(args, rest);
+  throw new CliError(`Unknown agreement command: ${action}`, "Run agentcontract help to see agreement commands.");
+}
+
+async function readTarget(args: Args, positional: string[]) {
+  const target = positional[0] ?? stringArg(args, "id", "contract", "agreement");
+  if (!target) throw new CliError("id is required", "Example: agentcontract read privacy");
+  if (target.startsWith("agr_")) return readAgreement(args, [target]);
+  return readContract(args, [target]);
 }
 
 async function view(args: Args, positional: string[]) {
@@ -1593,6 +1770,12 @@ async function main() {
     result = await listContracts(args);
   } else if (command === "contract" || command === "contracts-lib") {
     result = await contractCommand(args, positional);
+  } else if (command === "agreements" || command === "agreement-list") {
+    result = await listAgreements(args);
+  } else if (command === "agreement" || command === "agreements-api") {
+    result = await agreementCommand(args, positional);
+  } else if (command === "read") {
+    result = await readTarget(args, positional);
   } else if (command === "send-mnda" || command === "send-nda") {
     result = await sendMnda(args);
   } else if (command === "send-privacy") {

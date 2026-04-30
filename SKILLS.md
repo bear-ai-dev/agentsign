@@ -49,12 +49,24 @@ agentcontract doctor --json
 
 ## Default Workflow
 
-1. Preview or dry-run first.
+1. Read or dry-run first. Use browser preview only if the human asks for visual rendering.
 2. List or inspect the contract before sending if the human did not specify an exact contract id.
 3. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
 4. Use `--json` for all agent-to-agent or script usage.
 5. Store the returned `id`, `signing_url`, and `webhook_secret` in the calling system if a webhook is configured.
-6. Check status with `agentcontract status <agreement_id> --json`.
+6. Check status with `agentcontract status <agreement_id> --json`, then read the sent agreement with `agentcontract agreement read <agreement_id>`.
+
+## Agent-Native Commands
+
+Stay in the terminal unless a recipient needs to sign:
+
+```bash
+agentcontract read privacy --var effective_date="April 29, 2026"
+agentcontract agreements --status sent --limit 20 --json
+agentcontract agreement read agr_... --out ./agreement.md
+agentcontract agreement audit agr_...
+agentcontract agreement pdf agr_... --out ./agreement.pdf
+```
 
 ## Contract Library
 
@@ -68,6 +80,7 @@ Inspect the exact text before sending:
 
 ```bash
 agentcontract contract show privacy --markdown
+agentcontract contract read privacy --var effective_date="April 29, 2026"
 ```
 
 Add a reusable contract from markdown:
@@ -94,13 +107,13 @@ Editing a built-in id creates a local editable copy:
 agentcontract contract edit privacy
 ```
 
-Preview and send a saved contract:
+Read and send a saved contract. Use `contract preview --open` only when a human needs browser rendering.
 
 ```bash
-agentcontract contract preview partner-msa \
+agentcontract contract read partner-msa \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --open
+  --out ./partner-msa.md
 
 agentcontract contract send partner-msa \
   --to contributor@example.com \
@@ -118,14 +131,21 @@ This is the default marketplace onboarding contract. It uses:
 - Contact: `sid@usebear.ai`
 - Address: `39 Tehama, San Francisco, CA`
 
-Preview:
+Read:
+
+```bash
+agentcontract read privacy \
+  --var effective_date="April 29, 2026"
+```
+
+Dry-run:
 
 ```bash
 agentcontract marketplace-onboard \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --preview \
-  --open
+  --dry-run \
+  --json
 ```
 
 Send:

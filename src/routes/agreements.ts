@@ -211,6 +211,23 @@ agreements.get("/v1/agreements/:id", async (c) => {
   return c.json({ ...agreementForApi(agreement), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });
 
+agreements.get("/v1/agreements/:id/document", async (c) => {
+  const agreement = await getAgreement(c.req.param("id"));
+  if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+  return c.json({
+    agreement_id: agreement.id,
+    status: agreement.status,
+    document_title: agreement.document_title,
+    recipient: { name: agreement.recipient_name, email: agreement.recipient_email },
+    document_markdown: agreement.document_markdown,
+    fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
+    signed_fields: parseJson<SignedFields | null>(agreement.signed_fields_json, null),
+    metadata: parseJson<Record<string, unknown> | null>(agreement.metadata_json, null),
+    created_at: agreement.created_at,
+    completed_at: agreement.completed_at
+  });
+});
+
 agreements.post("/v1/agreements/:id/cancel", async (c) => {
   const agreement = await getAgreement(c.req.param("id"));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
