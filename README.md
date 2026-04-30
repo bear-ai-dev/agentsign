@@ -25,6 +25,8 @@ agentcontract login --api-url https://agentink-pied.vercel.app
 agentcontract skill
 ```
 
+Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
+
 `agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. `agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
 
 The browser onboarding page is:
@@ -60,6 +62,33 @@ agentcontract key revoke key_...
 API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use WorkOS-issued user keys.
 
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
+
+## Remote tester handoff
+
+Sid can test without Janak or Codex around:
+
+```bash
+curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
+agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract doctor --json
+agentcontract templates
+agentcontract template read privacy --out ./privacy.md
+agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-run --json
+```
+
+If login opens the wrong browser or does not open one, run:
+
+```bash
+agentcontract login --api-url https://agentink-pied.vercel.app --no-open
+```
+
+Then copy the printed URL into a browser on the same laptop. After login, he can send a real test to himself:
+
+```bash
+agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --cc janak@usebear.ai
+```
+
+He should send feedback as: command run, expected result, actual result, and what felt confusing.
 
 Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
 

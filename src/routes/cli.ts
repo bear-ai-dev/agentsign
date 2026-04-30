@@ -1,9 +1,13 @@
 import { Hono, type Context } from "hono";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
 import { createCliLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
 import { requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
+
+const cliTarballName = "agentcontract-0.1.0.tgz";
 
 type WorkosUser = {
   id?: string;
@@ -47,15 +51,28 @@ set -euo pipefail
 
 echo "Installing AgentContract CLI..."
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js 20+ is required. Install it first: https://nodejs.org/" >&2
+  exit 1
+fi
+
+if ! node -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1)' >/dev/null 2>&1; then
+  echo "Node.js 20+ is required. Current version: $(node -v)" >&2
+  echo "Install Node.js 20+ first: https://nodejs.org/" >&2
+  exit 1
+fi
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required. Install Node.js 20+ first: https://nodejs.org/" >&2
   exit 1
 fi
 
-if npm install -g @bear-ai-dev/agentcontract; then
+if npm install -g "${origin}/agentcontract-0.1.0.tgz"; then
+  :
+elif npm install -g @bear-ai-dev/agentcontract; then
   :
 else
-  echo "npm package install failed; falling back to GitHub install..."
+  echo "Packaged install failed; falling back to GitHub install..."
   npm install -g github:bear-ai-dev/agentsign
 fi
 
@@ -73,6 +90,25 @@ cli.get("/cli/install.sh", (c) => {
     "Cache-Control": "no-store"
   });
 });
+
+function cliTarball(c: Context) {
+  const candidates = [
+    join(process.cwd(), "public", cliTarballName),
+    join(process.cwd(), cliTarballName)
+  ];
+  const path = candidates.find((candidate) => existsSync(candidate));
+  if (!path) return c.text("AgentContract CLI package not found", 404);
+  return new Response(readFileSync(path), {
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Cache-Control": "no-store",
+      "Content-Disposition": `attachment; filename="${cliTarballName}"`
+    }
+  });
+}
+
+cli.get(`/${cliTarballName}`, cliTarball);
+cli.get(`/cli/${cliTarballName}`, cliTarball);
 
 cli.get("/cli", (c) => {
   const origin = new URL(c.req.url).origin;
