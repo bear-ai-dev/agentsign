@@ -104,6 +104,7 @@ async function ensureSchema() {
   }
 
   await applyMigrationFile("002_api_keys.sql");
+  await applyMigrationFile("003_cli_login_codes.sql");
 }
 
 async function applyMigrationFile(filename: string) {
@@ -118,6 +119,7 @@ async function applyMigrationFile(filename: string) {
       .replaceAll("CREATE TABLE audit_events", "CREATE TABLE IF NOT EXISTS audit_events")
       .replaceAll("CREATE TABLE webhook_deliveries", "CREATE TABLE IF NOT EXISTS webhook_deliveries")
       .replaceAll("CREATE TABLE api_keys", "CREATE TABLE IF NOT EXISTS api_keys")
+      .replaceAll("CREATE TABLE cli_login_codes", "CREATE TABLE IF NOT EXISTS cli_login_codes")
       .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
     await pool!.query(sql);
   } else {

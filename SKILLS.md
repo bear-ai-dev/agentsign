@@ -9,7 +9,17 @@ Use this skill when a human asks an agent to send a contract, onboard a marketpl
 
 ## Install
 
-Until the npm package is published:
+YC-style setup for a new machine:
+
+```bash
+curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
+agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract skill
+```
+
+`agentcontract login` opens WorkOS/Google Workspace in the browser and saves a local config. `agentcontract skill` installs or updates this skill for the selected AI agent.
+
+Until the npm package is published, install directly:
 
 ```bash
 npm install -g github:bear-ai-dev/agentsign
@@ -21,7 +31,7 @@ After publishing:
 npm install -g @bear-ai-dev/agentcontract
 ```
 
-Configure once. Never print or commit the API key.
+Manual config is still available for CI or secret-manager flows. Never print or commit the API key.
 
 ```bash
 agentcontract init \
@@ -30,14 +40,6 @@ agentcontract init \
   --sender-name "Sid from Specific" \
   --notify sid@usebear.ai
 ```
-
-To get the key, the human should sign in through WorkOS/Google Workspace at:
-
-```bash
-open https://agentink-pied.vercel.app/dashboard/api-keys
-```
-
-They create an API key there and paste it into `agentcontract init` using the generated `--api-key-stdin` command. The full key is shown once; AgentContract stores only a hash.
 
 When pulling from a secret manager, pipe the key instead of putting it in argv:
 

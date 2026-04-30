@@ -17,15 +17,26 @@ The default local API key is `ak_local_dev_key_change_me`. Do not use that key i
 
 The npm package is prepared as `@bear-ai-dev/agentcontract` because the unscoped `agentcontract` package name is already taken on npm. The installed commands are both `agentcontract` and the backwards-compatible `agentsign` alias.
 
-After publishing:
+YC-style setup:
+
+```bash
+curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
+agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract skill
+```
+
+`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. `agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
+
+The browser onboarding page is:
+
+```bash
+open https://agentink-pied.vercel.app/cli
+```
+
+After npm publishing, the install script uses:
 
 ```bash
 npm install -g @bear-ai-dev/agentcontract
-agentcontract init \
-  --api-url https://agentink-pied.vercel.app \
-  --sender-email sid@usebear.ai \
-  --sender-name "Sid from Specific" \
-  --notify sid@usebear.ai
 ```
 
 Before npm publishing, it can be installed directly from GitHub:
@@ -36,9 +47,9 @@ agentcontract --version
 agentcontract doctor
 ```
 
-`agentcontract init` stores credentials in `~/.agentcontract/config.json` with file mode `0600`. Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe the key with `--api-key-stdin`.
+Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe a manually created key with `--api-key-stdin`.
 
-Sid gets his production API key from WorkOS auth:
+Manual API key fallback:
 
 1. Open `https://agentink-pied.vercel.app/dashboard/api-keys`.
 2. Sign in with the Google Workspace account configured in WorkOS.

@@ -135,7 +135,8 @@ export const requireAdminSession: MiddlewareHandler = async (c, next) => {
 
   const sessionData = getCookie(c, sessionCookie);
   if (!sessionData) {
-    const url = loginUrl(c, new URL(c.req.url).pathname);
+    const requestUrl = new URL(c.req.url);
+    const url = loginUrl(c, `${requestUrl.pathname}${requestUrl.search}`);
     return url ? c.redirect(url) : c.text("WorkOS is not configured", 503);
   }
 
@@ -163,7 +164,8 @@ export const requireAdminSession: MiddlewareHandler = async (c, next) => {
     deleteCookie(c, sessionCookie, { path: "/" });
   }
 
-  const url = loginUrl(c, new URL(c.req.url).pathname);
+  const requestUrl = new URL(c.req.url);
+  const url = loginUrl(c, `${requestUrl.pathname}${requestUrl.search}`);
   return url ? c.redirect(url) : c.text("WorkOS is not configured", 503);
 };
 

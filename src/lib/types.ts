@@ -54,3 +54,14 @@ export type ApiKeyRecord = {
   last_used_at: string | null;
   revoked_at: string | null;
 };
+
+export type CliLoginCode = {
+  id: string;
+  code_hash: string;
+  key_name: string;
+  owner_id: string | null;
+  owner_email: string | null;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+};

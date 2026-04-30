@@ -4,8 +4,11 @@ import "dotenv/config";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { marked } from "marked";
 import { nanoid } from "nanoid";
 import { applyTemplateVars, defaultTemplateVars, loadTemplate, templateDefinitions, titleFromMarkdown } from "./lib/templates.js";
@@ -347,6 +350,8 @@ function usage() {
   console.log(`AgentContract CLI
 
 Usage:
+  agentcontract login
+  agentcontract skill
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
   agentcontract contracts
@@ -379,6 +384,8 @@ Usage:
 The legacy "agentsign" command name is also supported when installed from npm.
 
 Setup:
+  agentcontract login                    Browser login via WorkOS/Google Workspace, saves config automatically
+  agentcontract skill                    Install/update the AI-agent skill
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract config path             Print the config path
@@ -399,6 +406,8 @@ Options:
   --api-url <url>                    API base URL. Defaults to AGENTCONTRACT_API_URL or ${defaultApiUrl}
   --api-key <key>                    API key. Defaults to AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY
   --api-key-stdin                    Read API key from stdin for init/send commands
+  --key-name <name>                  Name for a key created by login. Defaults to AgentContract CLI
+  --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor
   --var <key=value>                  Template variable. Repeatable
@@ -415,7 +424,10 @@ Options:
   --author <name>                    Human or agent name for contract feedback
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
   --contract-dir <path>              Override local contract library directory for this command
+  --directory <path>                 Install skill into this skills directory
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
+  --no-open                          Print auth URL instead of opening a browser
+  --force                            Overwrite existing local config or contract copy when supported
   --preview                          Render local HTML preview instead of sending
   --preview-file <path>              Where to write preview HTML
   --out, --output-file <path>        Write text/PDF output to a file
@@ -637,6 +649,22 @@ async function postJson(apiUrl: string, apiKey: string, path: string, body: unkn
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
+    body: JSON.stringify(body),
+    signal: controller.signal
+  });
+  clearTimeout(timeout);
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new CliError(result.error ?? `HTTP ${response.status}`);
+  return result;
+}
+
+async function postPublicJson(apiUrl: string, path: string, body: unknown) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const response = await fetch(`${apiUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal: controller.signal
   });
@@ -1093,6 +1121,25 @@ function printResult(result: unknown, json: boolean) {
     console.log(`Wrote file: ${file.path}`);
     if (file.bytes !== undefined) console.log(`Bytes: ${file.bytes}`);
     if (file.opened) console.log("Opened");
+    return;
+  }
+
+  if (typeof result === "object" && result && "login_complete" in result) {
+    const login = result as unknown as { config_path: string; api_url: string; owner_email?: string; config?: CliConfig };
+    console.log("Authenticated.");
+    console.log(`Config saved: ${login.config_path}`);
+    console.log(`API URL: ${login.api_url}`);
+    if (login.owner_email) console.log(`Account: ${login.owner_email}`);
+    if (login.config?.sender_email) console.log(`Sender email: ${login.config.sender_email}`);
+    console.log("Next: agentcontract skill");
+    return;
+  }
+
+  if (typeof result === "object" && result && "skill_installed" in result) {
+    const skill = result as unknown as { skill_path: string; directory: string; command_hint?: string };
+    console.log(`Skill installed: ${skill.skill_path}`);
+    console.log(`Skills directory: ${skill.directory}`);
+    if (skill.command_hint) console.log(`Next: ${skill.command_hint}`);
     return;
   }
 
@@ -1829,6 +1876,235 @@ function normalizeApiUrl(value: string) {
   }
 }
 
+type CliExchangeResponse = {
+  api_key?: string;
+  owner_email?: string;
+  owner_id?: string;
+};
+
+async function login(args: Args) {
+  if (configLoadError && !args.force) {
+    throw new CliError(
+      `Existing config at ${configPath} could not be read: ${configLoadError}`,
+      "Pass --force to overwrite it."
+    );
+  }
+
+  const apiUrl = normalizeApiUrl(cleanString(stringArg(args, "api-url")) ?? cliConfig.api_url ?? defaultApiUrl);
+  const state = nanoid(24);
+  const timeoutMs = Number(stringArg(args, "timeout-ms") ?? 300_000);
+  const keyName = cleanString(stringArg(args, "key-name")) ?? "AgentContract CLI";
+
+  let settled = false;
+  let timeout: NodeJS.Timeout;
+  const server = createServer();
+  const loginResult = new Promise<unknown>((resolvePromise, rejectPromise) => {
+    timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      server.close();
+      rejectPromise(new CliError("Login timed out", "Run agentcontract login again."));
+    }, timeoutMs);
+
+    server.on("request", (req, res) => {
+      void (async () => {
+        const address = server.address() as AddressInfo;
+        const url = new URL(req.url ?? "/", `http://127.0.0.1:${address.port}`);
+        if (url.pathname !== "/callback") {
+          res.writeHead(404).end("Not found");
+          return;
+        }
+
+        if (url.searchParams.get("state") !== state) {
+          res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" }).end("<h1>Invalid login state</h1>");
+          return;
+        }
+
+        const code = url.searchParams.get("code");
+        if (!code) {
+          res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" }).end("<h1>Missing login code</h1>");
+          return;
+        }
+
+        try {
+          const exchanged = await postPublicJson(apiUrl, "/cli/exchange", { code }) as CliExchangeResponse;
+          if (!exchanged.api_key) throw new CliError("CLI exchange did not return an API key");
+          const ownerEmail = cleanString(exchanged.owner_email);
+          const browserName = cleanString(url.searchParams.get("name") ?? undefined);
+          const nextConfig: CliConfig = {
+            ...cliConfig,
+            api_url: apiUrl,
+            api_key: exchanged.api_key,
+            ...(ownerEmail ? { sender_email: validateEmail(ownerEmail, "owner_email") } : {}),
+            ...(browserName ? { sender_name: browserName } : {})
+          };
+          writeCliConfig(nextConfig);
+
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(`<!doctype html>
+<html><head><meta charset="utf-8"><title>AgentContract CLI Login</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:48px">
+  <h1>AgentContract CLI authenticated</h1>
+  <p>You can close this tab and return to your terminal.</p>
+</body></html>`);
+
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            server.close();
+            resolvePromise({
+              login_complete: true,
+              config_path: configPath,
+              api_url: apiUrl,
+              owner_email: ownerEmail,
+              config: publicConfig(false, nextConfig)
+            });
+          }
+        } catch (error) {
+          res.writeHead(500, { "Content-Type": "text/html; charset=utf-8" }).end("<h1>AgentContract CLI login failed</h1><p>Return to your terminal and retry.</p>");
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            server.close();
+            rejectPromise(error);
+          }
+        }
+      })();
+    });
+  });
+
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    server.once("error", rejectPromise);
+    server.listen(0, "127.0.0.1", () => resolvePromise());
+  });
+  const address = server.address() as AddressInfo;
+  const redirectUri = `http://127.0.0.1:${address.port}/callback`;
+  const browserUrl = new URL(`${apiUrl}/cli/login`);
+  browserUrl.searchParams.set("redirect_uri", redirectUri);
+  browserUrl.searchParams.set("state", state);
+  browserUrl.searchParams.set("name", keyName);
+
+  if (!jsonOutput(args)) {
+    console.log("Opening browser for authentication...");
+    console.log(`If it doesn't open, visit: ${browserUrl.toString()}`);
+  }
+  if (!args["no-open"]) openTarget(browserUrl.toString());
+
+  return loginResult;
+}
+
+function agentContractSkillMarkdown() {
+  return `---
+name: agentcontract-cli
+description: |
+  AgentContract CLI helper — knows how to authenticate, inspect, draft,
+  revise, send, and track contracts from an agent-native CLI.
+allowed-tools:
+  - Bash
+---
+
+# AgentContract CLI
+
+Use AgentContract when a user asks to send a contract, onboard a marketplace contributor,
+draft/revise a contract, capture contract feedback, check signing status, or download a signed PDF.
+
+## Setup
+
+agentcontract login
+agentcontract config get
+agentcontract doctor
+
+If the user is not logged in, run \`agentcontract login\`; it opens WorkOS/Google Workspace auth in the browser.
+
+## Core Commands
+
+agentcontract contracts
+agentcontract read privacy --var effective_date="April 29, 2026"
+agentcontract contract show contractor --markdown
+agentcontract contract add custom-sow --markdown-file ./contract.md --fields-file ./fields.json
+agentcontract contract feedback custom-sow --note "Make the IP assignment clearer"
+agentcontract contract read custom-sow --with-feedback
+agentcontract contract edit custom-sow
+agentcontract contract send custom-sow --to jane@example.com --name "Jane Doe" --json
+
+## Built-ins
+
+- \`nda\`: Bear AI mutual NDA
+- \`privacy\`: Specific Marketplace privacy acknowledgement
+- \`contractor\`: Specific Marketplace contributor terms
+
+## Sending
+
+agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" --json
+agentcontract specific-contractor --to contributor@example.com --name "Jane Contributor" --json
+agentcontract bear-mnda --to jane@example.com --name "Jane Doe" --json
+
+## Tracking
+
+agentcontract agreements --status sent --json
+agentcontract status agr_... --json
+agentcontract agreement read agr_... --out ./agreement.md
+agentcontract agreement audit agr_...
+agentcontract agreement pdf agr_... --out ./signed.pdf
+
+## Rules
+
+- Do not send placeholder values.
+- Prefer \`--dry-run --json\` before bulk sends.
+- Use \`contract read --with-feedback\` before sending revised contracts.
+- Never print or commit API keys.
+`;
+}
+
+function skillTargets() {
+  return [
+    { label: "Claude Code project", directory: join(process.cwd(), ".claude", "skills") },
+    { label: "Claude Code user", directory: join(homedir(), ".claude", "skills") },
+    { label: "Codex user", directory: join(homedir(), ".codex", "skills") },
+    { label: "Agents user", directory: join(homedir(), ".agents", "skills") }
+  ];
+}
+
+async function chooseSkillDirectory(args: Args) {
+  const explicit = cleanString(stringArg(args, "directory", "dir"));
+  if (explicit) return resolve(explicit);
+
+  const targets = skillTargets();
+  if (!jsonOutput(args)) {
+    console.log("Install the AgentContract CLI skill for your AI coding agent.");
+    console.log("");
+    targets.forEach((target, index) => console.log(`  ${index + 1}) ${target.label} (${target.directory})`));
+    console.log("");
+  }
+
+  let choice = "2";
+  if (process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    choice = (await rl.question("Choose install target [2]: ")).trim() || "2";
+    rl.close();
+  } else {
+    choice = readFileSync(0, "utf8").trim() || "2";
+  }
+
+  const selected = targets[Number(choice) - 1];
+  if (!selected) throw new CliError(`Invalid skill target: ${choice}`, "Pass --directory /path/to/skills to choose manually.");
+  return selected.directory;
+}
+
+async function installSkill(args: Args) {
+  const directory = await chooseSkillDirectory(args);
+  const skillDir = join(directory, "agentcontract-cli");
+  const skillPath = join(skillDir, "SKILL.md");
+  mkdirSync(skillDir, { recursive: true, mode: 0o700 });
+  writeFileSync(skillPath, agentContractSkillMarkdown(), { mode: 0o600 });
+  chmodSync(skillPath, 0o600);
+  return {
+    skill_installed: true,
+    directory,
+    skill_path: skillPath,
+    command_hint: "agentcontract contracts"
+  };
+}
+
 async function initConfig(args: Args) {
   if (configLoadError && !args.force) {
     throw new CliError(
@@ -1934,7 +2210,11 @@ async function main() {
   }
 
   let result: unknown;
-  if (command === "init") {
+  if (command === "login") {
+    result = await login(args);
+  } else if (command === "skill") {
+    result = await installSkill(args);
+  } else if (command === "init") {
     result = await initConfig(args);
   } else if (command === "config") {
     result = await configCommand(args, positional);
