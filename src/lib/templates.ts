@@ -1,13 +1,58 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { FieldDefinition } from "./types.js";
 
 const templateNames = new Set(["nda", "privacy", "contractor"]);
+
+export type TemplateVariable = {
+  key: string;
+  label: string;
+  defaultValue: string;
+  required?: boolean;
+};
+
+export type TemplateDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  variables: TemplateVariable[];
+  fields: FieldDefinition[];
+};
+
+export const privacyTemplateDefinition: TemplateDefinition = {
+  id: "privacy",
+  name: "Bear AI Privacy Policy Acknowledgement",
+  description: "Contributor privacy policy acknowledgement with typed signature, acknowledgement date, audit trail, and sender notification support.",
+  variables: [
+    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
+    { key: "service_name", label: "Service / product name", defaultValue: "Bear AI", required: true },
+    { key: "website_url", label: "Website", defaultValue: "https://usebear.ai", required: true },
+    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
+    { key: "terms_name", label: "Terms name", defaultValue: "Contributor Terms of Use", required: true },
+    { key: "data_use_policy_name", label: "Data use policy name", defaultValue: "Data Use Policy", required: true },
+    { key: "contact_email", label: "Contact email", defaultValue: "sid@usebear.ai", required: true },
+    { key: "company_address", label: "Company address", defaultValue: "39 Tehama, San Francisco, CA", required: true }
+  ],
+  fields: [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "acknowledgement_date", label: "Acknowledgement date", type: "date", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ]
+};
+
+export const templateDefinitions = {
+  privacy: privacyTemplateDefinition
+};
 
 export function loadTemplate(name: string): string {
   if (!templateNames.has(name)) {
     throw new Error(`Unknown template: ${name}`);
   }
   return readFileSync(join(process.cwd(), "src", "templates", `${name}.md`), "utf8");
+}
+
+export function defaultTemplateVars(definition: TemplateDefinition) {
+  return Object.fromEntries(definition.variables.map((variable) => [variable.key, variable.defaultValue]));
 }
 
 export function applyTemplateVars(markdown: string, vars: Record<string, unknown> = {}) {

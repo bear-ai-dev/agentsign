@@ -34,7 +34,11 @@ function assertCreateBody(body: CreateBody) {
 
 function markdownForBody(body: CreateBody) {
   const source = body.document_markdown ?? loadTemplate(body.template!);
-  return applyTemplateVars(source, body.template_vars ?? {});
+  return applyTemplateVars(source, {
+    ...(body.template_vars ?? {}),
+    recipient_name: body.recipient?.name ?? "",
+    recipient_email: body.recipient?.email ?? ""
+  });
 }
 
 function normalizeEmailList(value: string | string[] | undefined) {

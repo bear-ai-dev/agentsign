@@ -12,6 +12,7 @@ function usage() {
 
 Usage:
   agentsign send-mnda --name "Jane Doe" --email jane@example.com --company "Bear AI" [options]
+  agentsign send-privacy --name "Jane Doe" --email jane@example.com [options]
   agentsign bulk-mnda --file recipients.json --company "Bear AI" [options]
   agentsign status <agreement_id> [options]
 
@@ -23,6 +24,10 @@ Options:
   --webhook-url <url>      Machine webhook for agreement.completed
   --effective-date <date>  Defaults to today
   --term-years <years>     Defaults to 2
+  --service <name>         Privacy policy service name. Defaults to Bear AI
+  --website <url>          Privacy policy website. Defaults to https://usebear.ai
+  --contact <email>        Privacy policy contact email. Defaults to sid@usebear.ai
+  --address <text>         Privacy policy company address
   --json                   Print raw JSON only
 
 Bulk JSON can be either an array of recipients or { "recipients": [...] }.
@@ -92,6 +97,14 @@ function mndaFields() {
   ];
 }
 
+function privacyFields() {
+  return [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "acknowledgement_date", label: "Acknowledgement date", type: "date", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ];
+}
+
 async function postJson(apiUrl: string, apiKey: string, path: string, body: unknown) {
   const response = await fetch(`${apiUrl}${path}`, {
     method: "POST",
@@ -138,6 +151,39 @@ function baseMndaPayload(args: Args) {
   };
 }
 
+function notificationArgs(args: Args) {
+  const notify = listArg(args, "notify");
+  if (notify.length === 0 && process.env.AGENTSIGN_NOTIFY_EMAIL) {
+    notify.push(...process.env.AGENTSIGN_NOTIFY_EMAIL.split(",").map((email) => email.trim()).filter(Boolean));
+  }
+  return notify;
+}
+
+function basePrivacyPayload(args: Args) {
+  const company = stringArg(args, "company") ?? "Bear AI";
+  const notify = notificationArgs(args);
+  const cc = listArg(args, "cc");
+  const webhookUrl = stringArg(args, "webhook-url");
+  return {
+    cc: cc.length ? cc : undefined,
+    notification_email: notify.length ? notify : undefined,
+    template: "privacy",
+    template_vars: {
+      company_name: company,
+      service_name: stringArg(args, "service") ?? company,
+      website_url: stringArg(args, "website") ?? "https://usebear.ai",
+      effective_date: stringArg(args, "effective-date") ?? today(),
+      terms_name: stringArg(args, "terms-name") ?? "Contributor Terms of Use",
+      data_use_policy_name: stringArg(args, "data-use-policy-name") ?? "Data Use Policy",
+      contact_email: stringArg(args, "contact") ?? "sid@usebear.ai",
+      company_address: stringArg(args, "address") ?? "39 Tehama, San Francisco, CA"
+    },
+    fields: privacyFields(),
+    webhook_url: webhookUrl,
+    metadata: { source: "agentsign-cli", template_kind: "privacy_policy" }
+  };
+}
+
 function printResult(result: unknown, json: boolean) {
   if (json) {
     console.log(JSON.stringify(result, null, 2));
@@ -145,7 +191,7 @@ function printResult(result: unknown, json: boolean) {
   }
 
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
-    console.log(`Sent ${result.agreements.length} MNDAs`);
+    console.log(`Sent ${result.agreements.length} agreements`);
     for (const agreement of result.agreements) {
       console.log(`${agreement.id}: ${agreement.signing_url}`);
     }
@@ -154,7 +200,7 @@ function printResult(result: unknown, json: boolean) {
 
   if (typeof result === "object" && result && "id" in result) {
     const agreement = result as { id: string; status?: string; signing_url?: string; webhook_secret?: string | null; notification_email?: string[] };
-    console.log(`Sent MNDA: ${agreement.id}`);
+    console.log(`Sent agreement: ${agreement.id}`);
     if (agreement.status) console.log(`Status: ${agreement.status}`);
     if (agreement.signing_url) console.log(`Signing URL: ${agreement.signing_url}`);
     if (agreement.webhook_secret) console.log(`Webhook secret: ${agreement.webhook_secret}`);
@@ -172,6 +218,17 @@ async function sendMnda(args: Args) {
   const payload = {
     recipient: { name, email },
     ...baseMndaPayload(args)
+  };
+  return postJson(apiUrl, apiKey, "/v1/agreements", payload);
+}
+
+async function sendPrivacy(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const name = requireArg(stringArg(args, "name"), "--name");
+  const email = requireArg(stringArg(args, "email", "to"), "--email");
+  const payload = {
+    recipient: { name, email },
+    ...basePrivacyPayload(args)
   };
   return postJson(apiUrl, apiKey, "/v1/agreements", payload);
 }
@@ -210,6 +267,8 @@ async function main() {
   let result: unknown;
   if (command === "send-mnda" || command === "send-nda") {
     result = await sendMnda(args);
+  } else if (command === "send-privacy") {
+    result = await sendPrivacy(args);
   } else if (command === "bulk-mnda" || command === "bulk-nda") {
     result = await bulkMnda(args);
   } else if (command === "status") {

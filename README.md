@@ -46,6 +46,47 @@ Check state:
 npm run cli -- status agr_...
 ```
 
+## Privacy policy template
+
+Open the browser template UI:
+
+```bash
+open http://localhost:3000/templates/privacy
+```
+
+The UI exposes the variables inferred from the Bear AI privacy-policy PDF:
+
+- `company_name`
+- `service_name`
+- `website_url`
+- `effective_date`
+- `terms_name`
+- `data_use_policy_name`
+- `contact_email`
+- `company_address`
+
+It sends a `privacy` template agreement with these required signing fields:
+
+- `full_name`
+- `acknowledgement_date`
+- `signature`
+
+Agents can send the same privacy policy directly:
+
+```bash
+npm run cli -- send-privacy \
+  --name "Jane Doe" \
+  --email jane@example.com \
+  --notify janak@usebear.ai
+```
+
+Template metadata is available through the API:
+
+```bash
+curl http://localhost:3000/v1/templates/privacy \
+  -H "Authorization: Bearer ak_local_dev_key_change_me"
+```
+
 Bulk send MNDAs from a JSON file:
 
 ```json
@@ -157,7 +198,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
 `nda`: `company_name`, `effective_date`, `term_years`
 
-`privacy`: `company_name`, `policy_date`, `policy_url`
+`privacy`: `company_name`, `service_name`, `website_url`, `effective_date`, `terms_name`, `data_use_policy_name`, `contact_email`, `company_address`
 
 `contractor`: `company_name`, `effective_date`, `scope_of_work`, `rate`, `rate_unit`, `invoice_frequency`, `start_date`, `notice_days`
 
