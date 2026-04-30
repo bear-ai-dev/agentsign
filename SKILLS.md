@@ -68,6 +68,8 @@ agentcontract agreement audit agr_...
 agentcontract agreement pdf agr_... --out ./agreement.pdf
 ```
 
+A human sender can also use the WorkOS-protected dashboard at `https://agentink-pied.vercel.app/dashboard` to see all recent contracts, statuses, previews, PDFs, and audit trails. Prefer CLI/API commands for agent workflows.
+
 ## Contract Library
 
 List current contracts:
@@ -91,6 +93,15 @@ agentcontract contract add partner-msa \
   --fields-file ./contracts/signing-fields.json \
   --var company_name="Bear AI" \
   --var effective_date=2026-04-29 \
+  --json
+```
+
+Agents can create contracts directly from generated markdown and structured fields:
+
+```bash
+cat ./draft-contract.md | agentcontract contract add custom-sow \
+  --markdown-stdin \
+  --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
   --json
 ```
 
@@ -189,15 +200,12 @@ agentcontract bear-mnda \
   --json
 ```
 
-Bear contractor agreement:
+Specific contributor terms:
 
 ```bash
-agentcontract bear-contractor \
+agentcontract specific-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
-  --scope "Backend engineering" \
-  --rate 150 \
-  --start-date 2026-05-01 \
   --preview \
   --open
 ```

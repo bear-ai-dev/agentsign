@@ -37,22 +37,19 @@ export const privacyTemplateDefinition: TemplateDefinition = {
 
 export const contractorTemplateDefinition: TemplateDefinition = {
   id: "contractor",
-  name: "Bear AI Contractor Agreement",
-  description: "Bear AI 1099 contractor agreement with recipient-specific scope, rate, start date, and typed signature.",
+  name: "Specific Marketplace Contributor Terms of Use",
+  description: "Specific contributor/contractor marketplace terms reconstructed from the Bear AI Contractor PDF, with independent-contractor language, typed signature, acknowledgement date, audit trail, and sender notification support.",
   variables: [
-    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
-    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
-    { key: "scope_of_work", label: "Scope of work", defaultValue: "Backend engineering", required: true },
-    { key: "rate", label: "Hourly rate", defaultValue: "150", required: true },
-    { key: "rate_unit", label: "Rate unit", defaultValue: "hour", required: true },
-    { key: "invoice_frequency", label: "Invoice frequency", defaultValue: "biweekly", required: true },
-    { key: "start_date", label: "Start date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
-    { key: "notice_days", label: "Notice days", defaultValue: "14", required: true }
+    { key: "company_name", label: "Company name", defaultValue: "Specific Marketplace", required: true },
+    { key: "service_name", label: "Service name", defaultValue: "Specific", required: true },
+    { key: "website_url", label: "Website", defaultValue: "usespecific.com", required: true },
+    { key: "contact_email", label: "Contact email", defaultValue: "sid@usebear.ai", required: true },
+    { key: "company_address", label: "Company address", defaultValue: "39 Tehama, San Francisco, CA", required: true },
+    { key: "effective_date", label: "Effective date", defaultValue: "April 29, 2026", required: true }
   ],
   fields: [
     { id: "full_name", label: "Full legal name", type: "text", required: true },
-    { id: "address", label: "Address", type: "text", required: true },
-    { id: "tax_id", label: "SSN or EIN (last 4)", type: "text", required: true },
+    { id: "acknowledgement_date", label: "Acknowledgement date", type: "date", required: true },
     { id: "signature", label: "Signature", type: "signature", required: true }
   ]
 };

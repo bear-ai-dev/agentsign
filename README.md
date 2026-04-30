@@ -117,6 +117,15 @@ agentcontract contract add partner-msa \
   --var effective_date=2026-04-29
 ```
 
+Agents that draft markdown on the fly can save it directly from stdin:
+
+```bash
+cat ./draft-contract.md | agentcontract contract add custom-sow \
+  --markdown-stdin \
+  --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
+  --var company_name="Specific Marketplace"
+```
+
 Seed a new contract from a built-in, then edit it:
 
 ```bash
@@ -147,11 +156,19 @@ agentcontract contract send marketplace-mnda \
 
 ## Optional Web UI
 
-AgentContract is CLI-first. Use the web UI only when a human sender wants a form, or when a recipient uses the signing link. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, and webhooks instead of browser flows.
+AgentContract is CLI-first. Use the web UI only when a human sender wants a form, a sender wants the dashboard, or a recipient uses the signing link. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, and webhooks instead of browser flows.
+
+The sender dashboard lives at:
+
+```bash
+open https://agentink-pied.vercel.app/dashboard
+```
+
+It shows the latest contracts, recipients, senders, status, read-only preview links, text exports, PDFs, and audit events. The dashboard and sender template forms are WorkOS-protected; recipient signing links remain public token links.
 
 ## WorkOS Auth
 
-The sender/admin UI routes under `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public.
+The sender/admin UI routes under `/dashboard` and `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public.
 
 Required production env vars:
 
@@ -176,30 +193,24 @@ openssl rand -base64 32
 
 ## CLI: send contracts
 
-The fastest paths are the Sid/Bear helpers. Contractor and MNDA commands bake in Bear AI. The privacy command bakes in the Specific Marketplace policy from the PDF: `Specific Marketplace`, `Specific`, `usespecific.com`, `sid@usebear.ai`, and `39 Tehama, San Francisco, CA`.
+The fastest paths are the Sid/Bear helpers. MNDA defaults to Bear AI. The privacy and contributor-terms commands bake in the Specific Marketplace documents from the PDFs: `Specific Marketplace`, `Specific`, `usespecific.com`, `sid@usebear.ai`, and `39 Tehama, San Francisco, CA`.
 
-Preview a specific contractor agreement before sending:
+Preview the Specific contributor terms before sending:
 
 ```bash
-npm run cli -- bear-contractor \
+npm run cli -- specific-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
-  --scope "Backend engineering" \
-  --rate 150 \
-  --start-date 2026-05-01 \
   --preview \
   --open
 ```
 
-Send the same Bear contractor agreement:
+Send the same Specific contributor terms:
 
 ```bash
-npm run cli -- bear-contractor \
+npm run cli -- specific-contractor \
   --to contractor@example.com \
-  --name "Jane Contractor" \
-  --scope "Backend engineering" \
-  --rate 150 \
-  --start-date 2026-05-01
+  --name "Jane Contractor"
 ```
 
 Send Bear MNDA or the Specific privacy acknowledgement:
@@ -212,7 +223,9 @@ npm run cli -- specific-privacy --to jane@example.com --name "Jane Doe"
 Open the sender UIs:
 
 ```bash
-open https://agentink-pied.vercel.app/templates/bear-contractor
+open https://agentink-pied.vercel.app/dashboard
+open https://agentink-pied.vercel.app/templates/nda
+open https://agentink-pied.vercel.app/templates/specific-contractor
 open https://agentink-pied.vercel.app/templates/bear-privacy
 ```
 
@@ -258,36 +271,28 @@ npm run cli -- send-privacy \
   --json
 ```
 
-Customize and preview a contract before sending:
+Preview the built-in Specific contributor terms before sending:
 
 ```bash
 npm run cli -- send-contract \
   --from sid@usebear.ai \
-  --sender-name "Sid from Bear AI" \
+  --sender-name "Sid from Specific" \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --template contractor \
-  --company "Bear AI" \
-  --var scope_of_work="Backend engineering" \
-  --var rate=150 \
-  --var start_date=2026-05-01 \
   --preview \
   --open
 ```
 
-Send the same customized contractor agreement:
+Send the same contributor terms:
 
 ```bash
 npm run cli -- send-contract \
   --from sid@usebear.ai \
-  --sender-name "Sid from Bear AI" \
+  --sender-name "Sid from Specific" \
   --to contractor@example.com \
   --name "Jane Contractor" \
-  --template contractor \
-  --company "Bear AI" \
-  --var scope_of_work="Backend engineering" \
-  --var rate=150 \
-  --var start_date=2026-05-01
+  --template contractor
 ```
 
 Use custom markdown and fields from files:
@@ -300,6 +305,19 @@ npm run cli -- send-contract \
   --markdown-file ./contracts/custom.md \
   --vars-file ./contracts/jane-vars.json \
   --fields-file ./contracts/signing-fields.json \
+  --dry-run \
+  --json
+```
+
+Agents can also draft a one-off contract through stdin and structured fields, inspect the payload, then send:
+
+```bash
+cat ./draft-contract.md | npm run cli -- send-contract \
+  --from sid@usebear.ai \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --markdown-stdin \
+  --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
   --dry-run \
   --json
 ```
@@ -367,6 +385,32 @@ curl http://localhost:3000/v1/templates/privacy \
   -H "Authorization: Bearer ak_local_dev_key_change_me"
 ```
 
+## Specific contributor terms template
+
+The contractor/contributor document is reconstructed from `Bear AI Contractor with Jason Zeng.pdf` as reusable Specific Marketplace contributor terms. The template keeps the company/service/website/contact placeholders specific and excludes the old Common Paper signature/audit block so each send gets a fresh AgentContract audit trail.
+
+Open the browser template UI:
+
+```bash
+open http://localhost:3000/templates/specific-contractor
+```
+
+Agents can inspect or send it without a browser:
+
+```bash
+npm run cli -- read contractor --var effective_date="April 29, 2026"
+npm run cli -- specific-contractor \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --cc sid@usebear.ai
+```
+
+The built-in templates available to agents are:
+
+- `nda`: Bear AI mutual NDA
+- `privacy`: Specific Marketplace privacy acknowledgement
+- `contractor`: Specific Marketplace contributor terms
+
 Bulk send MNDAs from a JSON file:
 
 ```json
@@ -406,7 +450,7 @@ curl -X POST http://localhost:3000/v1/agreements \
   }'
 ```
 
-## Bulk send contractor agreements
+## Bulk send Specific contributor terms
 
 ```bash
 curl -X POST http://localhost:3000/v1/agreements/bulk \
@@ -415,28 +459,26 @@ curl -X POST http://localhost:3000/v1/agreements/bulk \
   -d '{
     "template": "contractor",
     "template_vars_default": {
-      "company_name": "Bear AI",
-      "effective_date": "2026-04-29",
-      "rate_unit": "hour",
-      "invoice_frequency": "biweekly",
-      "notice_days": "14"
+      "company_name": "Specific Marketplace",
+      "service_name": "Specific",
+      "website_url": "usespecific.com",
+      "contact_email": "sid@usebear.ai",
+      "company_address": "39 Tehama, San Francisco, CA",
+      "effective_date": "April 29, 2026"
     },
     "recipients": [
       {
         "name": "Alice Smith",
-        "email": "alice@example.com",
-        "template_vars": {"rate": "150", "scope_of_work": "Backend engineering", "start_date": "2026-05-01"}
+        "email": "alice@example.com"
       },
       {
         "name": "Bob Jones",
-        "email": "bob@example.com",
-        "template_vars": {"rate": "175", "scope_of_work": "ML engineering", "start_date": "2026-05-15"}
+        "email": "bob@example.com"
       }
     ],
     "fields": [
       {"id": "full_name", "label": "Full legal name", "type": "text", "required": true},
-      {"id": "address", "label": "Address", "type": "text", "required": true},
-      {"id": "tax_id", "label": "SSN or EIN (last 4)", "type": "text", "required": true},
+      {"id": "acknowledgement_date", "label": "Acknowledgement date", "type": "date", "required": true},
       {"id": "signature", "label": "Signature", "type": "signature", "required": true}
     ],
     "webhook_url": "https://webhook.site/your-test-url"
@@ -495,7 +537,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
 `privacy`: `effective_date`
 
-`contractor`: `company_name`, `effective_date`, `scope_of_work`, `rate`, `rate_unit`, `invoice_frequency`, `start_date`, `notice_days`
+`contractor`: `company_name`, `service_name`, `website_url`, `contact_email`, `company_address`, `effective_date`
 
 ## v1 limitations
 

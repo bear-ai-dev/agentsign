@@ -290,13 +290,13 @@ Usage:
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
   agentcontract bulk-marketplace-onboard --file contributors.json [options]
-  agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
+  agentcontract specific-contractor --to jane@example.com --name "Jane Doe" [options]
   agentcontract bear-mnda --to jane@example.com --name "Jane Doe" [options]
   agentcontract specific-privacy --to jane@example.com --name "Jane Doe" [options]
   agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
   agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
-  agentcontract send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor --var rate=150 [options]
-  agentcontract preview --template contractor --var company_name="Bear AI" --var rate=150 --open
+  agentcontract send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor [options]
+  agentcontract preview --template contractor --var company_name="Specific Marketplace" --open
   agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
   agentcontract doctor [options]
   agentcontract status <agreement_id> [options]
@@ -331,6 +331,8 @@ Options:
   --vars-json <json>                 Template variables as JSON
   --vars-file <path>                 Template variables JSON file
   --markdown-file <path>             Custom markdown contract file
+  --markdown-stdin                   Read custom contract markdown from stdin
+  --fields-json <json>               JSON field definitions array
   --fields-file <path>               JSON field definitions file
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
   --contract-dir <path>              Override local contract library directory for this command
@@ -339,9 +341,9 @@ Options:
   --preview-file <path>              Where to write preview HTML
   --out, --output-file <path>        Write text/PDF output to a file
   --open                             Open preview/signing URL in the browser
-  --scope <text>                     Bear contractor scope of work
-  --rate <amount>                    Bear contractor rate
-  --start-date <date>                Bear contractor start date
+  --scope <text>                     Legacy contractor scope override for custom templates
+  --rate <amount>                    Legacy contractor rate override for custom templates
+  --start-date <date>                Legacy contractor start date override for custom templates
   --effective-date <date>            Defaults to today, except Specific privacy defaults to April 29, 2026
   --term-years <years>               MNDA term. Defaults to 2
   --website <url>                    Legacy privacy override. Specific template hardcodes usespecific.com
@@ -536,8 +538,7 @@ function privacyFields() {
 function contractorFields() {
   return [
     { id: "full_name", label: "Full legal name", type: "text", required: true },
-    { id: "address", label: "Address", type: "text", required: true },
-    { id: "tax_id", label: "SSN or EIN (last 4)", type: "text", required: true },
+    { id: "acknowledgement_date", label: "Acknowledgement date", type: "date", required: true },
     { id: "signature", label: "Signature", type: "signature", required: true }
   ];
 }
@@ -730,6 +731,12 @@ function coerceVarValue(value: string) {
 }
 
 function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
+  const fieldsJson = stringArg(args, "fields-json");
+  if (fieldsJson) {
+    const parsed = parseJsonArg(fieldsJson, "--fields-json") as unknown;
+    if (!Array.isArray(parsed)) throw new CliError("--fields-json must be a JSON array of field definitions");
+    return parsed as Array<Record<string, unknown>>;
+  }
   const fieldsFile = stringArg(args, "fields-file");
   if (!fieldsFile) return fallback;
   const parsed = parseJsonFile(fieldsFile, "--fields-file") as unknown;
@@ -738,6 +745,13 @@ function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
 }
 
 function markdownFromArgs(args: Args) {
+  const cached = args.__markdown_content;
+  if (typeof cached === "string") return cached;
+  if (args["markdown-stdin"]) {
+    const markdown = readFileSync(0, "utf8");
+    args.__markdown_content = markdown;
+    return markdown;
+  }
   const markdownFile = stringArg(args, "markdown-file", "document-file", "contract-file");
   if (markdownFile) return readTextFile(markdownFile, "--markdown-file");
   return stringArg(args, "document-markdown", "markdown");
@@ -805,22 +819,23 @@ function basePrivacyPayload(args: Args) {
 }
 
 function baseContractPayload(args: Args) {
-  const template = stringArg(args, "template") ?? (markdownFromArgs(args) ? undefined : "contractor");
-  if (!template && !markdownFromArgs(args)) {
+  const markdown = markdownFromArgs(args);
+  const template = stringArg(args, "template") ?? (markdown ? undefined : "contractor");
+  if (!template && !markdown) {
     throw new CliError("send-contract needs --template or --markdown-file");
   }
-  const company = stringArg(args, "company") ?? String(templateVarsFromArgs(args).company_name ?? "Bear AI");
+  const vars = templateVarsFromArgs(args);
+  const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
+  const defaultVars = definition ? defaultTemplateVars(definition) : {};
+  const company = stringArg(args, "company") ?? String(vars.company_name ?? defaultVars.company_name ?? "Bear AI");
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template,
     template_vars: {
+      ...defaultVars,
       company_name: company,
-      effective_date: stringArg(args, "effective-date") ?? today(),
-      rate_unit: stringArg(args, "rate-unit") ?? "hour",
-      invoice_frequency: stringArg(args, "invoice-frequency") ?? "biweekly",
-      notice_days: stringArg(args, "notice-days") ?? "14",
-      start_date: stringArg(args, "start-date") ?? today(),
-      ...templateVarsFromArgs(args)
+      effective_date: stringArg(args, "effective-date") ?? defaultVars.effective_date ?? today(),
+      ...vars
     },
     fields: defaultFieldsFor(template),
     metadata: { source: "agentcontract-cli", template_kind: template ?? "custom_markdown" }
@@ -850,49 +865,27 @@ function baseBearPrivacyPayload(args: Args) {
 }
 
 function baseBearContractorPayload(args: Args) {
-  const bearArgs = withBearDefaults(args);
+  const specificArgs = {
+    ...args,
+    from: stringArg(args, "from", "sender-email") ?? specificPrivacyDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+  };
   const vars = templateVarsFromArgs(args);
-  const scope = cleanString(stringArg(args, "scope", "scope-of-work", "work", "role")) ?? cleanString(String(vars.scope_of_work ?? ""));
-  const rate = cleanString(stringArg(args, "rate", "hourly-rate")) ?? cleanString(String(vars.rate ?? ""));
-  const startDate = cleanString(stringArg(args, "start-date")) ?? cleanString(String(vars.start_date ?? ""));
-  if (!scope) {
-    throw new CliError(
-      "--scope is required for Bear contractor agreements",
-      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 --preview --open'
-    );
-  }
-  if (!rate) {
-    throw new CliError(
-      "--rate is required for Bear contractor agreements",
-      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
-    );
-  }
-  if (!startDate) {
-    throw new CliError(
-      "--start-date is required for Bear contractor agreements",
-      'Example: agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01'
-    );
-  }
+  const defaults = defaultTemplateVars(templateDefinitions.contractor);
 
-  return withCustomContractArgs(bearArgs, {
-    ...sharedSendOptions(bearArgs, bearDefaults.senderName),
+  return withCustomContractArgs(specificArgs, {
+    ...sharedSendOptions(specificArgs, specificPrivacyDefaults.senderName),
     template: "contractor",
     template_vars: {
-      company_name: bearDefaults.companyName,
-      effective_date: stringArg(args, "effective-date") ?? today(),
-      scope_of_work: scope,
-      rate,
-      rate_unit: stringArg(args, "rate-unit") ?? "hour",
-      invoice_frequency: stringArg(args, "invoice-frequency") ?? "biweekly",
-      start_date: startDate,
-      notice_days: stringArg(args, "notice-days") ?? "14",
+      ...defaults,
+      effective_date: stringArg(args, "effective-date") ?? defaults.effective_date,
       ...vars
     },
     fields: contractorFields(),
     metadata: {
       source: "agentcontract-cli",
-      workflow: "bear_contractor_onboarding",
-      company: bearDefaults.companyName
+      workflow: "specific_contributor_terms",
+      company: specificPrivacyDefaults.companyName
     }
   });
 }
@@ -1215,7 +1208,7 @@ async function sendBearContractor(args: Args) {
     ...baseBearContractorPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("bear-contractor", apiUrl, "/v1/agreements", payload);
+  if (dryRun(args)) return dryRunResult("specific-contractor", apiUrl, "/v1/agreements", payload);
   const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
@@ -1786,7 +1779,7 @@ async function main() {
     result = await sendBearMnda(args);
   } else if (command === "marketplace-onboard" || command === "onboard-contributor" || command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
     result = await sendBearPrivacy({ ...args, command_name: command });
-  } else if (command === "bear-contractor" || command === "send-bear-contractor") {
+  } else if (command === "specific-contractor" || command === "marketplace-contractor" || command === "bear-contractor" || command === "send-bear-contractor") {
     result = await sendBearContractor(args);
   } else if (command === "preview") {
     result = await preview(args);
