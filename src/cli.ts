@@ -22,6 +22,16 @@ const bearDefaults = {
   termsName: "Contributor Terms of Use",
   dataUsePolicyName: "Data Use Policy"
 };
+const specificPrivacyDefaults = {
+  companyName: "Specific Marketplace",
+  serviceName: "Specific",
+  senderEmail: "sid@usebear.ai",
+  senderName: "Sid from Specific",
+  websiteUrl: "usespecific.com",
+  contactEmail: "sid@usebear.ai",
+  companyAddress: "39 Tehama, San Francisco, CA",
+  effectiveDate: "April 29, 2026"
+};
 
 class CliError extends Error {
   usageHint?: string;
@@ -39,6 +49,7 @@ function usage() {
 Usage:
   agentsign bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
   agentsign bear-mnda --to jane@example.com --name "Jane Doe" [options]
+  agentsign specific-privacy --to jane@example.com --name "Jane Doe" [options]
   agentsign bear-privacy --to jane@example.com --name "Jane Doe" [options]
   agentsign send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
   agentsign send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
@@ -72,12 +83,11 @@ Options:
   --scope <text>                     Bear contractor scope of work
   --rate <amount>                    Bear contractor rate
   --start-date <date>                Bear contractor start date
-  --effective-date <date>            Defaults to today
+  --effective-date <date>            Defaults to today, except Specific privacy defaults to April 29, 2026
   --term-years <years>               MNDA term. Defaults to 2
-  --service <name>                   Privacy policy service name. Defaults to Bear AI
-  --website <url>                    Privacy policy website. Defaults to https://usebear.ai
-  --contact <email>                  Privacy policy contact email. Defaults to sid@usebear.ai
-  --address <text>                   Privacy policy company address
+  --website <url>                    Legacy privacy override. Specific template hardcodes usespecific.com
+  --contact <email>                  Legacy privacy override. Specific template hardcodes sid@usebear.ai
+  --address <text>                   Legacy privacy override. Specific template hardcodes 39 Tehama
   --dry-run                          Print the request without sending it
   --json                             Print raw JSON only
 
@@ -401,22 +411,15 @@ function baseMndaPayload(args: Args) {
 }
 
 function basePrivacyPayload(args: Args) {
-  const company = stringArg(args, "company") ?? "Bear AI";
+  const company = stringArg(args, "company") ?? specificPrivacyDefaults.companyName;
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "privacy",
     template_vars: {
-      company_name: company,
-      service_name: stringArg(args, "service") ?? company,
-      website_url: stringArg(args, "website") ?? "https://usebear.ai",
-      effective_date: stringArg(args, "effective-date") ?? today(),
-      terms_name: stringArg(args, "terms-name") ?? "Contributor Terms of Use",
-      data_use_policy_name: stringArg(args, "data-use-policy-name") ?? "Data Use Policy",
-      contact_email: stringArg(args, "contact") ?? "sid@usebear.ai",
-      company_address: stringArg(args, "address") ?? "39 Tehama, San Francisco, CA"
+      effective_date: stringArg(args, "effective-date") ?? specificPrivacyDefaults.effectiveDate
     },
     fields: privacyFields(),
-    metadata: { source: "agentsign-cli", template_kind: "privacy_policy" }
+    metadata: { source: "agentsign-cli", template_kind: "privacy_policy", company }
   });
 }
 
@@ -453,11 +456,15 @@ function baseBearMndaPayload(args: Args) {
 }
 
 function baseBearPrivacyPayload(args: Args) {
-  const bearArgs = withBearDefaults(args);
-  const payload = basePrivacyPayload(bearArgs);
+  const specificArgs = {
+    ...args,
+    from: stringArg(args, "from", "sender-email") ?? specificPrivacyDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+  };
+  const payload = basePrivacyPayload(specificArgs);
   return {
     ...payload,
-    metadata: { ...(payload.metadata ?? {}), workflow: "bear_privacy_acknowledgement", company: bearDefaults.companyName }
+    metadata: { ...(payload.metadata ?? {}), workflow: "specific_privacy_acknowledgement", company: specificPrivacyDefaults.companyName }
   };
 }
 
@@ -680,7 +687,7 @@ async function sendBearPrivacy(args: Args) {
     ...baseBearPrivacyPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("bear-privacy", apiUrl, "/v1/agreements", payload);
+  if (dryRun(args)) return dryRunResult("specific-privacy", apiUrl, "/v1/agreements", payload);
   const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
@@ -790,7 +797,7 @@ async function main() {
     result = await sendContract(args);
   } else if (command === "bear-mnda" || command === "send-bear-mnda") {
     result = await sendBearMnda(args);
-  } else if (command === "bear-privacy" || command === "send-bear-privacy") {
+  } else if (command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
     result = await sendBearPrivacy(args);
   } else if (command === "bear-contractor" || command === "send-bear-contractor") {
     result = await sendBearContractor(args);

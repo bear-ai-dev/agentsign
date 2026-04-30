@@ -21,17 +21,10 @@ export type TemplateDefinition = {
 
 export const privacyTemplateDefinition: TemplateDefinition = {
   id: "privacy",
-  name: "Bear AI Privacy Policy Acknowledgement",
-  description: "Contributor privacy policy acknowledgement with typed signature, acknowledgement date, audit trail, and sender notification support.",
+  name: "Specific Marketplace Privacy Policy Acknowledgement",
+  description: "Specific contributor privacy policy acknowledgement reconstructed from the PDF, with typed signature, acknowledgement date, audit trail, and sender notification support.",
   variables: [
-    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
-    { key: "service_name", label: "Service / product name", defaultValue: "Bear AI", required: true },
-    { key: "website_url", label: "Website", defaultValue: "https://usebear.ai", required: true },
-    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
-    { key: "terms_name", label: "Terms name", defaultValue: "Contributor Terms of Use", required: true },
-    { key: "data_use_policy_name", label: "Data use policy name", defaultValue: "Data Use Policy", required: true },
-    { key: "contact_email", label: "Contact email", defaultValue: "sid@usebear.ai", required: true },
-    { key: "company_address", label: "Company address", defaultValue: "39 Tehama, San Francisco, CA", required: true }
+    { key: "effective_date", label: "Policy effective date", defaultValue: "April 29, 2026", required: true }
   ],
   fields: [
     { id: "full_name", label: "Full legal name", type: "text", required: true },

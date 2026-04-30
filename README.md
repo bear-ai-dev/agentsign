@@ -38,9 +38,9 @@ Generate a cookie password locally:
 openssl rand -base64 32
 ```
 
-## CLI: send an MNDA
+## CLI: send contracts
 
-The fastest path is Bear-specific. These commands bake in Bear AI, Sid as sender, `usebear.ai`, and signed notifications back to Sid.
+The fastest paths are the Sid/Bear helpers. Contractor and MNDA commands bake in Bear AI. The privacy command bakes in the Specific Marketplace policy from the PDF: `Specific Marketplace`, `Specific`, `usespecific.com`, `sid@usebear.ai`, and `39 Tehama, San Francisco, CA`.
 
 Preview a specific contractor agreement before sending:
 
@@ -66,18 +66,21 @@ npm run cli -- bear-contractor \
   --start-date 2026-05-01
 ```
 
-Send Bear MNDA or privacy acknowledgement:
+Send Bear MNDA or the Specific privacy acknowledgement:
 
 ```bash
 npm run cli -- bear-mnda --to jane@example.com --name "Jane Doe"
-npm run cli -- bear-privacy --to jane@example.com --name "Jane Doe"
+npm run cli -- specific-privacy --to jane@example.com --name "Jane Doe"
 ```
 
-Open the Bear contractor UI:
+Open the sender UIs:
 
 ```bash
 open https://agentink-pied.vercel.app/templates/bear-contractor
+open https://agentink-pied.vercel.app/templates/bear-privacy
 ```
+
+After WorkOS is configured, Sid signs into the sender UI, fills receiver name/email, previews the contract, and clicks send. The UI uses a WorkOS-protected server endpoint, so Sid does not need to paste the API key into the browser. Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth.
 
 The lower-level CLI is still available for agents and scripts that need to send custom templates without hand-writing JSON.
 
@@ -185,24 +188,25 @@ CLI design choices for agents:
 - `--preview` renders local HTML before sending; `view --open` opens the read-only contract preview after sending.
 - Errors go to stderr with a concrete example command.
 
-## Privacy policy template
+## Specific privacy policy template
 
 Open the browser template UI:
 
 ```bash
-open http://localhost:3000/templates/privacy
+open http://localhost:3000/templates/bear-privacy
 ```
 
-The UI exposes the variables inferred from the Bear AI privacy-policy PDF:
+The privacy document body is fixed to the local PDF named `Bear AI Privacy Policy with Jason Zeng.pdf`. The reusable template intentionally does not copy Jason's Common Paper audit block; it only uses the policy text and adds a fresh AgentSign audit trail for each new recipient.
 
-- `company_name`
-- `service_name`
-- `website_url`
-- `effective_date`
-- `terms_name`
-- `data_use_policy_name`
-- `contact_email`
-- `company_address`
+The fixed policy values are:
+
+- Company: `Specific Marketplace`
+- Service: `Specific`
+- Website: `usespecific.com`
+- Contact email: `sid@usebear.ai`
+- Address: `39 Tehama, San Francisco, CA`
+
+The only template variable exposed by default is `effective_date`, defaulting to `April 29, 2026`.
 
 It sends a `privacy` template agreement with these required signing fields:
 
@@ -213,11 +217,10 @@ It sends a `privacy` template agreement with these required signing fields:
 Agents can send the same privacy policy directly:
 
 ```bash
-npm run cli -- send-privacy \
-  --from janak@usebear.ai \
+npm run cli -- specific-privacy \
   --to jane@example.com \
   --name "Jane Doe" \
-  --cc sid@usebear.ai
+  --cc janak@usebear.ai
 ```
 
 Template metadata is available through the API:
@@ -340,7 +343,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
 `nda`: `company_name`, `effective_date`, `term_years`
 
-`privacy`: `company_name`, `service_name`, `website_url`, `effective_date`, `terms_name`, `data_use_policy_name`, `contact_email`, `company_address`
+`privacy`: `effective_date`
 
 `contractor`: `company_name`, `effective_date`, `scope_of_work`, `rate`, `rate_unit`, `invoice_frequency`, `start_date`, `notice_days`
 

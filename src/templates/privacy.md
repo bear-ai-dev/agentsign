@@ -1,16 +1,16 @@
-# Privacy Policy Acknowledgement
+# Specific Marketplace Privacy Policy
 
-**{{service_name}}**
+**Specific Marketplace**
 
 Effective date: {{effective_date}}
 
-At {{company_name}}, we take your privacy seriously. This Privacy Policy explains how we collect, use, and disclose information about you when you visit our website at {{website_url}}, register as a contributor, accept tasks, or otherwise use our services (the "Services"). Throughout this Privacy Policy, "we," "our," "us," and "{{service_name}}" refer to {{company_name}}.
+At Specific, we take your privacy seriously. This Privacy Policy explains how we collect, use, and disclose information about you when you visit our website at usespecific.com, register as a contributor, accept tasks, or otherwise use our services (the "Services"). Throughout this Privacy Policy, "we," "our," "us," and "Specific" refer to Specific Marketplace.
 
 By using or accessing our Services in any manner, you acknowledge that you accept the practices and policies outlined below, and you hereby consent that we will collect, use, and disclose your information as described in this Privacy Policy.
 
-Your use of {{service_name}} is at all times subject to our {{terms_name}}, which incorporates this Privacy Policy. This Privacy Policy is also closely related to our {{data_use_policy_name}}, which explains how we treat recordings, code, transcripts, and other materials you submit through the Services (collectively, "Submissions"). Submissions are stripped of personally identifiable information before they leave our systems and are used exclusively to train AI models. This Privacy Policy focuses on Personal Data we collect about you as a contributor; the {{data_use_policy_name}} explains how we treat the contents of your Submissions.
+Your use of Specific is at all times subject to our Contributor Terms of Use, which incorporates this Privacy Policy. Any terms we use in this Policy without defining them have the definitions given to them in the Terms of Use. This Privacy Policy is also closely related to our Data Use Policy, which explains how we treat the recordings, code, transcripts, and other materials you submit through the Services (collectively, "Submissions"). Submissions are stripped of personally identifiable information before they leave our systems and are used exclusively to train AI models. This Privacy Policy focuses on Personal Data we collect about you as a contributor; the Data Use Policy explains how we treat the contents of your Submissions.
 
-As we continually work to improve our Services, we may need to change this Privacy Policy from time to time. We will alert you of material changes by placing a notice on the {{service_name}} website, by sending you an email, and/or by some other means. If you use the Services after any changes to the Privacy Policy have been posted, that means you agree to all of the changes.
+As we continually work to improve our Services, we may need to change this Privacy Policy from time to time. We will alert you of material changes by placing a notice on the Specific website, by sending you an email, and/or by some other means. If you use the Services after any changes to the Privacy Policy have been posted, that means you agree to all of the changes.
 
 ## What this Privacy Policy covers
 
@@ -26,7 +26,7 @@ Includes your first and last name, email address, phone number, languages spoken
 
 ### Account credentials
 
-Includes your {{service_name}} User ID and authentication tokens. We do not store your password in plaintext. We collect this to provide access to your account and secure the Services.
+Includes your Specific User ID and authentication tokens. We do not store your password in plaintext. We collect this to provide access to your account and secure the Services.
 
 ### Payout data
 
@@ -38,7 +38,7 @@ Where we collect government-issued ID or identity-verification data for KYC or a
 
 ### Submission metadata
 
-Includes task ID, validation results, file format, file size, duration, language tag, and timestamps associated with your Submissions. The contents of Submissions themselves are governed by our {{data_use_policy_name}}, not this Privacy Policy.
+Includes task ID, validation results, file format, file size, duration, language tag, and timestamps associated with your Submissions. The contents of Submissions themselves are governed by our Data Use Policy, not this Privacy Policy.
 
 ### Communications data
 
@@ -65,7 +65,7 @@ We collect Personal Data to:
 - Provide fraud protection, security, and debugging.
 - Tell contributors about new task types, payout opportunities, and product updates.
 - Measure and improve the performance of our marketing.
-- Respond to messages and send information about {{service_name}} or the Services.
+- Respond to messages and send information about Specific or the Services.
 
 Each category of Personal Data may also be collected, used, and disclosed with government authorities, law enforcement, or other parties to meet legal requirements, enforce legal terms, prevent or investigate security incidents or prohibited activities, protect rights and safety, respond to claims, and resolve disputes.
 
@@ -77,13 +77,13 @@ We collect Personal Data from you when you create an account, complete your cont
 
 ## SMS communications
 
-If you provide your phone number and consent to receive SMS messages, we may send automated text messages related to your account, including notifications about new tasks, account activity, and important service-related updates. Message frequency varies based on account activity. Message and data rates may apply. We do not sell or share phone numbers used for SMS communications with third parties for their own marketing purposes. You may opt out by replying STOP to any message. For assistance, contact us at {{contact_email}}.
+If you provide your phone number and consent to receive SMS messages, we may send automated text messages related to your account, including notifications about new tasks, account activity, and important service-related updates. Message frequency varies based on account activity. Message and data rates may apply. We do not sell or share phone numbers used for SMS communications with third parties for their own marketing purposes. You may opt out by replying STOP to any message. For assistance, contact us at sid@usebear.ai.
 
 ## How we disclose your Personal Data
 
 We disclose Personal Data to service providers and other parties that help us provide the Services or perform business functions on our behalf. They include hosting, technology, communication, authentication, security, fraud-prevention, analytics, support, customer-service, identity-verification, KYC, and payment-processing providers.
 
-Analytics partners may provide analytics on web traffic and usage of the Services. Posters and AI labs that license datasets from us receive Submissions only after they have been stripped of personally identifiable information and identifiers in accordance with our {{data_use_policy_name}}. We do not share Personal Data with posters or AI labs in a form that would allow them to identify you, except where you have separately agreed to such sharing.
+Analytics partners may provide analytics on web traffic and usage of the Services. Posters and AI labs that license datasets from us receive Submissions only after they have been stripped of personally identifiable information and identifiers in accordance with our Data Use Policy. We do not share Personal Data with posters or AI labs in a form that would allow them to identify you, except where you have separately agreed to such sharing.
 
 We may disclose Personal Data to meet legal obligations, and Personal Data may be transferred to a third party if we undergo a merger, acquisition, bankruptcy, or other transaction in which that third party assumes control of our business.
 
@@ -99,11 +99,11 @@ We may use Essential Cookies, Performance/Analytical Cookies, and Retargeting/Ad
 
 ## Session replay technology
 
-We may use session replay technology to identify and resolve issues, monitor and analyze how you use the Services, better understand contributor behavior, and improve the Services. Session replay focuses on how you interact with our application UI; it does not capture the contents of your Submissions, which are governed by our {{data_use_policy_name}}. By continuing to use the Services, you consent to the use of session replay technology.
+We may use session replay technology to identify and resolve issues, monitor and analyze how you use the Services, better understand contributor behavior, and improve the Services. Session replay focuses on how you interact with our application UI; it does not capture the contents of your Submissions, which are governed by our Data Use Policy. By continuing to use the Services, you consent to the use of session replay technology.
 
 ## Data security
 
-We seek to protect your Personal Data from unauthorized access, use, and disclosure using appropriate physical, technical, organizational, and administrative security measures based on the type of Personal Data and how we are processing that data. Raw Submissions are encrypted at rest and access within {{company_name}} is limited to authorized personnel with a need to know. No method of transmitting data over the internet or storing data is completely secure.
+We seek to protect your Personal Data from unauthorized access, use, and disclosure using appropriate physical, technical, organizational, and administrative security measures based on the type of Personal Data and how we are processing that data. Raw Submissions are encrypted at rest and access within Specific is limited to authorized personnel with a need to know. No method of transmitting data over the internet or storing data is completely secure.
 
 ## Data retention
 
@@ -111,11 +111,11 @@ We retain Personal Data for as long as necessary to provide the Services or perf
 
 ## Personal Data of children
 
-The Services are intended for adult contributors. We do not knowingly collect or solicit Personal Data from individuals under 18 years of age. If we learn we have collected Personal Data from a person under 18, we will delete that information as quickly as possible. If you believe a person under 18 may have provided Personal Data to us, please contact us at {{contact_email}}.
+The Services are intended for adult contributors. We do not knowingly collect or solicit Personal Data from individuals under 18 years of age. If we learn we have collected Personal Data from a person under 18, we will delete that information as quickly as possible. If you believe a person under 18 may have provided Personal Data to us, please contact us at sid@usebear.ai.
 
 ## State law privacy rights
 
-California residents may contact us to prevent disclosure of Personal Data to third parties for such third parties' direct marketing purposes. To submit such a request, please contact us at {{contact_email}}. Our Services do not support Do Not Track requests at this time.
+California residents may contact us to prevent disclosure of Personal Data to third parties for such third parties' direct marketing purposes. To submit such a request, please contact us at sid@usebear.ai. Our Services do not support Do Not Track requests at this time.
 
 Nevada residents: we do not currently sell Personal Data as "sale" is defined in Nevada Revised Statutes Chapter 603A.
 
@@ -123,9 +123,9 @@ Nevada residents: we do not currently sell Personal Data as "sale" is defined in
 
 If you have any questions or comments about this Privacy Policy, please contact us at:
 
-- Website: {{website_url}}
-- Email: {{contact_email}}
-- Address: {{company_address}}
+- Website: usespecific.com
+- Email: sid@usebear.ai
+- Address: 39 Tehama, San Francisco, CA
 
 ## Contributor acknowledgement and consent
 

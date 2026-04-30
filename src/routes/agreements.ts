@@ -49,7 +49,7 @@ function normalizeEmailList(value: string | string[] | undefined) {
   return raw.map((email) => email.trim()).filter(Boolean);
 }
 
-async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
+export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   assertCreateBody(body);
   const markdown = markdownForBody(body);
   const id = `agr_${nanoid(12)}`;

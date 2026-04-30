@@ -1,8 +1,9 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { marked } from "marked";
 import { requireApiKey } from "../lib/auth.js";
 import { applyTemplateVars, contractorTemplateDefinition, defaultTemplateVars, loadTemplate, privacyTemplateDefinition, templateDefinitions } from "../lib/templates.js";
 import { requireAdminSession } from "../lib/workos.js";
+import { createAgreement } from "./agreements.js";
 
 export const templates = new Hono();
 
@@ -38,7 +39,19 @@ templates.get("/v1/templates/contractor", (c) => {
   });
 });
 
-templates.get("/templates/privacy", (c) => {
+templates.post("/templates/agreements", async (c) => {
+  try {
+    const result = await createAgreement(await c.req.json(), new URL(c.req.url).origin);
+    return c.json(result, 201);
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, 400);
+  }
+});
+
+templates.get("/templates/bear-privacy", renderPrivacyTemplatePage);
+templates.get("/templates/privacy", renderPrivacyTemplatePage);
+
+function renderPrivacyTemplatePage(c: Context) {
   const defaults = defaultTemplateVars(privacyTemplateDefinition);
   const previewVars = {
     ...defaults,
@@ -58,7 +71,7 @@ templates.get("/templates/privacy", (c) => {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Privacy Policy Template | AgentSign</title>
+  <title>Specific Privacy Policy | AgentSign</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -77,8 +90,8 @@ templates.get("/templates/privacy", (c) => {
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
       <div>
-        <p class="text-sm font-semibold text-slate-500">AgentSign Templates</p>
-        <h1 class="text-2xl font-semibold">Bear AI Privacy Policy</h1>
+        <p class="text-sm font-semibold text-slate-500">Specific Contributor Agreements</p>
+        <h1 class="text-2xl font-semibold">Specific Marketplace Privacy Policy</h1>
       </div>
       <div class="flex items-center gap-2">
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/bear-contractor">Contractor</a>
@@ -91,16 +104,15 @@ templates.get("/templates/privacy", (c) => {
     <section class="space-y-5">
       <form id="template-form" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 class="text-lg font-semibold">Send Privacy Policy</h2>
-          <p class="mt-1 text-sm text-slate-600">Creates a signable privacy-policy acknowledgement with full legal name, acknowledgement date, typed signature, audit trail, and signed notification.</p>
+          <h2 class="text-lg font-semibold">Send Specific Privacy Policy</h2>
+          <p class="mt-1 text-sm text-slate-600">Creates the Specific Marketplace privacy-policy acknowledgement from the PDF with recipient name, acknowledgement date, typed signature, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>API key</span><input name="api_key" type="password" value="ak_local_dev_key_change_me" required /></label>
-        <label><span>Sender name</span><input name="sender_name" value="Bear AI" required /></label>
-        <label><span>Sender email</span><input name="sender_email" type="email" value="janak@usebear.ai" required /></label>
+        <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contributor" required /></label>
         <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
-        <label><span>CC on request</span><input name="cc" type="email" placeholder="sid@usebear.ai" /></label>
+        <label><span>CC on request</span><input name="cc" type="email" placeholder="janak@usebear.ai" /></label>
 
         <div class="grid gap-3">
           ${variables}
@@ -121,7 +133,7 @@ templates.get("/templates/privacy", (c) => {
       <div class="mb-4 flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
         <div>
           <h2 class="text-lg font-semibold">Live Preview</h2>
-          <p class="text-sm text-slate-600">Variables are shown with safe defaults from the PDF reconstruction.</p>
+          <p class="text-sm text-slate-600">The company, website, contact email, and address are fixed to the PDF text.</p>
         </div>
         <span class="rounded bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">ready</span>
       </div>
@@ -175,7 +187,7 @@ templates.get("/templates/privacy", (c) => {
         template: "privacy",
         template_vars: templateVars,
         fields,
-        metadata: { source: "privacy-template-ui" }
+        metadata: { source: "specific-privacy-template-ui", workflow: "specific_privacy_acknowledgement", company: "Specific Marketplace" }
       };
     }
 
@@ -193,12 +205,9 @@ templates.get("/templates/privacy", (c) => {
       statusBox.className = "rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700";
       statusBox.textContent = "Sending...";
       const values = formValues();
-      const response = await fetch("/v1/agreements", {
+      const response = await fetch("/templates/agreements", {
         method: "POST",
-        headers: {
-          "Authorization": "Bearer " + values.api_key,
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload())
       });
       const result = await response.json();
@@ -215,7 +224,7 @@ templates.get("/templates/privacy", (c) => {
   </script>
 </body>
 </html>`);
-});
+}
 
 templates.get("/templates/bear-contractor", (c) => {
   const defaults = defaultTemplateVars(contractorTemplateDefinition);
@@ -253,7 +262,7 @@ templates.get("/templates/bear-contractor", (c) => {
         <h1 class="text-2xl font-semibold">Contractor Agreement</h1>
       </div>
       <div class="flex items-center gap-2">
-        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/privacy">Privacy Policy</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/bear-privacy">Privacy Policy</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/logout">Sign out</a>
       </div>
     </div>
@@ -267,7 +276,6 @@ templates.get("/templates/bear-contractor", (c) => {
           <p class="mt-1 text-sm text-slate-600">Built for Sid sending a specific Bear AI 1099 agreement with scope, rate, start date, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>API key</span><input name="api_key" type="password" value="ak_local_dev_key_change_me" required /></label>
         <label><span>Sender name</span><input name="sender_name" value="Sid from Bear AI" required /></label>
         <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contractor" required /></label>
@@ -373,12 +381,9 @@ templates.get("/templates/bear-contractor", (c) => {
       statusBox.className = "rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700";
       statusBox.textContent = "Sending...";
       const values = formValues();
-      const response = await fetch("/v1/agreements", {
+      const response = await fetch("/templates/agreements", {
         method: "POST",
-        headers: {
-          "Authorization": "Bearer " + values.api_key,
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload())
       });
       const result = await response.json();
