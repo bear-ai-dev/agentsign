@@ -27,6 +27,12 @@ export AGENTCONTRACT_API_KEY=<your production API key>
 agentcontract doctor
 ```
 
+Before npm publishing, it can be installed directly from GitHub:
+
+```bash
+npm install -g github:bear-ai-dev/agentsign
+```
+
 Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
 
 ```bash
