@@ -9,5 +9,9 @@ export const env = {
   emailFromName: process.env.EMAIL_FROM_NAME ?? "Bear AI",
   databasePath: process.env.DATABASE_PATH ?? (process.env.VERCEL ? "/tmp/agentsign.db" : "./agentsign.db"),
   pdfOutputDir: process.env.PDF_OUTPUT_DIR ?? (process.env.VERCEL ? "/tmp/agentsign-pdfs" : "./pdfs"),
+  workosApiKey: process.env.WORKOS_API_KEY ?? "",
+  workosClientId: process.env.WORKOS_CLIENT_ID ?? "",
+  workosCookiePassword: process.env.WORKOS_COOKIE_PASSWORD ?? "",
+  workosRedirectUri: process.env.WORKOS_REDIRECT_URI ?? "",
   isVercel: Boolean(process.env.VERCEL)
 };

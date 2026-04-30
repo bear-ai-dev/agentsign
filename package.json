@@ -16,6 +16,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.8",
     "@sparticuz/chromium": "^148.0.0",
+    "@workos-inc/node": "^8.8.0",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^16.4.7",
     "hono": "^4.6.16",

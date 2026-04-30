@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { marked } from "marked";
 import { requireApiKey } from "../lib/auth.js";
 import { applyTemplateVars, contractorTemplateDefinition, defaultTemplateVars, loadTemplate, privacyTemplateDefinition, templateDefinitions } from "../lib/templates.js";
+import { requireAdminSession } from "../lib/workos.js";
 
 export const templates = new Hono();
 
@@ -15,6 +16,7 @@ function escapeHtml(value: unknown) {
 }
 
 templates.use("/v1/templates/*", requireApiKey);
+templates.use("/templates/*", requireAdminSession);
 
 templates.get("/v1/templates", (c) => {
   return c.json({ templates: Object.values(templateDefinitions) });
@@ -78,7 +80,10 @@ templates.get("/templates/privacy", (c) => {
         <p class="text-sm font-semibold text-slate-500">AgentSign Templates</p>
         <h1 class="text-2xl font-semibold">Bear AI Privacy Policy</h1>
       </div>
-      <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/">API Health</a>
+      <div class="flex items-center gap-2">
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/bear-contractor">Contractor</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/logout">Sign out</a>
+      </div>
     </div>
   </header>
 
@@ -247,7 +252,10 @@ templates.get("/templates/bear-contractor", (c) => {
         <p class="text-sm font-semibold text-slate-500">Bear AI Onboarding</p>
         <h1 class="text-2xl font-semibold">Contractor Agreement</h1>
       </div>
-      <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/privacy">Privacy Policy</a>
+      <div class="flex items-center gap-2">
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/privacy">Privacy Policy</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/logout">Sign out</a>
+      </div>
     </div>
   </header>
 

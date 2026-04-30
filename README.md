@@ -13,6 +13,31 @@ npm run dev
 
 The default API key is `ak_local_dev_key_change_me`. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
 
+## WorkOS Auth
+
+The sender/admin UI routes under `/templates/*` are protected by WorkOS AuthKit. Recipient signing links stay public.
+
+Required production env vars:
+
+```bash
+WORKOS_API_KEY=sk_...
+WORKOS_CLIENT_ID=client_...
+WORKOS_COOKIE_PASSWORD=<32+ character random secret>
+WORKOS_REDIRECT_URI=https://agentink-pied.vercel.app/auth/callback
+```
+
+In the WorkOS dashboard, configure:
+
+- Redirect URI: `https://agentink-pied.vercel.app/auth/callback`
+- Sign-in endpoint: `https://agentink-pied.vercel.app/login`
+- Sign-out redirect: `https://agentink-pied.vercel.app/`
+
+Generate a cookie password locally:
+
+```bash
+openssl rand -base64 32
+```
+
 ## CLI: send an MNDA
 
 The fastest path is Bear-specific. These commands bake in Bear AI, Sid as sender, `usebear.ai`, and signed notifications back to Sid.
