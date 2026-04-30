@@ -77,6 +77,7 @@ Sid can test without Janak or Codex around:
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
 agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
 agentcontract doctor --json
+agentcontract feedback --message "Install/login worked" --category install --severity note --json
 agentcontract templates
 agentcontract template read privacy --out ./privacy.md
 agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-run --json
@@ -94,7 +95,19 @@ After login, he can send a real test to himself:
 agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --cc janak@usebear.ai
 ```
 
-He should send feedback as: command run, expected result, actual result, and what felt confusing.
+He should send feedback as: command run, expected result, actual result, and what felt confusing. Claude Code can store that directly:
+
+```bash
+agentcontract feedback \
+  --command "paste the exact command that failed" \
+  --expected "what should have happened" \
+  --actual "the error, confusing output, or bad behavior" \
+  --message "one sentence summary" \
+  --severity high \
+  --json
+```
+
+`agentcontract feedback` works before login so install/auth failures can still be reported. When logged in, feedback is attached to the account and stored in the hosted database/Supabase-backed production store. Review logged-in feedback with `agentcontract feedback list --json`.
 
 Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
 

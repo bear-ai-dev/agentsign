@@ -68,3 +68,20 @@ export type CliLoginCode = {
   expires_at: string;
   used_at: string | null;
 };
+
+export type ProductFeedback = {
+  id: string;
+  owner_email: string | null;
+  reporter_email: string | null;
+  reporter_name: string | null;
+  source: string;
+  category: string;
+  severity: string;
+  command: string | null;
+  message: string;
+  expected: string | null;
+  actual: string | null;
+  context_json: string | null;
+  status: "open" | "triaged" | "closed";
+  created_at: string;
+};

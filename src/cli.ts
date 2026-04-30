@@ -45,8 +45,22 @@ type ContractFeedback = {
   source: string;
   status: "open";
 };
+type ProductFeedbackForCli = {
+  id: string;
+  reporter_email?: string | null;
+  reporter_name?: string | null;
+  source: string;
+  category: string;
+  severity: string;
+  command?: string | null;
+  message: string;
+  expected?: string | null;
+  actual?: string | null;
+  status: string;
+  created_at: string;
+};
 
-const cliVersion = "0.1.0";
+const cliVersion = "0.1.1";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -372,6 +386,8 @@ Usage:
   agentcontract contract feedback partner-msa --note "Use California law and shorten the termination section"
   agentcontract contract edit partner-msa
   agentcontract contract read partner-msa --with-feedback
+  agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai"
+  agentcontract feedback list --json
   agentcontract contract preview partner-msa --var company_name="Bear AI" --preview-file ./preview.html
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
@@ -396,6 +412,7 @@ Setup:
   agentcontract skill                    Install/update the AI-agent skill
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
+  agentcontract feedback                Report CLI/product breakage to AgentContract
   agentcontract config path             Print the config path
   agentcontract keys                    List user-owned API keys without opening the dashboard
   agentcontract key create              Create another user-owned API key from the current key
@@ -437,6 +454,14 @@ Options:
   --note, --feedback <text>          Add feedback to a local contract review thread
   --feedback-file <path>             Read contract feedback text from a file
   --feedback-stdin                   Read contract feedback text from stdin
+  --message <text>                   Product feedback message for agentcontract feedback
+  --command, --cmd <text>            Command that broke for agentcontract feedback
+  --expected <text>                  Expected result for product feedback
+  --actual <text>                    Actual result or error for product feedback
+  --category <name>                  Feedback area: install, login, cli, sending, signing, docs
+  --severity <level>                 Feedback severity: note, low, normal, high, blocker
+  --reporter-email <email>           Reporter email for unauthenticated feedback
+  --reporter-name <name>             Reporter name for feedback
   --with-feedback                    Include feedback when reading/showing a contract
   --author <name>                    Human or agent name for contract feedback
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
@@ -684,6 +709,24 @@ async function postPublicJson(apiUrl: string, path: string, body: unknown) {
   const response = await fetch(`${apiUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: controller.signal
+  });
+  clearTimeout(timeout);
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new CliError(result.error ?? `HTTP ${response.status}`);
+  return result;
+}
+
+async function postMaybeAuthJson(apiUrl: string, apiKey: string | undefined, path: string, body: unknown) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const response = await fetch(`${apiUrl}${path}`, {
+    method: "POST",
+    headers,
     body: JSON.stringify(body),
     signal: controller.signal
   });
@@ -1218,6 +1261,31 @@ function printResult(result: unknown, json: boolean) {
   if (typeof result === "object" && result && "api_key_revoked" in result) {
     const revoked = result as { id?: string };
     console.log(`Revoked API key: ${revoked.id ?? ""}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "feedback" in result) {
+    const feedbackResult = result as { stored?: boolean; feedback?: ProductFeedbackForCli | ProductFeedbackForCli[] };
+    const feedbackItems = Array.isArray(feedbackResult.feedback)
+      ? feedbackResult.feedback
+      : feedbackResult.feedback
+        ? [feedbackResult.feedback]
+        : [];
+    if (feedbackResult.stored && feedbackItems[0]) {
+      const item = feedbackItems[0];
+      console.log(`Feedback stored: ${item.id}`);
+      console.log(`Severity: ${item.severity}`);
+      console.log(`Category: ${item.category}`);
+      if (item.command) console.log(`Command: ${item.command}`);
+      console.log(`Message: ${item.message}`);
+      return;
+    }
+    console.log(`Feedback: ${feedbackItems.length}`);
+    for (const item of feedbackItems) {
+      const command = item.command ? ` command="${item.command}"` : "";
+      console.log(`${item.id} [${item.status}/${item.severity}/${item.category}] ${item.created_at}${command}`);
+      console.log(`  ${item.message}`);
+    }
     return;
   }
 
@@ -1850,6 +1918,91 @@ async function doctor(args: Args) {
   };
 }
 
+function inferFeedbackCategory(command: string | undefined, message: string) {
+  const text = `${command ?? ""} ${message}`.toLowerCase();
+  if (text.includes("install") || text.includes("npm ") || text.includes("curl ")) return "install";
+  if (text.includes("login") || text.includes("auth") || text.includes("code")) return "login";
+  if (text.includes("signing") || text.includes("signature") || text.includes("/sign/")) return "signing";
+  if (text.includes("send") || text.includes("onboard") || text.includes("email")) return "sending";
+  if (text.includes("webhook")) return "webhook";
+  if (text.includes("dashboard") || text.includes("ui")) return "dashboard";
+  if (text.includes("docs") || text.includes("skill")) return "docs";
+  return "cli";
+}
+
+function inferFeedbackSeverity(message: string) {
+  const text = message.toLowerCase();
+  if (text.includes("block") || text.includes("can't") || text.includes("cannot") || text.includes("crash")) return "blocker";
+  if (text.includes("fail") || text.includes("error") || text.includes("broken") || text.includes("broke")) return "high";
+  return "normal";
+}
+
+function productFeedbackContext(args: Args, apiUrl: string) {
+  const context: Record<string, unknown> = {
+    cli_version: cliVersion,
+    package: packageName,
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    api_url: apiUrl,
+    config_loaded: !configLoadError,
+    config_custom_path: Boolean(process.env.AGENTCONTRACT_CONFIG)
+  };
+  if (configLoadError) context.config_error = configLoadError;
+  if (args["include-cwd"]) context.cwd = process.cwd();
+  return context;
+}
+
+async function submitProductFeedback(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args, false);
+  const commandText = cleanString(stringArg(args, "command", "cmd"));
+  const message = feedbackNoteFromArgs(args, positional);
+  if (!message) {
+    throw new CliError(
+      "feedback message is required",
+      'Example: agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai"'
+    );
+  }
+
+  const reporterEmail = cleanString(stringArg(args, "reporter-email"))
+    ?? cleanString(stringArg(args, "email"))
+    ?? configString("sender_email");
+  const reporterName = cleanString(stringArg(args, "reporter-name", "author", "by"))
+    ?? configString("sender_name");
+  const payload = {
+    message,
+    reporter_email: reporterEmail,
+    reporter_name: reporterName,
+    source: "agentcontract-cli",
+    category: stringArg(args, "category") ?? inferFeedbackCategory(commandText, message),
+    severity: stringArg(args, "severity") ?? inferFeedbackSeverity(message),
+    command: commandText,
+    expected: stringArg(args, "expected"),
+    actual: stringArg(args, "actual", "error"),
+    context: productFeedbackContext(args, apiUrl)
+  };
+
+  if (dryRun(args)) return dryRunResult("feedback", apiUrl, "/v1/feedback", payload);
+  return postMaybeAuthJson(apiUrl, apiKey, "/v1/feedback", payload);
+}
+
+async function listProductFeedback(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const query = new URLSearchParams();
+  const statusFilter = stringArg(args, "status");
+  const limit = stringArg(args, "limit");
+  if (statusFilter) query.set("status", statusFilter);
+  if (limit) query.set("limit", limit);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJson(apiUrl, apiKey, `/v1/feedback${suffix}`);
+}
+
+async function productFeedbackCommand(args: Args, positional: string[]) {
+  const action = positional[0];
+  if (action === "list" || action === "ls") return listProductFeedback(args);
+  return submitProductFeedback(args, positional);
+}
+
 async function listApiKeys(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args);
   return getJson(apiUrl, apiKey, "/v1/api-keys");
@@ -2283,6 +2436,7 @@ agentcontract contract feedback custom-sow --note "Make the IP assignment cleare
 agentcontract contract read custom-sow --with-feedback
 agentcontract contract edit custom-sow
 agentcontract contract send custom-sow --to jane@example.com --name "Jane Doe" --json
+agentcontract feedback --message "What broke" --command "exact command" --expected "expected result" --actual "actual result or error" --json
 
 ## Built-ins
 
@@ -2306,11 +2460,26 @@ agentcontract agreement remind agr_...
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
 
+## Failure Feedback
+
+If any AgentContract command breaks, immediately store concise feedback before trying workarounds:
+
+agentcontract feedback \\
+  --command "paste the exact command that failed" \\
+  --expected "what should have happened" \\
+  --actual "the error, confusing output, or bad behavior" \\
+  --message "one sentence summary" \\
+  --severity high \\
+  --json
+
+Use \`--category install\`, \`--category login\`, \`--category sending\`, \`--category signing\`, or \`--category docs\` when obvious. The feedback command works before login; if logged in, it also attaches the user's account email.
+
 ## Rules
 
 - Do not send placeholder values.
 - Prefer \`--dry-run --json\` before bulk sends.
 - Use \`contract read --with-feedback\` before sending revised contracts.
+- When something fails or feels confusing, run \`agentcontract feedback\` with the command, expected result, and actual result.
 - Prefer CLI/API commands over sender dashboard or template forms.
 - Never print or commit API keys.
 `;
@@ -2475,6 +2644,8 @@ async function main() {
     result = await login(args);
   } else if (command === "skill") {
     result = await installSkill(args);
+  } else if (command === "feedback" || command === "bug" || command === "report") {
+    result = await productFeedbackCommand(args, positional);
   } else if (command === "init") {
     result = await initConfig(args);
   } else if (command === "config") {

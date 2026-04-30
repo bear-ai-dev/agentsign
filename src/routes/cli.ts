@@ -8,7 +8,7 @@ import { requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
 
-const cliTarballName = "agentcontract-0.1.0.tgz";
+const cliTarballName = "agentcontract-0.1.1.tgz";
 
 type WorkosUser = {
   id?: string;
@@ -78,7 +78,7 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-if npm install -g "${origin}/agentcontract-0.1.0.tgz"; then
+if npm install -g "${origin}/${cliTarballName}"; then
   :
 elif npm install -g @bear-ai-dev/agentcontract; then
   :
@@ -157,7 +157,8 @@ cli.get("/cli", (c) => {
       <h2 class="font-semibold">Examples</h2>
       <pre class="mt-3 overflow-x-auto rounded bg-slate-950 p-3 text-sm text-slate-100"><code>agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor"
 agentcontract contract read privacy --var effective_date="April 29, 2026"
-agentcontract agreements --status sent --json</code></pre>
+agentcontract agreements --status sent --json
+agentcontract feedback --message "Login code never arrived" --category login --severity high --json</code></pre>
     </section>
   </main>
 </body>

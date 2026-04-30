@@ -84,9 +84,26 @@ agentcontract agreement audit agr_...
 agentcontract agreement remind agr_...
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./agreement.pdf
+agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai" --category login --severity high --json
 ```
 
 The sender dashboard is optional. Prefer CLI/API commands for all agent and sender workflows.
+
+## Failure Feedback
+
+When any AgentContract command fails, feels confusing, or blocks the user, report it before trying workarounds:
+
+```bash
+agentcontract feedback \
+  --command "paste the exact command that failed" \
+  --expected "what should have happened" \
+  --actual "the error, confusing output, or bad behavior" \
+  --message "one sentence summary" \
+  --severity high \
+  --json
+```
+
+Use `--category install`, `--category login`, `--category sending`, `--category signing`, or `--category docs` when obvious. `agentcontract feedback` works before login, and if the user is logged in it attaches the local account email. Feedback is stored in the hosted AgentContract database so the product team can review it later.
 
 ## Contract Library
 

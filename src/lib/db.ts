@@ -151,6 +151,7 @@ async function ensureSchema() {
   await ensureAgreementStorageSchema();
   await ensureApiKeysSchema();
   await ensureCliLoginCodesSchema();
+  await ensureProductFeedbackSchema();
 }
 
 async function ensureAgreementStorageSchema() {
@@ -272,6 +273,76 @@ async function ensureCliLoginCodesSchema() {
   `);
 }
 
+async function ensureProductFeedbackSchema() {
+  const columns = [
+    ["owner_email", "TEXT"],
+    ["reporter_email", "TEXT"],
+    ["reporter_name", "TEXT"],
+    ["source", "TEXT"],
+    ["category", "TEXT"],
+    ["severity", "TEXT"],
+    ["command", "TEXT"],
+    ["message", "TEXT"],
+    ["expected", "TEXT"],
+    ["actual", "TEXT"],
+    ["context_json", "TEXT"],
+    ["status", "TEXT"],
+    ["created_at", "TEXT"]
+  ] as const;
+  const sql = `CREATE TABLE IF NOT EXISTS product_feedback (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT,
+    reporter_email TEXT,
+    reporter_name TEXT,
+    source TEXT NOT NULL,
+    category TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    command TEXT,
+    message TEXT NOT NULL,
+    expected TEXT,
+    actual TEXT,
+    context_json TEXT,
+    status TEXT NOT NULL CHECK(status IN ('open', 'triaged', 'closed')) DEFAULT 'open',
+    created_at TEXT NOT NULL
+  )`;
+
+  if (pool) {
+    await pool.query(sql);
+    for (const [name, type] of columns) {
+      await pool.query(`ALTER TABLE product_feedback ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+    }
+    await pool.query("UPDATE product_feedback SET source = 'agentcontract-cli' WHERE source IS NULL");
+    await pool.query("UPDATE product_feedback SET category = 'general' WHERE category IS NULL");
+    await pool.query("UPDATE product_feedback SET severity = 'normal' WHERE severity IS NULL");
+    await pool.query("UPDATE product_feedback SET status = 'open' WHERE status IS NULL");
+    await pool.query("UPDATE product_feedback SET created_at = NOW()::text WHERE created_at IS NULL");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_product_feedback_created_at ON product_feedback(created_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_product_feedback_status ON product_feedback(status)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_product_feedback_owner_email ON product_feedback(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_product_feedback_reporter_email ON product_feedback(reporter_email)");
+    return;
+  }
+
+  sqlite!.exec(sql);
+  const existing = new Set(
+    sqlite!.prepare("PRAGMA table_info(product_feedback)").all().map((column) => (column as { name: string }).name)
+  );
+  for (const [name, type] of columns) {
+    if (!existing.has(name)) sqlite!.exec(`ALTER TABLE product_feedback ADD COLUMN ${name} ${type}`);
+  }
+  sqlite!.exec(`
+    UPDATE product_feedback SET source = 'agentcontract-cli' WHERE source IS NULL;
+    UPDATE product_feedback SET category = 'general' WHERE category IS NULL;
+    UPDATE product_feedback SET severity = 'normal' WHERE severity IS NULL;
+    UPDATE product_feedback SET status = 'open' WHERE status IS NULL;
+    UPDATE product_feedback SET created_at = datetime('now') WHERE created_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_product_feedback_created_at ON product_feedback(created_at);
+    CREATE INDEX IF NOT EXISTS idx_product_feedback_status ON product_feedback(status);
+    CREATE INDEX IF NOT EXISTS idx_product_feedback_owner_email ON product_feedback(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_product_feedback_reporter_email ON product_feedback(reporter_email);
+  `);
+}
+
 async function applyMigrationFile(filename: string) {
   const migrationPath = join(process.cwd(), "migrations", filename);
   if (!existsSync(migrationPath)) {
@@ -285,6 +356,7 @@ async function applyMigrationFile(filename: string) {
       .replaceAll("CREATE TABLE webhook_deliveries", "CREATE TABLE IF NOT EXISTS webhook_deliveries")
       .replaceAll("CREATE TABLE api_keys", "CREATE TABLE IF NOT EXISTS api_keys")
       .replaceAll("CREATE TABLE cli_login_codes", "CREATE TABLE IF NOT EXISTS cli_login_codes")
+      .replaceAll("CREATE TABLE product_feedback", "CREATE TABLE IF NOT EXISTS product_feedback")
       .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
     await pool!.query(sql);
   } else {
