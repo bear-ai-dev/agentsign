@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{document_title}} | AgentInk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .contract h1 { font-size: 1.875rem; line-height: 1.15; font-weight: 700; margin-bottom: 1.5rem; }
+    .contract h2 { font-size: 1.25rem; font-weight: 650; margin-top: 1.75rem; margin-bottom: .5rem; }
+    .contract p { margin-bottom: .85rem; line-height: 1.7; }
+    .contract hr { margin: 1.75rem 0; border-top: 1px solid rgb(203 213 225); }
+    label { display: block; font-weight: 600; margin-bottom: 1rem; }
+    input, select { display: block; width: 100%; margin-top: .4rem; border: 1px solid rgb(203 213 225); border-radius: .375rem; padding: .65rem .75rem; font-weight: 400; background: white; }
+    .check { display: flex; gap: .65rem; align-items: flex-start; font-weight: 500; }
+    .check input { width: auto; margin-top: .3rem; }
+    .field-block { margin-bottom: 1.25rem; }
+    .typed-signature-preview { margin-top: .65rem; min-height: 7rem; display: flex; align-items: center; border: 1px solid rgb(203 213 225); border-radius: .375rem; background: white; padding: 1rem 1.25rem; font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.75rem; line-height: 1.1; color: rgb(15 23 42); overflow-wrap: anywhere; }
+    .typed-signature-preview.initials { min-height: 5rem; max-width: 18rem; font-size: 2.25rem; }
+    .typed-signature-preview.empty { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: .95rem; color: rgb(100 116 139); }
+    .field-hint { margin-top: .4rem; font-size: .875rem; font-weight: 400; color: rgb(71 85 105); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-950">
+  <main class="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    <section class="contract rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">{{document_html}}</section>
+    <form id="sign-form" class="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <h2 class="mb-5 text-xl font-semibold">Complete and Sign</h2>
+      {{fields_html}}
+      <label class="check mt-6">
+        <input id="consent" type="checkbox" required />
+        <span>I agree that my electronic signature is the legal equivalent of my handwritten signature and I am bound by this agreement under the U.S. ESIGN Act and UETA.</span>
+      </label>
+      <p id="error" class="mt-4 hidden rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"></p>
+      <button id="submit" class="mt-6 w-full rounded bg-slate-950 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400" type="submit" disabled>Sign and Submit</button>
+    </form>
+  </main>
+  <script>
+    const form = document.getElementById("sign-form");
+    const consent = document.getElementById("consent");
+    const submit = document.getElementById("submit");
+    const errorBox = document.getElementById("error");
+
+    document.querySelectorAll("[data-typed-signature]").forEach((block) => {
+      const typed = block.querySelector("[data-signature-input]");
+      const hidden = block.querySelector("input[type=hidden]");
+      const preview = block.querySelector("[data-signature-preview]");
+      const placeholder = preview.dataset.placeholder || "Signature preview";
+      const syncSignature = () => {
+        const value = typed.value.trim();
+        hidden.value = value;
+        preview.textContent = value || placeholder;
+        preview.classList.toggle("empty", !value);
+        validate();
+      };
+      typed.addEventListener("input", syncSignature);
+      syncSignature();
+    });
+
+    function validate() {
+      let ok = consent.checked;
+      form.querySelectorAll("[data-required=true]").forEach((el) => {
+        if (el.type === "checkbox") ok = ok && el.checked;
+        else ok = ok && Boolean(el.value);
+      });
+      submit.disabled = !ok;
+    }
+
+    form.addEventListener("input", validate);
+    consent.addEventListener("change", validate);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      errorBox.classList.add("hidden");
+      const fields = {};
+      new FormData(form).forEach((value, key) => { fields[key] = value; });
+      form.querySelectorAll("input[type=checkbox][name]").forEach((box) => { fields[box.name] = box.checked; });
+
+      const response = await fetch("/sign/{{token}}/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, consent_timestamp: new Date().toISOString() })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        errorBox.textContent = result.error || "Signing failed";
+        errorBox.classList.remove("hidden");
+        validate();
+        return;
+      }
+      window.location.href = result.signed_pdf_url;
+    });
+    validate();
+  </script>
+</body>
+</html>
