@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import { nanoid } from "nanoid";
 import { hashApiKey } from "./apiKeys.js";
-import { get, nowIso, run } from "./db.js";
+import { get, hasColumn, nowIso, run } from "./db.js";
 import type { CliLoginCode } from "./types.js";
 
 const ttlMs = 5 * 60 * 1000;
@@ -13,12 +13,23 @@ async function insertLoginCode(code: string, input: {
 }) {
   const createdAt = nowIso();
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  const hasLegacyPlaintextColumn = await hasColumn("cli_login_codes", "api_key_plaintext");
 
   await run(
-    `INSERT INTO cli_login_codes (id, code_hash, key_name, owner_id, owner_email, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO cli_login_codes (${[
+      "id",
+      "code_hash",
+      hasLegacyPlaintextColumn ? "api_key_plaintext" : "",
+      "key_name",
+      "owner_id",
+      "owner_email",
+      "created_at",
+      "expires_at"
+    ].filter(Boolean).join(", ")})
+     VALUES (${Array.from({ length: hasLegacyPlaintextColumn ? 8 : 7 }, () => "?").join(", ")})`,
     `clc_${nanoid(12)}`,
     hashApiKey(code),
+    ...(hasLegacyPlaintextColumn ? [""] : []),
     input.keyName?.trim() || "AgentContract CLI",
     input.ownerId ?? null,
     input.ownerEmail ?? null,

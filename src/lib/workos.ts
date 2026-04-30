@@ -5,11 +5,18 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { env } from "./env.js";
 
 const sessionCookie = "agentsign_admin_session";
+const emailSessionCookie = "agentcontract_admin_email_session";
 const stateTtlMs = 10 * 60 * 1000;
+const emailSessionTtlMs = 30 * 24 * 60 * 60 * 1000;
 
 type AuthState = {
   returnTo: string;
   nonce: string;
+  exp: number;
+};
+
+type EmailAdminSession = {
+  email: string;
   exp: number;
 };
 
@@ -57,6 +64,14 @@ function signState(state: AuthState) {
   return `${payload}.${signature}`;
 }
 
+function sessionSecret() {
+  return env.workosCookiePassword || env.apiKey;
+}
+
+function signPayload(payload: string) {
+  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+}
+
 function verifyState(state: string | undefined | null): AuthState | null {
   if (!state) return null;
   const [payload, signature] = state.split(".");
@@ -92,6 +107,46 @@ export function loginUrl(c: Context, returnTo?: string) {
   });
 }
 
+function verifySignedPayload<T>(value: string | undefined | null): T | null {
+  if (!value) return null;
+  const [payload, signature] = value.split(".");
+  if (!payload || !signature) return null;
+
+  const expected = signPayload(payload);
+  const providedBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (providedBuffer.length !== expectedBuffer.length || !timingSafeEqual(providedBuffer, expectedBuffer)) return null;
+
+  try {
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function readEmailAdminSession(c: Context) {
+  const session = verifySignedPayload<EmailAdminSession>(getCookie(c, emailSessionCookie));
+  if (!session?.email || session.exp < Date.now()) return null;
+  return {
+    id: `email:${session.email}`,
+    email: session.email,
+    firstName: null,
+    lastName: null
+  };
+}
+
+export function setEmailAdminSession(c: Context, email: string) {
+  const payload = Buffer.from(JSON.stringify({
+    email,
+    exp: Date.now() + emailSessionTtlMs
+  } satisfies EmailAdminSession)).toString("base64url");
+
+  setCookie(c, emailSessionCookie, `${payload}.${signPayload(payload)}`, {
+    ...cookieOptions(c),
+    maxAge: Math.floor(emailSessionTtlMs / 1000)
+  });
+}
+
 export async function completeWorkosCallback(c: Context) {
   const client = workos(true);
   if (!client) return c.text("WorkOS is not configured", 503);
@@ -103,6 +158,7 @@ export async function completeWorkosCallback(c: Context) {
   const result = await client.userManagement.authenticateWithCode({
     clientId: env.workosClientId,
     code,
+    invitationToken: c.req.query("invitation_token"),
     ipAddress: clientIp(c) ?? undefined,
     userAgent: c.req.header("user-agent"),
     session: {
@@ -144,6 +200,7 @@ export async function logout(c: Context) {
   const client = workos(true);
   const sessionData = getCookie(c, sessionCookie);
   deleteCookie(c, sessionCookie, { path: "/" });
+  deleteCookie(c, emailSessionCookie, { path: "/" });
 
   if (!client || !sessionData) return c.redirect("/");
 
@@ -159,16 +216,23 @@ export async function logout(c: Context) {
 }
 
 export const requireAdminSession: MiddlewareHandler = async (c, next) => {
+  const emailSession = readEmailAdminSession(c);
+  if (emailSession) {
+    c.set("adminUser", emailSession);
+    await next();
+    return;
+  }
+
   const client = workos(true);
   if (!client) {
-    return c.html(authSetupHtml(), 503);
+    const requestUrl = new URL(c.req.url);
+    return c.redirect(`/login?returnTo=${encodeURIComponent(`${requestUrl.pathname}${requestUrl.search}`)}`);
   }
 
   const sessionData = getCookie(c, sessionCookie);
   if (!sessionData) {
     const requestUrl = new URL(c.req.url);
-    const url = loginUrl(c, `${requestUrl.pathname}${requestUrl.search}`);
-    return url ? c.redirect(url) : c.text("WorkOS is not configured", 503);
+    return c.redirect(`/login?returnTo=${encodeURIComponent(`${requestUrl.pathname}${requestUrl.search}`)}`);
   }
 
   try {
@@ -196,8 +260,7 @@ export const requireAdminSession: MiddlewareHandler = async (c, next) => {
   }
 
   const requestUrl = new URL(c.req.url);
-  const url = loginUrl(c, `${requestUrl.pathname}${requestUrl.search}`);
-  return url ? c.redirect(url) : c.text("WorkOS is not configured", 503);
+  return c.redirect(`/login?returnTo=${encodeURIComponent(`${requestUrl.pathname}${requestUrl.search}`)}`);
 };
 
 function clientIp(c: Context) {

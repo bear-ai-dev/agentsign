@@ -21,13 +21,13 @@ YC-style setup:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
 agentcontract skill
 ```
 
 Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
 
-`agentcontract login` opens WorkOS/Google Workspace auth in the browser, creates a user-owned API key, exchanges it back through a one-time local callback, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login requires the WorkOS redirect URI to be registered. For the remote CLI flow, use email-code login:
+`agentcontract login --email` sends a six-digit AgentContract code, creates a user-owned API key after verification, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login is still available with `agentcontract login`, but the email-code flow is the reliable default for remote agents and first-time users:
 
 ```bash
 agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
@@ -65,7 +65,7 @@ agentcontract key create --key-name "Sid laptop"
 agentcontract key revoke key_...
 ```
 
-API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use WorkOS-issued user keys.
+API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use email-code or WorkOS-issued user keys.
 
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
 
@@ -243,7 +243,7 @@ Recipient signing still uses the public token link in the email because the reci
 
 ## WorkOS Auth
 
-`agentcontract login` uses WorkOS AuthKit with a localhost callback, similar to the YC CLI flow. The optional sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` use the same WorkOS session. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google.
+`agentcontract login --email` uses AgentContract email-code auth and requires no browser. Browser login uses WorkOS AuthKit with a localhost callback, similar to the YC CLI flow. The optional sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` accept either an AgentContract email-code session or a WorkOS session. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google directly.
 
 Required production env vars:
 
@@ -260,6 +260,8 @@ In the WorkOS dashboard, configure:
 - Sign-in endpoint: `https://agentink-pied.vercel.app/login`
 - Sign-out redirect: `https://agentink-pied.vercel.app/`
 - Google Workspace / Google OAuth connection for the allowed company domain
+
+Current production fallback: `/login` presents an email-code sign-in first and a WorkOS/Google button second. This is intentional so Sid can use the CLI and dashboard even if WorkOS SSO/social login still needs a dashboard-side provider toggle.
 
 Generate a cookie password locally:
 

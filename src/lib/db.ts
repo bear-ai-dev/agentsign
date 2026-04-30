@@ -79,6 +79,22 @@ export async function all<T>(sql: string, ...params: unknown[]): Promise<T[]> {
   return sqlite!.prepare(sql).all(...params) as T[];
 }
 
+export async function hasColumn(table: string, column: string) {
+  await dbReady;
+  if (pool) {
+    const result = await pool.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2 LIMIT 1`,
+      [table, column]
+    );
+    return Boolean(result.rows[0]);
+  }
+
+  return sqlite!
+    .prepare(`PRAGMA table_info(${table})`)
+    .all()
+    .some((item) => (item as { name: string }).name === column);
+}
+
 export async function addAuditEvent(input: {
   agreementId: string;
   eventType: string;
@@ -134,7 +150,7 @@ async function ensureSchema() {
 
   await ensureAgreementStorageSchema();
   await ensureApiKeysSchema();
-  await applyMigrationFile("003_cli_login_codes.sql");
+  await ensureCliLoginCodesSchema();
 }
 
 async function ensureAgreementStorageSchema() {
@@ -208,6 +224,51 @@ async function ensureApiKeysSchema() {
     CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_owner_email ON agentcontract_api_keys(owner_email);
     CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_hash ON agentcontract_api_keys(key_hash);
     CREATE INDEX IF NOT EXISTS idx_agentcontract_api_keys_active ON agentcontract_api_keys(revoked_at) WHERE revoked_at IS NULL;
+  `);
+}
+
+async function ensureCliLoginCodesSchema() {
+  const columns = [
+    ["key_name", "TEXT"],
+    ["owner_id", "TEXT"],
+    ["owner_email", "TEXT"],
+    ["created_at", "TEXT"],
+    ["expires_at", "TEXT"],
+    ["used_at", "TEXT"]
+  ] as const;
+  const sql = `CREATE TABLE IF NOT EXISTS cli_login_codes (
+    id TEXT PRIMARY KEY,
+    code_hash TEXT NOT NULL UNIQUE,
+    key_name TEXT NOT NULL,
+    owner_id TEXT,
+    owner_email TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT
+  )`;
+
+  if (pool) {
+    await pool.query(sql);
+    for (const [name, type] of columns) {
+      await pool.query(`ALTER TABLE cli_login_codes ADD COLUMN IF NOT EXISTS ${name} ${type}`);
+    }
+    await pool.query("UPDATE cli_login_codes SET key_name = 'AgentContract CLI' WHERE key_name IS NULL");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_login_codes_hash ON cli_login_codes(code_hash)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_login_codes_pending ON cli_login_codes(expires_at) WHERE used_at IS NULL");
+    return;
+  }
+
+  sqlite!.exec(sql);
+  const existing = new Set(
+    sqlite!.prepare("PRAGMA table_info(cli_login_codes)").all().map((column) => (column as { name: string }).name)
+  );
+  for (const [name, type] of columns) {
+    if (!existing.has(name)) sqlite!.exec(`ALTER TABLE cli_login_codes ADD COLUMN ${name} ${type}`);
+  }
+  sqlite!.exec(`
+    UPDATE cli_login_codes SET key_name = 'AgentContract CLI' WHERE key_name IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_cli_login_codes_hash ON cli_login_codes(code_hash);
+    CREATE INDEX IF NOT EXISTS idx_cli_login_codes_pending ON cli_login_codes(expires_at) WHERE used_at IS NULL;
   `);
 }
 

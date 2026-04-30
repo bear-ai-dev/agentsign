@@ -19,7 +19,7 @@ agentcontract skill
 
 Requires Node.js 20+ and npm. The install script uses the hosted prebuilt package, so a remote tester does not need the repo or local build setup.
 
-`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. Browser WorkOS login is also available with `agentcontract login --api-url https://agentink-pied.vercel.app` once the WorkOS redirect URI is registered. `agentcontract skill` installs or updates this skill for the selected AI agent.
+`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentink-pied.vercel.app` once the WorkOS provider is enabled. `agentcontract skill` installs or updates this skill for the selected AI agent.
 
 Until the npm package is published, install directly:
 
