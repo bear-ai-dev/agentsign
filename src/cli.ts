@@ -2,16 +2,35 @@
 
 import "dotenv/config";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { marked } from "marked";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "./lib/templates.js";
 
 type Args = Record<string, string | boolean | string[]>;
+type CliConfig = {
+  api_url?: string;
+  api_key?: string;
+  sender_email?: string;
+  sender_name?: string;
+  notify_email?: string[];
+};
 
-const defaultApiUrl = process.env.AGENTCONTRACT_API_URL ?? process.env.AGENTSIGN_API_URL ?? process.env.AGENTINK_API_URL ?? "https://agentink-pied.vercel.app";
-const defaultApiKey = process.env.AGENTCONTRACT_API_KEY ?? process.env.AGENTSIGN_API_KEY ?? process.env.AGENTINK_API_KEY;
+const cliVersion = "0.1.0";
+const packageName = "@bear-ai-dev/agentcontract";
+const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
+let configLoadError: string | undefined;
+const cliConfig = loadCliConfig();
+const defaultApiUrl = cleanString(process.env.AGENTCONTRACT_API_URL)
+  ?? cleanString(process.env.AGENTSIGN_API_URL)
+  ?? cleanString(process.env.AGENTINK_API_URL)
+  ?? configString("api_url")
+  ?? "https://agentink-pied.vercel.app";
+const defaultApiKey = cleanString(process.env.AGENTCONTRACT_API_KEY)
+  ?? cleanString(process.env.AGENTSIGN_API_KEY)
+  ?? cleanString(process.env.AGENTINK_API_KEY)
+  ?? configString("api_key");
 const bearDefaults = {
   companyName: "Bear AI",
   senderEmail: "sid@usebear.ai",
@@ -43,10 +62,63 @@ class CliError extends Error {
   }
 }
 
+function loadCliConfig(): CliConfig {
+  if (!existsSync(configPath)) return {};
+
+  try {
+    const parsed = JSON.parse(readFileSync(configPath, "utf8")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("config must be a JSON object");
+    }
+    const raw = parsed as Record<string, unknown>;
+    return {
+      ...(typeof raw.api_url === "string" ? { api_url: raw.api_url } : {}),
+      ...(typeof raw.api_key === "string" ? { api_key: raw.api_key } : {}),
+      ...(typeof raw.sender_email === "string" ? { sender_email: raw.sender_email } : {}),
+      ...(typeof raw.sender_name === "string" ? { sender_name: raw.sender_name } : {}),
+      ...(Array.isArray(raw.notify_email) ? { notify_email: raw.notify_email.map(String) } : {})
+    };
+  } catch (error) {
+    configLoadError = error instanceof Error ? error.message : String(error);
+    return {};
+  }
+}
+
+function configString(key: keyof CliConfig) {
+  const value = cliConfig[key];
+  return typeof value === "string" ? cleanString(value) : undefined;
+}
+
+function writeCliConfig(nextConfig: CliConfig) {
+  mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
+  writeFileSync(`${configPath}.tmp`, `${JSON.stringify(nextConfig, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(`${configPath}.tmp`, 0o600);
+  renameSync(`${configPath}.tmp`, configPath);
+  chmodSync(configPath, 0o600);
+}
+
+function maskSecret(value: string | undefined) {
+  if (!value) return undefined;
+  if (value.length <= 8) return "****";
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function publicConfig(showSecrets = false, config: CliConfig = cliConfig) {
+  return {
+    api_url: config.api_url,
+    api_key: showSecrets ? config.api_key : maskSecret(config.api_key),
+    sender_email: config.sender_email,
+    sender_name: config.sender_name,
+    notify_email: config.notify_email ?? []
+  };
+}
+
 function usage() {
   console.log(`AgentContract CLI
 
 Usage:
+  agentcontract init --api-url https://agentink-pied.vercel.app [options]
+  agentcontract config get
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
   agentcontract bulk-marketplace-onboard --file contributors.json [options]
   agentcontract bear-contractor --to jane@example.com --name "Jane Doe" --scope "Backend engineering" --rate 150 --start-date 2026-05-01 [options]
@@ -60,8 +132,14 @@ Usage:
   agentcontract doctor [options]
   agentcontract view <agreement_id> --open
   agentcontract status <agreement_id> [options]
+  agentcontract version
 
 The legacy "agentsign" command name is also supported when installed from npm.
+
+Setup:
+  agentcontract init                    Save API URL/key and sender defaults to ${configPath}
+  agentcontract config get              Show saved config with secrets masked
+  agentcontract config path             Print the config path
 
 Sender / Receiver:
   --from, --sender-email <email>     Human sender. Used as Reply-To and default signed notification target
@@ -74,6 +152,7 @@ Sender / Receiver:
 Options:
   --api-url <url>                    API base URL. Defaults to AGENTCONTRACT_API_URL or ${defaultApiUrl}
   --api-key <key>                    API key. Defaults to AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY
+  --api-key-stdin                    Read API key from stdin for init/send commands
   --webhook-url <url>                Machine webhook for agreement.completed
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor
   --var <key=value>                  Template variable. Repeatable
@@ -94,9 +173,11 @@ Options:
   --address <text>                   Legacy privacy override. Specific template hardcodes 39 Tehama
   --dry-run                          Print the request without sending it
   --json                             Print raw JSON only
+  --show-secrets                     Show saved API key in config output
+  --version                          Print CLI version
 
 Environment:
-  AGENTCONTRACT_API_URL, AGENTCONTRACT_API_KEY, AGENTCONTRACT_SENDER_EMAIL, AGENTCONTRACT_SENDER_NAME, AGENTCONTRACT_NOTIFY_EMAIL
+  AGENTCONTRACT_API_URL, AGENTCONTRACT_API_KEY, AGENTCONTRACT_SENDER_EMAIL, AGENTCONTRACT_SENDER_NAME, AGENTCONTRACT_NOTIFY_EMAIL, AGENTCONTRACT_CONFIG
   Legacy aliases: AGENTSIGN_API_URL, AGENTSIGN_API_KEY, AGENTSIGN_SENDER_EMAIL, AGENTSIGN_SENDER_NAME, AGENTSIGN_NOTIFY_EMAIL
 
 Bulk JSON can be either an array of recipients or { "recipients": [...] }.
@@ -153,9 +234,64 @@ function stringArg(args: Args, ...keys: string[]) {
   return undefined;
 }
 
+function stringArgSource(args: Args, keys: string[]) {
+  for (const key of keys) {
+    const value = args[key];
+    if (typeof value === "string") return { value, source: `flag:${key}` };
+    if (Array.isArray(value)) return { value: value.at(-1), source: `flag:${key}` };
+  }
+  return undefined;
+}
+
 function cleanString(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function envString(...names: string[]) {
+  for (const name of names) {
+    const value = cleanString(process.env[name]);
+    if (value) return { value, source: `env:${name}` };
+  }
+  return undefined;
+}
+
+function configStringWithSource(key: keyof CliConfig) {
+  const value = configString(key);
+  return value ? { value, source: `config:${configPath}` } : undefined;
+}
+
+function resolveStringOption(
+  args: Args,
+  argKeys: string[],
+  envKeys: string[],
+  configKey?: keyof CliConfig,
+  fallback?: string
+) {
+  const fromArg = stringArgSource(args, argKeys);
+  if (fromArg?.value) return fromArg;
+  const fromEnv = envString(...envKeys);
+  if (fromEnv) return fromEnv;
+  const fromConfig = configKey ? configStringWithSource(configKey) : undefined;
+  if (fromConfig) return fromConfig;
+  return fallback ? { value: fallback, source: "default" } : { value: undefined, source: "missing" };
+}
+
+function apiKeyFromStdin(args: Args) {
+  if (!args["api-key-stdin"]) return undefined;
+  return cleanString(readFileSync(0, "utf8"));
+}
+
+function validateEmail(value: string, label: string) {
+  const trimmed = value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    throw new CliError(`${label} must be a valid email address: ${value}`);
+  }
+  return trimmed;
+}
+
+function validateEmailList(values: string[], label: string) {
+  return values.map((email, index) => validateEmail(email, `${label}${values.length > 1 ? ` #${index + 1}` : ""}`));
 }
 
 function listArg(args: Args, key: string) {
@@ -175,15 +311,31 @@ function parseEmailList(value: string | undefined) {
 }
 
 function apiConfig(args: Args, requireKey = true) {
-  const apiUrl = (stringArg(args, "api-url") ?? defaultApiUrl).replace(/\/+$/, "");
-  const apiKey = stringArg(args, "api-key") ?? defaultApiKey;
+  const apiUrlOption = resolveStringOption(
+    args,
+    ["api-url"],
+    ["AGENTCONTRACT_API_URL", "AGENTSIGN_API_URL", "AGENTINK_API_URL"],
+    "api_url",
+    "https://agentink-pied.vercel.app"
+  );
+  const stdinApiKey = apiKeyFromStdin(args);
+  const apiKeyOption = stdinApiKey
+    ? { value: stdinApiKey, source: "stdin" }
+    : resolveStringOption(
+      args,
+      ["api-key"],
+      ["AGENTCONTRACT_API_KEY", "AGENTSIGN_API_KEY", "AGENTINK_API_KEY"],
+      "api_key"
+    );
+  const apiUrl = normalizeApiUrl(apiUrlOption.value ?? defaultApiUrl);
+  const apiKey = apiKeyOption.value ?? defaultApiKey;
   if (requireKey && !apiKey) {
     throw new CliError(
-      "API key missing. Set AGENTCONTRACT_API_KEY, AGENTSIGN_API_KEY, or pass --api-key.",
-      "For a non-sending preview, run the same command with --dry-run."
+      "API key missing. Run agentcontract init, set AGENTCONTRACT_API_KEY, or pass --api-key-stdin.",
+      "For a non-sending preview, run the same command with --dry-run or --preview."
     );
   }
-  return { apiUrl, apiKey: apiKey ?? "" };
+  return { apiUrl, apiKey: apiKey ?? "", apiUrlSource: apiUrlOption.source, apiKeySource: apiKeyOption.source };
 }
 
 function today() {
@@ -257,11 +409,19 @@ function jsonOutput(args: Args) {
 }
 
 function senderEmail(args: Args) {
-  return cleanString(stringArg(args, "from", "sender-email")) ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL) ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL);
+  const value = cleanString(stringArg(args, "from", "sender-email"))
+    ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL)
+    ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL)
+    ?? configString("sender_email");
+  return value ? validateEmail(value, "--from / sender_email") : undefined;
 }
 
 function senderName(args: Args, fallback?: string) {
-  return cleanString(stringArg(args, "sender-name")) ?? cleanString(process.env.AGENTCONTRACT_SENDER_NAME) ?? cleanString(process.env.AGENTSIGN_SENDER_NAME) ?? fallback;
+  return cleanString(stringArg(args, "sender-name"))
+    ?? cleanString(process.env.AGENTCONTRACT_SENDER_NAME)
+    ?? cleanString(process.env.AGENTSIGN_SENDER_NAME)
+    ?? configString("sender_name")
+    ?? fallback;
 }
 
 function receiverName(args: Args) {
@@ -273,24 +433,26 @@ function receiverName(args: Args) {
 }
 
 function receiverEmail(args: Args) {
-  return requireArg(
+  const email = requireArg(
     stringArg(args, "to", "email", "receiver-email"),
     "--to / --email / --receiver-email",
     'Example: agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe"'
   );
+  return validateEmail(email, "--to / receiver email");
 }
 
 function notificationArgs(args: Args, defaultEmail?: string) {
   const notify = listArg(args, "notify");
   if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL));
   if (notify.length === 0) notify.push(...parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL));
+  if (notify.length === 0 && cliConfig.notify_email?.length) notify.push(...cliConfig.notify_email);
   if (notify.length === 0 && defaultEmail) notify.push(defaultEmail);
-  return notify;
+  return validateEmailList(notify, "--notify");
 }
 
 function sharedSendOptions(args: Args, fallbackSenderName?: string) {
   const sender_email = senderEmail(args);
-  const cc = listArg(args, "cc");
+  const cc = validateEmailList(listArg(args, "cc"), "--cc");
   const notify = notificationArgs(args, sender_email);
   return {
     cc: cc.length ? cc : undefined,
@@ -323,18 +485,44 @@ function repeatArg(args: Args, key: string) {
 
 function parseJsonArg(value: string, label: string) {
   try {
-    return JSON.parse(value) as Record<string, unknown>;
-  } catch {
-    throw new CliError(`${label} must be valid JSON`);
+    return JSON.parse(value) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`${label} must be valid JSON: ${message}`);
   }
+}
+
+function parseJsonObjectArg(value: string, label: string) {
+  const parsed = parseJsonArg(value, label);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new CliError(`${label} must be a JSON object`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function readTextFile(path: string, label: string) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`${label} could not be read: ${message}`);
+  }
+}
+
+function parseJsonFile(path: string, label: string) {
+  return parseJsonArg(readTextFile(path, label), label);
+}
+
+function parseJsonObjectFile(path: string, label: string) {
+  return parseJsonObjectArg(readTextFile(path, label), label);
 }
 
 function templateVarsFromArgs(args: Args) {
   const vars: Record<string, unknown> = {};
   const varsFile = stringArg(args, "vars-file");
-  if (varsFile) Object.assign(vars, parseJsonArg(readFileSync(varsFile, "utf8"), "--vars-file"));
+  if (varsFile) Object.assign(vars, parseJsonObjectFile(varsFile, "--vars-file"));
   const varsJson = stringArg(args, "vars-json");
-  if (varsJson) Object.assign(vars, parseJsonArg(varsJson, "--vars-json"));
+  if (varsJson) Object.assign(vars, parseJsonObjectArg(varsJson, "--vars-json"));
 
   for (const entry of repeatArg(args, "var")) {
     const eq = entry.indexOf("=");
@@ -357,14 +545,14 @@ function coerceVarValue(value: string) {
 function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
   const fieldsFile = stringArg(args, "fields-file");
   if (!fieldsFile) return fallback;
-  const parsed = JSON.parse(readFileSync(fieldsFile, "utf8")) as unknown;
+  const parsed = parseJsonFile(fieldsFile, "--fields-file") as unknown;
   if (!Array.isArray(parsed)) throw new CliError("--fields-file must contain a JSON array of field definitions");
   return parsed as Array<Record<string, unknown>>;
 }
 
 function markdownFromArgs(args: Args) {
   const markdownFile = stringArg(args, "markdown-file", "document-file", "contract-file");
-  if (markdownFile) return readFileSync(markdownFile, "utf8");
+  if (markdownFile) return readTextFile(markdownFile, "--markdown-file");
   return stringArg(args, "document-markdown", "markdown");
 }
 
@@ -611,6 +799,42 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
+  if (typeof result === "object" && result && "config_saved" in result) {
+    const configResult = result as unknown as { config_path: string; config?: CliConfig };
+    console.log(`Config saved: ${configResult.config_path}`);
+    if (configResult.config?.api_url) console.log(`API URL: ${configResult.config.api_url}`);
+    if (configResult.config?.api_key) console.log(`API key: ${configResult.config.api_key}`);
+    if (configResult.config?.sender_email) console.log(`Sender email: ${configResult.config.sender_email}`);
+    if (configResult.config?.sender_name) console.log(`Sender name: ${configResult.config.sender_name}`);
+    if (configResult.config?.notify_email?.length) console.log(`Notify on signed: ${configResult.config.notify_email.join(", ")}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "config_path" in result && "config" in result) {
+    const configResult = result as { config_path: string; loaded?: boolean; error?: string; config?: CliConfig };
+    console.log(`Config path: ${configResult.config_path}`);
+    if (configResult.loaded === false && configResult.error) console.log(`Config error: ${configResult.error}`);
+    if (configResult.config?.api_url) console.log(`API URL: ${configResult.config.api_url}`);
+    if (configResult.config?.api_key) console.log(`API key: ${configResult.config.api_key}`);
+    if (configResult.config?.sender_email) console.log(`Sender email: ${configResult.config.sender_email}`);
+    if (configResult.config?.sender_name) console.log(`Sender name: ${configResult.config.sender_name}`);
+    if (configResult.config?.notify_email?.length) console.log(`Notify on signed: ${configResult.config.notify_email.join(", ")}`);
+    return;
+  }
+
+  if (typeof result === "object" && result && "config_path" in result) {
+    const configResult = result as { config_path: string; exists?: boolean };
+    console.log(configResult.config_path);
+    if (configResult.exists === false) console.log("No config file exists yet. Run agentcontract init.");
+    return;
+  }
+
+  if (typeof result === "object" && result && "version" in result && "package" in result) {
+    const version = result as { package: string; version: string };
+    console.log(`${version.package} ${version.version}`);
+    return;
+  }
+
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
     console.log(`Sent ${result.agreements.length} agreements`);
     for (const agreement of result.agreements) {
@@ -737,14 +961,14 @@ function normalizeBulkRecipients(parsed: unknown) {
     const name = String(row.name ?? row.receiver_name ?? "").trim();
     const email = String(row.email ?? row.receiver_email ?? row.to ?? "").trim();
     if (!name || !email) throw new CliError(`Recipient ${index + 1} needs name and email`);
-    return { ...row, name, email };
+    return { ...row, name, email: validateEmail(email, `Recipient ${index + 1} email`) };
   });
 }
 
 async function bulkMnda(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
-  const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
+  const recipients = normalizeBulkRecipients(parseJsonFile(file, "--file"));
   const base = baseMndaPayload(args);
   const payload = {
     recipients,
@@ -765,7 +989,7 @@ async function bulkMnda(args: Args) {
 async function bulkMarketplaceOnboard(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-marketplace-onboard --file contributors.json --from sid@usebear.ai");
-  const recipients = normalizeBulkRecipients(JSON.parse(readFileSync(file, "utf8")));
+  const recipients = normalizeBulkRecipients(parseJsonFile(file, "--file"));
   const base = baseBearPrivacyPayload(args);
   const payload = {
     recipients,
@@ -784,7 +1008,7 @@ async function bulkMarketplaceOnboard(args: Args) {
 }
 
 async function doctor(args: Args) {
-  const { apiUrl, apiKey } = apiConfig(args, false);
+  const { apiUrl, apiKey, apiUrlSource, apiKeySource } = apiConfig(args, false);
   const root = await fetch(apiUrl).then(async (response) => ({
     ok: response.ok,
     status: response.status,
@@ -805,12 +1029,19 @@ async function doctor(args: Args) {
       ok: false,
       error: error instanceof Error ? error.message : String(error)
     }))
-    : { ok: false, error: "AGENTCONTRACT_API_KEY or AGENTSIGN_API_KEY is not set" };
+    : { ok: false, error: "API key is not set. Run agentcontract init --api-key <key>." };
 
   return {
     cli: "agentcontract",
+    package: packageName,
+    version: cliVersion,
+    config_path: configPath,
+    config_loaded: !configLoadError,
+    ...(configLoadError ? { config_error: configLoadError } : {}),
     api_url: apiUrl,
+    api_url_source: apiUrlSource,
     api_key_present: Boolean(apiKey),
+    api_key_source: apiKeySource,
     api: root,
     privacy_template: template
   };
@@ -839,17 +1070,128 @@ async function view(args: Args, positional: string[]) {
   return result;
 }
 
+function normalizeApiUrl(value: string) {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  try {
+    const parsed = new URL(trimmed);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("must start with http:// or https://");
+    return trimmed;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`--api-url must be a valid HTTP(S) URL: ${message}`);
+  }
+}
+
+async function initConfig(args: Args) {
+  if (configLoadError && !args.force) {
+    throw new CliError(
+      `Existing config at ${configPath} could not be read: ${configLoadError}`,
+      "Pass --force to overwrite it."
+    );
+  }
+
+  const apiUrl = normalizeApiUrl(
+    cleanString(stringArg(args, "api-url"))
+      ?? cleanString(process.env.AGENTCONTRACT_API_URL)
+      ?? cleanString(process.env.AGENTSIGN_API_URL)
+      ?? cleanString(process.env.AGENTINK_API_URL)
+      ?? cliConfig.api_url
+      ?? "https://agentink-pied.vercel.app"
+  );
+  const apiKey = apiKeyFromStdin(args)
+    ?? cleanString(stringArg(args, "api-key"))
+    ?? cleanString(process.env.AGENTCONTRACT_API_KEY)
+    ?? cleanString(process.env.AGENTSIGN_API_KEY)
+    ?? cleanString(process.env.AGENTINK_API_KEY)
+    ?? cliConfig.api_key;
+
+  if (!apiKey && !args["no-api-key"]) {
+    throw new CliError(
+      "--api-key is required to initialize a sending config",
+      "Use --no-api-key only for preview-only installs."
+    );
+  }
+
+  const from = cleanString(stringArg(args, "from", "sender-email"))
+    ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL)
+    ?? cleanString(process.env.AGENTSIGN_SENDER_EMAIL)
+    ?? cliConfig.sender_email;
+  const sender_name = cleanString(stringArg(args, "sender-name"))
+    ?? cleanString(process.env.AGENTCONTRACT_SENDER_NAME)
+    ?? cleanString(process.env.AGENTSIGN_SENDER_NAME)
+    ?? cliConfig.sender_name;
+  const notifyFromArgs = listArg(args, "notify");
+  const notify_email = notifyFromArgs.length
+    ? notifyFromArgs
+    : parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL).length
+      ? parseEmailList(process.env.AGENTCONTRACT_NOTIFY_EMAIL)
+      : parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL).length
+        ? parseEmailList(process.env.AGENTSIGN_NOTIFY_EMAIL)
+        : cliConfig.notify_email ?? [];
+
+  const nextConfig: CliConfig = {
+    api_url: apiUrl,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(from ? { sender_email: validateEmail(from, "--sender-email") } : {}),
+    ...(sender_name ? { sender_name } : {}),
+    ...(notify_email.length ? { notify_email: validateEmailList(notify_email, "--notify") } : {})
+  };
+
+  writeCliConfig(nextConfig);
+  return {
+    config_saved: true,
+    config_path: configPath,
+    config: publicConfig(Boolean(args["show-secrets"]), nextConfig)
+  };
+}
+
+async function configCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "get";
+  if (action === "path") {
+    return { config_path: configPath, exists: existsSync(configPath) };
+  }
+  if (action === "get" || action === "show") {
+    return {
+      config_path: configPath,
+      loaded: !configLoadError,
+      ...(configLoadError ? { error: configLoadError } : {}),
+      config: publicConfig(Boolean(args["show-secrets"]))
+    };
+  }
+  throw new CliError(`Unknown config command: ${action}`, "Run agentcontract config get or agentcontract config path.");
+}
+
+function versionResult() {
+  return { cli: "agentcontract", package: packageName, version: cliVersion };
+}
+
 async function main() {
-  const [command, ...rest] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const [command, ...rest] = argv;
+
+  if (!command || command === "help" || command === "--help" || command === "-h") {
+    usage();
+    return;
+  }
+
+  if (command === "version" || command === "--version" || command === "-v") {
+    printResult(versionResult(), argv.includes("--json") || argv.includes("-j"));
+    return;
+  }
+
   const { args, positional } = parseArgs(rest);
 
-  if (!command || command === "help" || args.help) {
+  if (args.help) {
     usage();
     return;
   }
 
   let result: unknown;
-  if (command === "send-mnda" || command === "send-nda") {
+  if (command === "init") {
+    result = await initConfig(args);
+  } else if (command === "config") {
+    result = await configCommand(args, positional);
+  } else if (command === "send-mnda" || command === "send-nda") {
     result = await sendMnda(args);
   } else if (command === "send-privacy") {
     result = await sendPrivacy(args);

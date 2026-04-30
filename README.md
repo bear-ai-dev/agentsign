@@ -21,17 +21,25 @@ After publishing:
 
 ```bash
 npm install -g @bear-ai-dev/agentcontract
-export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
 export AGENTCONTRACT_API_KEY=<your production API key>
-
-agentcontract doctor
+agentcontract init \
+  --api-url https://agentink-pied.vercel.app \
+  --sender-email sid@usebear.ai \
+  --sender-name "Sid from Specific" \
+  --notify sid@usebear.ai
 ```
 
 Before npm publishing, it can be installed directly from GitHub:
 
 ```bash
 npm install -g github:bear-ai-dev/agentsign
+agentcontract --version
+agentcontract doctor
 ```
+
+`agentcontract init` stores credentials in `~/.agentcontract/config.json` with file mode `0600`. Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe the key with `--api-key-stdin`.
+
+For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
 
 Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
 
@@ -63,6 +71,16 @@ agentcontract marketplace-onboard \
   --name "Jane Contributor" \
   --preview \
   --open
+```
+
+Use `--dry-run --json` before a real send when an agent is preparing a contract:
+
+```bash
+agentcontract marketplace-onboard \
+  --to contributor@example.com \
+  --name "Jane Contributor" \
+  --dry-run \
+  --json
 ```
 
 ## WorkOS Auth
@@ -235,6 +253,7 @@ npm run cli -- status agr_...
 CLI design choices for agents:
 
 - `--from` and `--to` map to the human model agents expect, while the API still keeps email deliverability details separate.
+- `agentcontract init` creates a reusable local config so humans and agents do not need to paste keys into every command.
 - `--json` produces machine-readable output for agent chains.
 - `--dry-run` prints the exact API payload without requiring an API key or sending email.
 - `--preview` renders local HTML before sending; `view --open` opens the read-only contract preview after sending.
@@ -411,4 +430,5 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 - PDF rendering is optimized for local/Railway demo use, not high-volume throughput.
 - Template substitution is simple `{{var}}` replacement.
 - Audit logs are append-only by application behavior, not database-level immutability.
+- The public package is ready to publish, but npm publishing still requires `npm login` and a final license decision.
 - This is not legal advice; use with your own counsel-reviewed templates before production use.

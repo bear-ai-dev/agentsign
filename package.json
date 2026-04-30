@@ -13,6 +13,7 @@
     "migrations",
     "src/templates",
     "README.md",
+    "SKILLS.md",
     ".env.example"
   ],
   "repository": {
