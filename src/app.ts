@@ -6,6 +6,7 @@ import { auth } from "./routes/auth.js";
 import { cli } from "./routes/cli.js";
 import { feedback } from "./routes/feedback.js";
 import { sign } from "./routes/sign.js";
+import { site } from "./routes/site.js";
 import { templates } from "./routes/templates.js";
 import { startWebhookRetryWorker } from "./routes/webhooks.js";
 
@@ -16,8 +17,8 @@ app.onError((error, c) => {
   console.error("[AgentContract error]", error);
   return c.text("Internal Server Error", 500);
 });
-app.get("/", (c) => c.json({ name: "AgentContract", version: "0.1.1", ok: true }));
 app.get("/favicon.ico", (c) => new Response(null, { status: 204 }));
+app.route("/", site);
 app.route("/", auth);
 app.route("/", cli);
 app.route("/", apiKeys);

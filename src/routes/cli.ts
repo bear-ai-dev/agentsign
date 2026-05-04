@@ -9,6 +9,8 @@ import { requireAdminSession } from "../lib/workos.js";
 export const cli = new Hono();
 
 const cliTarballName = "agentcontract-0.1.1.tgz";
+const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
+const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 
 type WorkosUser = {
   id?: string;
@@ -24,6 +26,10 @@ function escapeHtml(value: unknown) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function canonicalUrl(origin: string, path: string) {
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function adminUser(c: Context): WorkosUser {
@@ -123,12 +129,22 @@ cli.get(`/cli/${cliTarballName}`, cliTarball);
 
 cli.get("/cli", (c) => {
   const origin = new URL(c.req.url).origin;
+  const canonical = canonicalUrl(origin, "/cli");
   return c.html(`<!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AgentContract CLI</title>
+  <title>${escapeHtml(cliPageTitle)}</title>
+  <meta name="description" content="${escapeHtml(cliPageDescription)}" />
+  <meta name="robots" content="index,follow" />
+  <link rel="canonical" href="${escapeHtml(canonical)}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${escapeHtml(canonical)}" />
+  <meta property="og:site_name" content="AgentContract" />
+  <meta property="og:title" content="${escapeHtml(cliPageTitle)}" />
+  <meta property="og:description" content="${escapeHtml(cliPageDescription)}" />
+  <meta name="twitter:card" content="summary" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; } pre { white-space: pre-wrap; }</style>
 </head>
