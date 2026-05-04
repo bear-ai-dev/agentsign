@@ -176,6 +176,29 @@ test("agreement creation accepts an uploaded PDF as the source document", async 
   assert.deepEqual(Buffer.from(await pdfResponse.arrayBuffer()), samplePdf);
 });
 
+test("Specific Marketplace privacy agreements reject Acme placeholder content", async () => {
+  const { agreements } = await apiModules();
+  const key = await userKey("specific-guard@example.com");
+
+  const response = await agreements.request("http://agentcontract.test/v1/agreements", {
+    method: "POST",
+    headers: authHeaders(key),
+    body: JSON.stringify({
+      recipient: { name: "Specific Recipient", email: "specific-recipient@example.com" },
+      template: "privacy",
+      template_vars: { effective_date: "May 4, 2026" },
+      fields,
+      metadata: {
+        workflow: "specific_privacy_acknowledgement",
+        company: "Specific Marketplace"
+      }
+    })
+  });
+
+  assert.equal(response.status, 400);
+  assert.match(JSON.stringify(await response.json()), /Specific Marketplace privacy.*Acme/i);
+});
+
 test("agreement sends are rate-limited per owner and bulk sends are capped", async () => {
   const { agreements } = await apiModules();
   const rateKey = await userKey("rate-limit@example.com");

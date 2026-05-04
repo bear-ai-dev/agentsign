@@ -84,6 +84,28 @@ function markdownForBody(body: CreateBody, originalPdf?: OriginalPdfDocument | n
   });
 }
 
+function isSpecificMarketplacePrivacy(body: CreateBody) {
+  const metadata = body.metadata ?? {};
+  const company = typeof metadata.company === "string" ? metadata.company.trim().toLowerCase() : "";
+  const workflow = typeof metadata.workflow === "string" ? metadata.workflow.trim().toLowerCase() : "";
+  return company === "specific marketplace" || workflow === "specific_privacy_acknowledgement";
+}
+
+function assertSpecificMarketplacePrivacyContent(body: CreateBody, markdown: string, documentTitle: string) {
+  if (!isSpecificMarketplacePrivacy(body)) return;
+  const content = `${documentTitle}\n${markdown}`;
+  const forbidden = [
+    { label: "Acme", pattern: /\bAcme\b/i },
+    { label: "example.com", pattern: /example\.com/i },
+    { label: "you@example.com", pattern: /you@example\.com/i },
+    { label: "123 Market Street", pattern: /123\s+Market\s+Street/i }
+  ];
+  const match = forbidden.find((item) => item.pattern.test(content));
+  if (match) {
+    throw new Error(`Specific Marketplace privacy agreement contains ${match.label} placeholder content. Use the account privacy contract/template markdown instead of the server privacy template.`);
+  }
+}
+
 function normalizeEmailList(value: string | string[] | undefined) {
   if (!value) return [];
   const raw = Array.isArray(value) ? value : [value];
@@ -157,6 +179,7 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   const webhookSecret = body.webhook_url ? `whsec_${nanoid(32)}` : null;
   const createdAt = nowIso();
   const documentTitle = body.document_title?.trim() || (originalPdf ? documentTitleForPdf(body, originalPdf) : titleFromMarkdown(markdown));
+  assertSpecificMarketplacePrivacyContent(body, markdown, documentTitle);
   const ownerEmail = options.ownerEmail?.trim().toLowerCase() || null;
   const requestedSenderEmail = normalizeEmailList(body.sender_email)[0]?.toLowerCase() ?? null;
   const resolvedSender = await resolveSenderProfile({

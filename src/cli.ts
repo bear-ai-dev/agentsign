@@ -116,6 +116,9 @@ const demoMarketplaceDefaults = {
   companyAddress: "123 Market Street, San Francisco, CA",
   effectiveDate: "April 29, 2026"
 };
+const specificMarketplaceDefaults = {
+  companyName: "Specific Marketplace"
+};
 
 class CliError extends Error {
   usageHint?: string;
@@ -1463,6 +1466,42 @@ function baseDemoPrivacyPayload(args: Args) {
   };
 }
 
+function assertSpecificPrivacyContractContent(markdown: string, documentTitle: string) {
+  const content = `${documentTitle}\n${markdown}`;
+  const forbidden = [
+    { label: "Acme", pattern: /\bAcme\b/i },
+    { label: "example.com", pattern: /example\.com/i },
+    { label: "you@example.com", pattern: /you@example\.com/i },
+    { label: "123 Market Street", pattern: /123\s+Market\s+Street/i }
+  ];
+  const match = forbidden.find((item) => item.pattern.test(content));
+  if (match) {
+    throw new CliError(`Specific privacy contract contains ${match.label} placeholder content. Update the account privacy contract before sending.`);
+  }
+}
+
+function baseSpecificPrivacyPayload(args: Args) {
+  const contract = loadContract("privacy", args);
+  const payload = contractPayload(args, contract, true);
+  const templateVars = {
+    ...(payload.template_vars ?? {}),
+    ...(stringArg(args, "effective-date") ? { effective_date: stringArg(args, "effective-date") } : {})
+  };
+  const rendered = applyTemplateVars(payload.document_markdown ?? "", templateVars);
+  const documentTitle = stringArg(args, "title", "document-title") ?? titleFromMarkdown(rendered);
+  assertSpecificPrivacyContractContent(rendered, documentTitle);
+  return {
+    ...payload,
+    document_title: documentTitle,
+    template_vars: templateVars,
+    metadata: {
+      ...(payload.metadata ?? {}),
+      workflow: "specific_privacy_acknowledgement",
+      company: specificMarketplaceDefaults.companyName
+    }
+  };
+}
+
 function baseDemoContractorPayload(args: Args) {
   const specificArgs = {
     ...args,
@@ -2353,6 +2392,16 @@ async function sendDemoPrivacy(args: Args) {
   if (args.preview) return writePreview(payload, args);
   if (dryRun(args)) return agreementDryRunResult(String(args.command_name ?? "marketplace-onboard"), apiUrl, "/v1/agreements", payload, args);
   const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, String(args.command_name ?? "marketplace-onboard"));
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+async function sendSpecificPrivacy(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = baseSpecificPrivacyPayload(args);
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return agreementDryRunResult(String(args.command_name ?? "specific-privacy"), apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, String(args.command_name ?? "specific-privacy"));
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
@@ -3767,8 +3816,10 @@ async function main() {
     result = await sendPdf(args, positional);
   } else if (command === "bear-mnda" || command === "send-bear-mnda") {
     result = await sendDemoNda(args);
-  } else if (command === "marketplace-onboard" || command === "onboard-contributor" || command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
+  } else if (command === "marketplace-onboard" || command === "onboard-contributor" || command === "bear-privacy" || command === "send-bear-privacy") {
     result = await sendDemoPrivacy({ ...args, command_name: command });
+  } else if (command === "specific-privacy" || command === "send-specific-privacy") {
+    result = await sendSpecificPrivacy({ ...args, command_name: command });
   } else if (command === "specific-contractor" || command === "marketplace-contractor" || command === "bear-contractor" || command === "send-bear-contractor") {
     result = await sendDemoContractor(args);
   } else if (command === "preview") {

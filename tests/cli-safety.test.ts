@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -263,6 +263,123 @@ test("agreement remind sends the selected reminder target to the API", async () 
     assert.deepEqual(api.requests[0].body, { target: "sender" });
     assert.match(result.stdout, /"target": "sender"/);
   } finally {
+    await api.close();
+  }
+});
+
+test("specific-privacy sends saved privacy contract markdown instead of the server privacy template", async () => {
+  const api = await startMockApi();
+  const tempDir = mkdtempSync(join(tmpdir(), "agentcontract-specific-privacy-test-"));
+  try {
+    const privacyDir = join(tempDir, "privacy");
+    mkdirSync(privacyDir, { recursive: true });
+    writeFileSync(join(privacyDir, "contract.md"), [
+      "# Specific Marketplace Privacy Policy",
+      "",
+      "**Specific Marketplace**",
+      "",
+      "Specific uses https://www.specific.com and privacy@specific.com for contributor privacy notices."
+    ].join("\n"));
+    writeFileSync(join(privacyDir, "contract.json"), JSON.stringify({
+      id: "privacy",
+      name: "Specific Marketplace Privacy Policy",
+      fields: [
+        { id: "full_name", label: "Full legal name", type: "text", required: true },
+        { id: "acknowledgement_date", label: "Acknowledgement date", type: "date", required: true },
+        { id: "signature", label: "Signature", type: "signature", required: true }
+      ],
+      template_vars_default: { effective_date: "May 4, 2026" },
+      created_at: "test",
+      updated_at: "test"
+    }));
+
+    const result = await runCli([
+      "specific-privacy",
+      "--to",
+      "frankiew@ucla.edu",
+      "--name",
+      "Frankie Wu",
+      "--sender-name",
+      "Sid from Specific",
+      "--contract-dir",
+      tempDir,
+      "--api-url",
+      api.apiUrl,
+      "--api-key",
+      "ak_test",
+      "--json",
+      "--no-session",
+      "--no-telemetry"
+    ]);
+
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(api.requests.length, 1);
+    assert.equal(api.requests[0].method, "POST");
+    assert.equal(api.requests[0].url, "/v1/agreements");
+    const body = api.requests[0].body as {
+      template?: string;
+      document_markdown?: string;
+      document_title?: string;
+      metadata?: Record<string, unknown>;
+    };
+    assert.equal(body.template, undefined);
+    assert.match(body.document_markdown ?? "", /# Specific Marketplace Privacy Policy/);
+    assert.doesNotMatch(body.document_markdown ?? "", /Acme|example\.com|you@example\.com/);
+    assert.equal(body.document_title, "Specific Marketplace Privacy Policy");
+    assert.equal(body.metadata?.workflow, "specific_privacy_acknowledgement");
+    assert.equal(body.metadata?.company, "Specific Marketplace");
+    assert.equal(body.metadata?.contract_id, "privacy");
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+    await api.close();
+  }
+});
+
+test("specific-privacy refuses a placeholder privacy contract before posting", async () => {
+  const api = await startMockApi();
+  const tempDir = mkdtempSync(join(tmpdir(), "agentcontract-specific-privacy-bad-test-"));
+  try {
+    const privacyDir = join(tempDir, "privacy");
+    mkdirSync(privacyDir, { recursive: true });
+    writeFileSync(join(privacyDir, "contract.md"), [
+      "# Acme Marketplace Privacy Policy",
+      "",
+      "Contact us at you@example.com or visit example.com."
+    ].join("\n"));
+    writeFileSync(join(privacyDir, "contract.json"), JSON.stringify({
+      id: "privacy",
+      name: "Acme Marketplace Privacy Policy",
+      fields: [
+        { id: "full_name", label: "Full legal name", type: "text", required: true },
+        { id: "signature", label: "Signature", type: "signature", required: true }
+      ],
+      template_vars_default: {},
+      created_at: "test",
+      updated_at: "test"
+    }));
+
+    const result = await runCli([
+      "specific-privacy",
+      "--to",
+      "frankiew@ucla.edu",
+      "--name",
+      "Frankie Wu",
+      "--contract-dir",
+      tempDir,
+      "--api-url",
+      api.apiUrl,
+      "--api-key",
+      "ak_test",
+      "--json",
+      "--no-session",
+      "--no-telemetry"
+    ]);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Specific privacy contract contains Acme placeholder content/);
+    assert.equal(api.requests.length, 0);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
     await api.close();
   }
 });
