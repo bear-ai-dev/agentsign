@@ -84,17 +84,55 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-if npm install -g "${origin}/${cliTarballName}"; then
+agentcontract_user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-$HOME/.agentcontract/npm-global}"
+agentcontract_user_bin="$agentcontract_user_prefix/bin"
+agentcontract_user_prefix_used=0
+
+install_agentcontract_package() {
+  local spec="$1"
+  local install_status=0
+  if npm install -g "$spec"; then
+    return 0
+  else
+    install_status=$?
+  fi
+
+  if [ "$install_status" -ne 243 ]; then
+    return "$install_status"
+  fi
+
+  echo
+  echo "Global npm install was denied by the OS (npm exit 243)."
+  echo "Trying a user-writable npm prefix: $agentcontract_user_prefix"
+  mkdir -p "$agentcontract_user_prefix"
+  if npm install -g "$spec" --prefix "$agentcontract_user_prefix"; then
+    agentcontract_user_prefix_used=1
+    return 0
+  fi
+  return $?
+}
+
+if install_agentcontract_package "${origin}/${cliTarballName}"; then
   :
-elif npm install -g agent-contract; then
+elif install_agentcontract_package agent-contract; then
   :
 else
   echo "Packaged install failed; falling back to GitHub install..."
-  npm install -g github:bear-ai-dev/agentsign
+  install_agentcontract_package github:bear-ai-dev/agentsign
 fi
 
 echo
 echo "AgentContract CLI installed."
+if [ "$agentcontract_user_prefix_used" = "1" ]; then
+  echo "Installed to user npm prefix: $agentcontract_user_prefix"
+  case ":$PATH:" in
+    *":$agentcontract_user_bin:"*) ;;
+    *)
+      echo "If agentcontract is not found, add this to your shell profile:"
+      echo "  export PATH=\\"$agentcontract_user_bin:\\$PATH\\""
+      ;;
+  esac
+fi
 echo "Next:"
 echo "  agentcontract login --email you@example.com --api-url ${origin}"
 echo "  agentcontract skill"
