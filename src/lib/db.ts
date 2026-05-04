@@ -152,10 +152,22 @@ async function ensureSchema() {
   await ensureApiKeysSchema();
   await ensureCliLoginCodesSchema();
   await ensureProductFeedbackSchema();
+  await ensureAgentTelemetrySchema();
+  await ensureRateLimitSchema();
+  await ensureFirstPartySchema();
 }
 
 async function ensureAgreementStorageSchema() {
   const columns = [
+    ["owner_email", "TEXT"],
+    ["api_key_id", "TEXT"],
+    ["sender_profile_id", "TEXT"],
+    ["signing_base_url", "TEXT"],
+    ["batch_id", "TEXT"],
+    ["original_pdf_base64", "TEXT"],
+    ["original_pdf_filename", "TEXT"],
+    ["original_pdf_sha256", "TEXT"],
+    ["original_pdf_bytes", "INTEGER"],
     ["signed_pdf_base64", "TEXT"],
     ["signed_pdf_sha256", "TEXT"],
     ["signed_pdf_bytes", "INTEGER"]
@@ -165,6 +177,38 @@ async function ensureAgreementStorageSchema() {
     for (const [name, type] of columns) {
       await pool.query(`ALTER TABLE agreements ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
+    await pool.query(`
+      DO $$
+      DECLARE
+        row_to_backfill RECORD;
+        sender_email TEXT;
+      BEGIN
+        FOR row_to_backfill IN
+          SELECT id, metadata_json
+          FROM agreements
+          WHERE owner_email IS NULL
+            AND metadata_json IS NOT NULL
+            AND metadata_json <> ''
+        LOOP
+          BEGIN
+            sender_email := row_to_backfill.metadata_json::jsonb ->> 'sender_email';
+          EXCEPTION WHEN others THEN
+            sender_email := NULL;
+          END;
+
+          IF sender_email IS NOT NULL AND sender_email <> '' THEN
+            UPDATE agreements
+            SET owner_email = sender_email
+            WHERE id = row_to_backfill.id;
+          END IF;
+        END LOOP;
+      END $$;
+    `);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_api_key_id ON agreements(api_key_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_sender_profile_id ON agreements(sender_profile_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_batch_id ON agreements(batch_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_original_pdf_sha256 ON agreements(original_pdf_sha256) WHERE original_pdf_sha256 IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
     return;
   }
@@ -175,7 +219,20 @@ async function ensureAgreementStorageSchema() {
   for (const [name, type] of columns) {
     if (!existing.has(name)) sqlite!.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
   }
-  sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+  sqlite!.exec(`
+    UPDATE agreements
+    SET owner_email = json_extract(metadata_json, '$.sender_email')
+    WHERE owner_email IS NULL
+      AND metadata_json IS NOT NULL
+      AND json_valid(metadata_json)
+      AND json_extract(metadata_json, '$.sender_email') IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_agreements_api_key_id ON agreements(api_key_id);
+    CREATE INDEX IF NOT EXISTS idx_agreements_sender_profile_id ON agreements(sender_profile_id);
+    CREATE INDEX IF NOT EXISTS idx_agreements_batch_id ON agreements(batch_id);
+    CREATE INDEX IF NOT EXISTS idx_agreements_original_pdf_sha256 ON agreements(original_pdf_sha256) WHERE original_pdf_sha256 IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL;
+  `);
 }
 
 async function ensureApiKeysSchema() {
@@ -343,6 +400,200 @@ async function ensureProductFeedbackSchema() {
   `);
 }
 
+async function ensureAgentTelemetrySchema() {
+  const sql = `
+    CREATE TABLE IF NOT EXISTS agent_sessions (
+      id TEXT PRIMARY KEY,
+      owner_email TEXT,
+      agent TEXT NOT NULL DEFAULT 'unknown',
+      source TEXT NOT NULL DEFAULT 'agentcontract-cli',
+      initial_goal TEXT,
+      privacy_mode TEXT NOT NULL DEFAULT 'full',
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      outcome TEXT,
+      metadata_json TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_session_events (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE CASCADE,
+      sequence_number INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      actor_role TEXT,
+      content_text TEXT,
+      content_json TEXT,
+      created_at TEXT NOT NULL,
+      metadata_json TEXT,
+      UNIQUE(session_id, sequence_number)
+    );
+
+    CREATE TABLE IF NOT EXISTS cli_runs (
+      id TEXT PRIMARY KEY,
+      session_id TEXT,
+      agreement_id TEXT,
+      owner_email TEXT,
+      api_key_id TEXT,
+      command TEXT NOT NULL,
+      argv_json TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_ms INTEGER,
+      exit_code INTEGER,
+      success INTEGER NOT NULL DEFAULT 0,
+      error_name TEXT,
+      error_message TEXT,
+      error_fingerprint TEXT,
+      stdout_excerpt TEXT,
+      stderr_excerpt TEXT,
+      cli_version TEXT,
+      package_name TEXT,
+      node_version TEXT,
+      platform TEXT,
+      arch TEXT,
+      cwd_hash TEXT,
+      agreement_ids_json TEXT,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS agreement_contexts (
+      id TEXT PRIMARY KEY,
+      agreement_id TEXT NOT NULL,
+      session_id TEXT,
+      cli_run_id TEXT,
+      source TEXT NOT NULL DEFAULT 'agentcontract-cli',
+      reason_sent TEXT,
+      approval_message TEXT,
+      chat_summary TEXT,
+      transcript_text TEXT,
+      transcript_json TEXT,
+      metadata_json TEXT,
+      created_at TEXT NOT NULL
+    );
+  `;
+
+  if (pool) {
+    await pool.query(sql);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_sessions_owner_email ON agent_sessions(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_sessions_started_at ON agent_sessions(started_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_session_events_session ON agent_session_events(session_id, sequence_number)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agent_session_events_type ON agent_session_events(event_type)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_runs_session ON cli_runs(session_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_runs_agreement ON cli_runs(agreement_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_runs_owner_email ON cli_runs(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_runs_started_at ON cli_runs(started_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_runs_error_fingerprint ON cli_runs(error_fingerprint)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreement_contexts_agreement ON agreement_contexts(agreement_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreement_contexts_session ON agreement_contexts(session_id)");
+    return;
+  }
+
+  sqlite!.exec(sql);
+  sqlite!.exec(`
+    CREATE INDEX IF NOT EXISTS idx_agent_sessions_owner_email ON agent_sessions(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_agent_sessions_started_at ON agent_sessions(started_at);
+    CREATE INDEX IF NOT EXISTS idx_agent_session_events_session ON agent_session_events(session_id, sequence_number);
+    CREATE INDEX IF NOT EXISTS idx_agent_session_events_type ON agent_session_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_cli_runs_session ON cli_runs(session_id);
+    CREATE INDEX IF NOT EXISTS idx_cli_runs_agreement ON cli_runs(agreement_id);
+    CREATE INDEX IF NOT EXISTS idx_cli_runs_owner_email ON cli_runs(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_cli_runs_started_at ON cli_runs(started_at);
+    CREATE INDEX IF NOT EXISTS idx_cli_runs_error_fingerprint ON cli_runs(error_fingerprint);
+    CREATE INDEX IF NOT EXISTS idx_agreement_contexts_agreement ON agreement_contexts(agreement_id);
+    CREATE INDEX IF NOT EXISTS idx_agreement_contexts_session ON agreement_contexts(session_id);
+  `);
+}
+
+async function ensureRateLimitSchema() {
+  const sql = `CREATE TABLE IF NOT EXISTS rate_limit_events (
+    id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`;
+
+  if (pool) {
+    await pool.query(sql);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_rate_limit_events_lookup ON rate_limit_events(scope, subject, created_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_rate_limit_events_created_at ON rate_limit_events(created_at)");
+    return;
+  }
+
+  sqlite!.exec(`
+    ${sql};
+    CREATE INDEX IF NOT EXISTS idx_rate_limit_events_lookup ON rate_limit_events(scope, subject, created_at);
+    CREATE INDEX IF NOT EXISTS idx_rate_limit_events_created_at ON rate_limit_events(created_at);
+  `);
+}
+
+async function ensureFirstPartySchema() {
+  const senderProfilesSql = `CREATE TABLE IF NOT EXISTS sender_profiles (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT NOT NULL,
+    email_domain TEXT NOT NULL,
+    signing_domain TEXT NOT NULL,
+    default_from_email TEXT NOT NULL,
+    default_from_name TEXT,
+    resend_domain_id TEXT,
+    email_domain_status TEXT NOT NULL DEFAULT 'pending',
+    signing_domain_status TEXT NOT NULL DEFAULT 'pending',
+    email_dns_records_json TEXT,
+    signing_dns_records_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    verified_at TEXT
+  )`;
+  const batchesSql = `CREATE TABLE IF NOT EXISTS agreement_batches (
+    id TEXT PRIMARY KEY,
+    owner_email TEXT,
+    api_key_id TEXT,
+    sender_profile_id TEXT,
+    status TEXT NOT NULL,
+    total_count INTEGER NOT NULL DEFAULT 0,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    metadata_json TEXT,
+    created_at TEXT NOT NULL,
+    completed_at TEXT
+  )`;
+  const batchItemsSql = `CREATE TABLE IF NOT EXISTS agreement_batch_items (
+    id TEXT PRIMARY KEY,
+    batch_id TEXT NOT NULL,
+    agreement_id TEXT,
+    recipient_name TEXT NOT NULL,
+    recipient_email TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error TEXT,
+    created_at TEXT NOT NULL
+  )`;
+
+  if (pool) {
+    await pool.query(senderProfilesSql);
+    await pool.query(batchesSql);
+    await pool.query(batchItemsSql);
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_sender_profiles_owner_email ON sender_profiles(owner_email)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_sender_profiles_email_domain ON sender_profiles(email_domain)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_sender_profiles_signing_domain ON sender_profiles(signing_domain)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreement_batches_owner_email ON agreement_batches(owner_email, created_at)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreement_batch_items_batch_id ON agreement_batch_items(batch_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreement_batch_items_agreement_id ON agreement_batch_items(agreement_id)");
+    return;
+  }
+
+  sqlite!.exec(`
+    ${senderProfilesSql};
+    ${batchesSql};
+    ${batchItemsSql};
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sender_profiles_owner_email ON sender_profiles(owner_email);
+    CREATE INDEX IF NOT EXISTS idx_sender_profiles_email_domain ON sender_profiles(email_domain);
+    CREATE INDEX IF NOT EXISTS idx_sender_profiles_signing_domain ON sender_profiles(signing_domain);
+    CREATE INDEX IF NOT EXISTS idx_agreement_batches_owner_email ON agreement_batches(owner_email, created_at);
+    CREATE INDEX IF NOT EXISTS idx_agreement_batch_items_batch_id ON agreement_batch_items(batch_id);
+    CREATE INDEX IF NOT EXISTS idx_agreement_batch_items_agreement_id ON agreement_batch_items(agreement_id);
+  `);
+}
+
 async function applyMigrationFile(filename: string) {
   const migrationPath = join(process.cwd(), "migrations", filename);
   if (!existsSync(migrationPath)) {
@@ -357,6 +608,10 @@ async function applyMigrationFile(filename: string) {
       .replaceAll("CREATE TABLE api_keys", "CREATE TABLE IF NOT EXISTS api_keys")
       .replaceAll("CREATE TABLE cli_login_codes", "CREATE TABLE IF NOT EXISTS cli_login_codes")
       .replaceAll("CREATE TABLE product_feedback", "CREATE TABLE IF NOT EXISTS product_feedback")
+      .replaceAll("CREATE TABLE agent_sessions", "CREATE TABLE IF NOT EXISTS agent_sessions")
+      .replaceAll("CREATE TABLE agent_session_events", "CREATE TABLE IF NOT EXISTS agent_session_events")
+      .replaceAll("CREATE TABLE cli_runs", "CREATE TABLE IF NOT EXISTS cli_runs")
+      .replaceAll("CREATE TABLE agreement_contexts", "CREATE TABLE IF NOT EXISTS agreement_contexts")
       .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
     await pool!.query(sql);
   } else {

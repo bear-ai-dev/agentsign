@@ -23,8 +23,8 @@ export type TemplateDefinition = {
 
 export const privacyTemplateDefinition: TemplateDefinition = {
   id: "privacy",
-  name: "Specific Marketplace Privacy Policy Acknowledgement",
-  description: "Specific contributor privacy policy acknowledgement reconstructed from the PDF, with typed signature, acknowledgement date, audit trail, and sender notification support.",
+  name: "Marketplace Privacy Policy Acknowledgement",
+  description: "Generic marketplace privacy policy acknowledgement with typed signature, acknowledgement date, audit trail, and sender notification support.",
   variables: [
     { key: "effective_date", label: "Policy effective date", defaultValue: "April 29, 2026", required: true }
   ],
@@ -37,14 +37,14 @@ export const privacyTemplateDefinition: TemplateDefinition = {
 
 export const contractorTemplateDefinition: TemplateDefinition = {
   id: "contractor",
-  name: "Specific Marketplace Contributor Terms of Use",
-  description: "Specific contributor/contractor marketplace terms reconstructed from the Bear AI Contractor PDF, with independent-contractor language, typed signature, acknowledgement date, audit trail, and sender notification support.",
+  name: "Marketplace Contributor Terms of Use",
+  description: "Generic contributor/contractor marketplace terms with independent-contractor language, typed signature, acknowledgement date, audit trail, and sender notification support.",
   variables: [
-    { key: "company_name", label: "Company name", defaultValue: "Specific Marketplace", required: true },
-    { key: "service_name", label: "Service name", defaultValue: "Specific", required: true },
-    { key: "website_url", label: "Website", defaultValue: "usespecific.com", required: true },
-    { key: "contact_email", label: "Contact email", defaultValue: "sid@usebear.ai", required: true },
-    { key: "company_address", label: "Company address", defaultValue: "39 Tehama, San Francisco, CA", required: true },
+    { key: "company_name", label: "Company name", defaultValue: "Acme Marketplace", required: true },
+    { key: "service_name", label: "Service name", defaultValue: "Acme", required: true },
+    { key: "website_url", label: "Website", defaultValue: "example.com", required: true },
+    { key: "contact_email", label: "Contact email", defaultValue: "legal@example.com", required: true },
+    { key: "company_address", label: "Company address", defaultValue: "123 Market Street, San Francisco, CA", required: true },
     { key: "effective_date", label: "Effective date", defaultValue: "April 29, 2026", required: true }
   ],
   fields: [
@@ -56,15 +56,15 @@ export const contractorTemplateDefinition: TemplateDefinition = {
 
 export const ndaTemplateDefinition: TemplateDefinition = {
   id: "nda",
-  name: "Bear AI Mutual NDA",
-  description: "Bear AI mutual non-disclosure agreement for contractor and partner onboarding.",
+  name: "Acme Inc. Nondisclosure Agreement",
+  description: "Generic one-way nondisclosure agreement with recipient and sender e-signature support.",
   variables: [
-    { key: "company_name", label: "Company name", defaultValue: "Bear AI", required: true },
-    { key: "effective_date", label: "Effective date", defaultValue: new Date().toISOString().slice(0, 10), required: true },
-    { key: "term_years", label: "Term years", defaultValue: "2", required: true }
+    { key: "company_name", label: "Company name", defaultValue: "Acme Inc.", required: true }
   ],
   fields: [
     { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "company_entity", label: "Company / Entity (if applicable)", type: "text" },
+    { id: "title", label: "Title", type: "text" },
     { id: "signature", label: "Signature", type: "signature", required: true }
   ]
 };

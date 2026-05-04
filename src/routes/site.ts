@@ -2,10 +2,10 @@ import { Hono } from "hono";
 
 export const site = new Hono();
 
-const cliPackageName = "@bear-ai-dev/agentcontract";
+const cliPackageName = "agent-contract";
 const currentCliVersion = "0.1.9";
-const pageTitle = "AgentContract | Contract signing API and CLI for AI agents";
-const pageDescription = "AgentContract is a contract signing API and CLI that lets AI agents send approved NDAs, privacy acknowledgements, and contractor agreements for human e-signature.";
+const pageTitle = "AgentContract | Contract sending rails for AI agents";
+const pageDescription = "AgentContract lets AI agents send approved templates and uploaded PDFs for human e-signature, then returns signed PDFs, hashes, webhooks, and audit trails.";
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")
@@ -62,13 +62,13 @@ function structuredData(origin: string) {
         "@type": "Service",
         "@id": `${homeUrl}#service`,
         name: "AgentContract",
-        serviceType: "Contract signing API and CLI for AI agents",
+        serviceType: "Contract sending rails for AI agents",
         url: homeUrl,
         description: pageDescription,
         provider: { "@id": organizationId },
         audience: {
           "@type": "Audience",
-          audienceType: "AI agent builders, marketplace operators, compliance teams"
+          audienceType: "AI agent builders, marketplace operators, compliance and ops teams"
         }
       }
     ]
@@ -111,31 +111,33 @@ ${urls.map((url) => `  <url>
 function llmsTxt(origin: string) {
   return `# AgentContract
 
-> Contract signing API and CLI for AI agents.
+> Contract sending rails for AI agents.
 
-AgentContract lets AI agent workflows send approved NDAs, privacy acknowledgements, and contractor agreements. Agents send approved packets only; humans sign contracts in the browser. The system returns signed PDFs, SHA-256 hashes, webhooks, status, and audit trails.
+AgentContract lets AI agent workflows send approved templates and uploaded PDFs for human e-signature. Agents fill known variables and send approved packets only; humans sign contracts in the browser. The system returns signed PDFs, SHA-256 hashes, signed webhooks, status, and audit trails.
 
 ## Primary Links
 
-- [Homepage](${canonicalUrl(origin)}): Product overview for agent-sent, human-signed contracts.
+- [Homepage](${canonicalUrl(origin)}): Product overview for controlled agent sends and human-signed records.
 - [CLI docs](${canonicalUrl(origin, "/cli")}): Install, authenticate, inspect templates, send agreements, track status, and report failures.
 - [CLI installer](${canonicalUrl(origin, "/cli/install.sh")}): Shell installer for Node.js 20+ environments.
 - [Status and version metadata](${canonicalUrl(origin, "/healthz")}): Current AgentContract service and CLI version metadata.
 
 ## Agent Guidance
 
-- Use AgentContract for sending approved contract templates from agent workflows.
-- Do not use AgentContract to let agents draft legal terms or sign contracts.
+- Use AgentContract for sending approved contract templates and existing PDFs from agent workflows.
+- Do not use AgentContract to let agents draft legal terms, explain legal risk, or sign contracts.
+- Keep legal language locked unless a human-owned review process changes the approved packet.
 - Run \`agentcontract skill\` after installing the CLI to print agent integration instructions.
 - Prefer preview, dry-run, and template read commands before sending email to signers.
 
 ## Useful Concepts
 
 - Approved template API
+- Uploaded PDF send
 - Recipient browser signing
 - Signed PDF storage
 - SHA-256 PDF hashes
-- Webhook completion events
+- Signed webhook completion events
 - Audit events for contract status changes
 `;
 }
@@ -675,6 +677,108 @@ function homePage(origin: string) {
     .contract-line:nth-child(4) { width: 74%; }
     .contract-line:nth-child(5) { width: 92%; }
 
+    .section h2.wide {
+      max-width: 19ch;
+    }
+
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+    }
+
+    .trust-card {
+      min-height: 11rem;
+      background: var(--paper);
+      padding: 1.05rem;
+    }
+
+    .trust-card b {
+      display: block;
+      color: var(--ink);
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .trust-card span {
+      display: block;
+      margin-top: .58rem;
+      color: var(--muted);
+      font-size: .9rem;
+      line-height: 1.52;
+    }
+
+    .pdf-panel {
+      display: grid;
+      grid-template-columns: .95fr 1.05fr;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+
+    .pdf-code {
+      border-right: 1px solid var(--ink);
+      background: #fbfcff;
+      overflow: hidden;
+    }
+
+    .pdf-code header {
+      border-bottom: 1px solid var(--line-dark);
+      padding: .78rem .9rem;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .pdf-code pre {
+      margin: 0;
+      padding: 1rem;
+      color: var(--ink);
+      font-size: .82rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .pdf-steps {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .pdf-step {
+      display: grid;
+      grid-template-columns: 5.2rem 1fr;
+      gap: 1rem;
+      align-items: start;
+      background: var(--paper);
+      padding: 1rem;
+    }
+
+    .pdf-step code {
+      color: var(--blue);
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .pdf-step b {
+      display: block;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+
+    .pdf-step span {
+      display: block;
+      margin-top: .24rem;
+      color: var(--muted);
+      font-size: .9rem;
+      line-height: 1.48;
+    }
+
     .numbers {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -884,6 +988,9 @@ function homePage(origin: string) {
       .offer-nav { border-right: 0; border-bottom: 1px solid var(--ink); }
       .live-window { grid-template-columns: 1fr; }
       .packet { border-right: 0; border-bottom: 1px solid var(--line); }
+      .trust-grid { grid-template-columns: repeat(2, 1fr); }
+      .pdf-panel { grid-template-columns: 1fr; }
+      .pdf-code { border-right: 0; border-bottom: 1px solid var(--ink); }
       .logo-grid { grid-template-columns: repeat(2, 1fr); }
       .logo { border-bottom: 1px solid var(--line); }
       .numbers { grid-template-columns: 1fr; }
@@ -904,8 +1011,13 @@ function homePage(origin: string) {
         font-size: .72rem;
       }
       .logo-grid,
+      .trust-grid,
       .faq-grid {
         grid-template-columns: 1fr;
+      }
+      .pdf-step {
+        grid-template-columns: 1fr;
+        gap: .35rem;
       }
       .faq,
       .faq:nth-child(2n),
@@ -922,7 +1034,7 @@ function homePage(origin: string) {
   </style>
 </head>
 <body>
-  <div class="notice">AgentContract is for <strong>sending</strong> approved contracts from agent workflows. People still sign in the browser. <a href="/cli">Install the CLI</a></div>
+  <div class="notice">AgentContract is trust rails for agent-run paperwork: agents send approved packets, humans review and sign. <a href="/cli">Install the CLI</a></div>
 
   <header class="shell topbar">
     <a class="brand" href="/" aria-label="AgentContract home">
@@ -935,8 +1047,9 @@ function homePage(origin: string) {
       AgentContract
     </a>
     <nav class="nav" aria-label="Primary navigation">
-      <a href="#offer">Enterprise</a>
-      <a href="#scale">Proof</a>
+      <a href="#trust">Trust</a>
+      <a href="#pdfs">PDFs</a>
+      <a href="#scale">Records</a>
       <a href="#api">API</a>
       <a class="docs" href="/cli">Docs</a>
       <a class="start" href="/dashboard">Dashboard</a>
@@ -947,47 +1060,50 @@ function homePage(origin: string) {
     <section class="shell hero">
       <div>
         <div class="yc"><b>A</b> For agent-run onboarding</div>
-        <h1>Agents send contracts. <span>People sign.</span></h1>
-        <p>AgentContract lets an AI agent send an approved NDA, privacy acknowledgement, or contractor agreement. The recipient signs in the browser. Your app gets the signed PDF, hash, webhook, and audit trail.</p>
+        <h1>Contract sending rails for AI agents.</h1>
+        <p>Let agents send approved NDAs, contractor agreements, policy acknowledgements, and uploaded PDFs. Humans review and sign. Your system gets the signed PDF, hash, webhook, and audit trail.</p>
         <div class="actions">
           <a class="button primary" href="/cli">Start with CLI</a>
           <a class="button secondary" href="/dashboard">View dashboard</a>
         </div>
-        <div class="fine-print">Agents do not sign. Agents do not write legal terms. They only send approved packets.</div>
+        <div class="fine-print">AgentContract does not let agents sign, give legal advice, or rewrite approved terms.</div>
       </div>
 
       <div class="hero-product" aria-label="AgentContract product preview">
         <div class="code-window">
           <div class="code-tabs">
             <div class="tabs" aria-label="Code examples">
-              <div class="tab active">CLI</div>
-              <div class="tab">cURL</div>
-              <div class="tab">TypeScript</div>
+              <div class="tab active">PDF</div>
+              <div class="tab">Template</div>
+              <div class="tab">API</div>
               <div class="tab">Webhook</div>
             </div>
             <button class="copy-button" type="button" data-copy="${escapeHtml(installCommand)}">Copy</button>
           </div>
-          <pre><code><span class="kw">$</span> agentcontract marketplace-onboard \\
+          <pre><code><span class="kw">$</span> agentcontract send-pdf ./vendor-packet.pdf \\
   --to jane@example.com \\
-  --name <span class="str">"Jane Contributor"</span> \\
+  --name <span class="str">"Jane Vendor"</span> \\
+  --title <span class="str">"Vendor onboarding packet"</span> \\
   --cc legal@example.com
 
 <span class="dim">sent</span> agr_7ks9p2p8a4qv
 <span class="dim">signing_url</span> ${safeOrigin}/sign/...
+<span class="dim">document_source</span> pdf
 <span class="dim">status</span> waiting_on_recipient</code></pre>
         </div>
 
         <div class="live-window">
           <div class="live-head">Live Agreement</div>
           <div class="packet">
-            <b>Acme Marketplace Privacy Acknowledgement</b>
-            <span>Recipient: Jane Contributor</span>
+            <b>Vendor onboarding packet</b>
+            <span>Source: uploaded PDF plus approved fields</span>
+            <span>Recipient: Jane Vendor</span>
             <span>Status: waiting on recipient signature</span>
           </div>
           <div class="proof">
             <div class="proof-row">
-              <code>Send</code>
-              <div><strong>Agent sent approved packet</strong><small>Template and required fields locked.</small></div>
+              <code>Lock</code>
+              <div><strong>Human-approved packet</strong><small>Terms and required fields are controlled.</small></div>
             </div>
             <div class="proof-row">
               <code>Sign</code>
@@ -995,7 +1111,7 @@ function homePage(origin: string) {
             </div>
             <div class="proof-row">
               <code>Store</code>
-              <div><strong>Signed PDF archived</strong><small>PDF bytes and SHA-256 hash saved.</small></div>
+              <div><strong>Signed PDF archived</strong><small>PDF bytes, SHA-256 hash, and audit events saved.</small></div>
             </div>
           </div>
         </div>
@@ -1003,39 +1119,99 @@ function homePage(origin: string) {
     </section>
 
     <section class="shell logos" aria-label="Use cases">
-      <p>Built for the agent workflows where paperwork blocks the next step.</p>
+      <p>Built for the agent workflows where approved paperwork blocks the next step.</p>
       <div class="logo-grid">
         <div class="logo">Onboarding</div>
         <div class="logo">Marketplaces</div>
         <div class="logo">Contractors</div>
-        <div class="logo">Compliance</div>
-        <div class="logo">Internal Ops</div>
+        <div class="logo">Vendor Packets</div>
+        <div class="logo">Official PDFs</div>
       </div>
     </section>
 
     <section class="shell section" id="offer">
       <div class="section-head">
-        <h2>What AgentContract does.</h2>
-        <p>It gives agents a controlled way to send approved contracts. Humans stay responsible for signing, and your system keeps the record.</p>
+        <h2>Approved templates in. Signed records out.</h2>
+        <p>AgentContract is the controlled send layer between agent workflows and human signatures.</p>
       </div>
       <div class="offer">
         <div class="offer-nav">
           <div class="offer-item active">Approved template API</div>
+          <div class="offer-item">Uploaded PDF sends</div>
           <div class="offer-item">Recipient signing pages</div>
           <div class="offer-item">Signed PDF storage</div>
-          <div class="offer-item">Webhooks and audit</div>
+          <div class="offer-item">Signed webhooks and audit</div>
         </div>
         <div class="offer-body">
           <div class="offer-copy">
-            <h3>Approved packets in. Signed records out.</h3>
-            <p>Agents fill known variables, send signing links, track status, and report outcomes without drafting or changing legal language.</p>
+            <h3>Agents fill variables, not legal judgment.</h3>
+            <p>Agents can inspect exact text, fill known data, dry-run, send links, and report status from approved packets. Counsel-owned language stays locked.</p>
           </div>
           <div class="contract-card">
-            <h4>Acme Marketplace Privacy Acknowledgement</h4>
+            <h4>Approved Contractor Agreement</h4>
             <div class="contract-line"></div>
             <div class="contract-line"></div>
             <div class="contract-line"></div>
             <div class="contract-line"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell section" id="trust">
+      <div class="section-head">
+        <h2 class="wide">Built for controlled sends, not legal improvisation.</h2>
+        <p>AgentContract treats the agent as a delivery worker for approved packets, not as counsel, a signer, or a contract author.</p>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <b>Human-approved language</b>
+          <span>Terms come from approved templates or uploaded PDFs. Agents fill known variables and send the packet.</span>
+        </div>
+        <div class="trust-card">
+          <b>No agent signatures</b>
+          <span>Recipients and required human parties review the document, consent, and sign in the browser.</span>
+        </div>
+        <div class="trust-card">
+          <b>No legal advice layer</b>
+          <span>AgentContract does not explain legal risk, recommend terms, or tell a signer what a contract means.</span>
+        </div>
+        <div class="trust-card">
+          <b>No document training by default.</b>
+          <span>Documents are handled as signing records, with audit events, hashes, and completion metadata.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell section" id="pdfs">
+      <div class="section-head">
+        <h2 class="wide">Send existing PDFs without rebuilding the document.</h2>
+        <p>When the approved packet is already a PDF, agents can send it as-is, collect configured signing fields, and keep a signed record tied back to the source file hash.</p>
+      </div>
+      <div class="pdf-panel">
+        <div class="pdf-code">
+          <header>bring your own pdf</header>
+          <pre><code><span class="kw">$</span> agentcontract send-pdf ./state-form.pdf \\
+  --to signer@example.com \\
+  --name <span class="str">"Jane Signer"</span> \\
+  --title <span class="str">"State filing packet"</span> \\
+  --json
+
+<span class="dim">document_pdf_sha256</span> 78c7...
+<span class="dim">status</span> waiting_on_recipient</code></pre>
+        </div>
+        <div class="pdf-steps">
+          <div class="pdf-step">
+            <code>Source</code>
+            <div><b>Keep the original packet</b><span>Useful for official forms, vendor PDFs, customer packets, and compliance documents where layout matters.</span></div>
+          </div>
+          <div class="pdf-step">
+            <code>Fields</code>
+            <div><b>Collect only configured inputs</b><span>Signature, initials, dates, and required fields are explicit instead of inferred at signing time.</span></div>
+          </div>
+          <div class="pdf-step">
+            <code>Record</code>
+            <div><b>Store source and executed hashes</b><span>AgentContract saves the uploaded PDF hash and the final signed PDF hash for later verification.</span></div>
           </div>
         </div>
       </div>
@@ -1043,21 +1219,21 @@ function homePage(origin: string) {
 
     <section class="shell section" id="scale">
       <div class="section-head">
-        <h2>Built for repeatable contract sends.</h2>
-        <p>Start with one agent sending one agreement. Use the same API and audit trail when the workflow repeats across contributors, contractors, and customers.</p>
+        <h2>Records that survive the workflow.</h2>
+        <p>Start with one agent sending one agreement. Use the same API and audit trail when the workflow repeats across contributors, contractors, vendors, and customers.</p>
       </div>
       <div class="numbers">
         <div class="metric">
-          <b>1</b>
-          <span>command to send a real contract from a local agent workflow.</span>
+          <b>PDF</b>
+          <span>source and executed documents saved with byte counts and SHA-256 hashes.</span>
         </div>
         <div class="metric">
           <b>SHA-256</b>
           <span>hashes stored with signed PDFs for later verification.</span>
         </div>
         <div class="metric">
-          <b>API</b>
-          <span>for creating agreements, checking status, fetching PDFs, and receiving webhooks.</span>
+          <b>HMAC</b>
+          <span>signed webhook callbacks for completion, cancellation, and machine status updates.</span>
         </div>
       </div>
     </section>
@@ -1066,7 +1242,7 @@ function homePage(origin: string) {
       <section class="shell section">
         <div class="section-head">
           <h2>Give your agent a send command.</h2>
-          <p>The dashboard is for humans. The CLI and API are for agents, scripts, and backend workflows that need to send approved contracts.</p>
+          <p>The dashboard is for humans. The CLI and API are for agents, scripts, and backend workflows that need to send approved packets without becoming signers or lawyers.</p>
         </div>
         <div class="cli-grid">
           <div class="dark-code">
@@ -1081,16 +1257,20 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
           </div>
           <div class="use-cases">
             <div class="use-case">
-              <b>Read before sending</b>
-              <span>Agents can inspect exact contract text and dry-run sends before an email goes out.</span>
+              <b>Dry-run before sending</b>
+              <span>Agents can inspect exact text, fields, recipients, and metadata before an email goes out.</span>
             </div>
             <div class="use-case">
               <b>Track without the dashboard</b>
-              <span>List agreements, read audit events, remind signers, cancel stale packets, and download PDFs.</span>
+              <span>List agreements, read audit events, remind selected signers, cancel stale packets, and download PDFs.</span>
             </div>
             <div class="use-case">
-              <b>Report failures immediately</b>
-              <span>Feedback works before login, so install and auth issues still get captured.</span>
+              <b>Bring your own PDF</b>
+              <span>Already have a document? Pass a PDF and AgentContract wraps it in the full signing flow.</span>
+            </div>
+            <div class="use-case">
+              <b>Receive signed callbacks</b>
+              <span>Use signed webhooks when completed agreements need to unblock the next workflow step.</span>
             </div>
           </div>
         </div>
@@ -1099,8 +1279,8 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
 
     <section class="shell section">
       <div class="section-head">
-        <h2>Questions people ask first.</h2>
-        <p>The most important distinction is simple: AgentContract lets agents send contracts. It does not make agents legal signers.</p>
+        <h2>Questions trust buyers ask first.</h2>
+        <p>The line stays bright: agents move approved paperwork; humans decide and sign.</p>
       </div>
       <div class="faq-grid">
         <div class="faq">
@@ -1108,24 +1288,24 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
           <p>No. Agents prepare approved packets and send signing links. Recipients and required human parties sign in the browser.</p>
         </div>
         <div class="faq">
-          <h3>Can I use custom templates?</h3>
-          <p>Yes. The API supports approved markdown templates, variables, required fields, metadata, and webhook URLs.</p>
+          <h3>Does AgentContract draft legal terms?</h3>
+          <p>No. The public product sends approved templates or uploaded PDFs. Agents fill known variables and route packets for human signature.</p>
+        </div>
+        <div class="faq">
+          <h3>Can I use existing PDFs?</h3>
+          <p>Yes. Send uploaded PDFs when the approved packet already exists and the original layout should stay intact.</p>
         </div>
         <div class="faq">
           <h3>What gets stored?</h3>
-          <p>Status, structured signer fields, audit events, signed PDF bytes, PDF hashes, and completion timestamps.</p>
-        </div>
-        <div class="faq">
-          <h3>Is this only a dashboard?</h3>
-          <p>No. AgentContract is CLI/API-first, with a dashboard for inspection, sender workflows, and API key management.</p>
+          <p>Status, structured signer fields, audit events, source PDF hashes, signed PDF bytes, signed PDF hashes, and completion timestamps.</p>
         </div>
       </div>
     </section>
 
     <section class="shell final">
       <div>
-        <h2>Let an agent send the next contract.</h2>
-        <p>Install the CLI, log in with an email code, and give your local agent a simple contract-sending workflow.</p>
+        <h2>Send approved packets from the next agent workflow.</h2>
+        <p>Install the CLI, use approved templates or uploaded PDFs, and keep humans in the signing loop.</p>
       </div>
       <div class="cta">
         <code>${escapeHtml(installCommand)}</code>
@@ -1139,7 +1319,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
 
   <footer class="footer">
     <div class="shell footer-inner">
-      <span>AgentContract turns agent-sent paperwork into signed records.</span>
+      <span>AgentContract turns controlled agent sends into signed records.</span>
       <span><a href="/cli">CLI</a> · <a href="/dashboard">Dashboard</a> · <a href="/healthz">Status</a></span>
     </div>
   </footer>

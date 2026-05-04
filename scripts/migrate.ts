@@ -10,6 +10,7 @@ type MigrationFile = {
   filename: string;
   sql: string;
   checksum: string;
+  target: Target | "all";
 };
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -31,8 +32,13 @@ function loadMigrations(): MigrationFile[] {
     .sort()
     .map((filename) => {
       const sql = readFileSync(join(migrationsDir, filename), "utf8");
-      return { filename, sql, checksum: sha256(sql) };
+      const targetMatch = sql.match(/^\s*--\s*@target\s+(postgres|sqlite)\b/im);
+      return { filename, sql, checksum: sha256(sql), target: (targetMatch?.[1] as Target | undefined) ?? "all" };
     });
+}
+
+function migrationAppliesToTarget(migration: MigrationFile, currentTarget: Target) {
+  return migration.target === "all" || migration.target === currentTarget;
 }
 
 function postgresSsl() {
@@ -51,6 +57,22 @@ function normalizePostgresSql(sql: string) {
     .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
 }
 
+function sqliteColumnExists(db: Database.Database, table: string, column: string) {
+  const tableName = table.replace(/^["'`]|["'`]$/g, "");
+  const columnName = column.replace(/^["'`]|["'`]$/g, "");
+  const exists = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
+  if (!exists) return false;
+  return db.prepare(`PRAGMA table_info(${JSON.stringify(tableName)})`).all()
+    .some((row) => (row as { name: string }).name === columnName);
+}
+
+function normalizeSqliteSql(sql: string, db: Database.Database) {
+  return sql.replace(
+    /^\s*ALTER TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+ADD COLUMN\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+[^;]+;\s*$/gim,
+    (statement, table: string, column: string) => sqliteColumnExists(db, table, column) ? "" : statement
+  );
+}
+
 function ensureSqliteMigrationsTable(db: Database.Database) {
   db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, checksum TEXT, applied_at TEXT NOT NULL)");
   const columns = new Set(
@@ -66,6 +88,10 @@ function ensureSqliteCompatibility(db: Database.Database) {
       db.prepare("PRAGMA table_info(agreements)").all().map((column) => (column as { name: string }).name)
     );
     for (const [name, type] of [
+      ["original_pdf_base64", "TEXT"],
+      ["original_pdf_filename", "TEXT"],
+      ["original_pdf_sha256", "TEXT"],
+      ["original_pdf_bytes", "INTEGER"],
       ["signed_pdf_base64", "TEXT"],
       ["signed_pdf_sha256", "TEXT"],
       ["signed_pdf_bytes", "INTEGER"]
@@ -75,6 +101,7 @@ function ensureSqliteCompatibility(db: Database.Database) {
         console.log(`Added agreements.${name}`);
       }
     }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_agreements_original_pdf_sha256 ON agreements(original_pdf_sha256) WHERE original_pdf_sha256 IS NOT NULL");
     db.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
   }
 
@@ -119,6 +146,10 @@ async function migrateSqlite(migrations: MigrationFile[]) {
 
     console.log(`Migration target: sqlite (${databasePath})`);
     for (const migration of migrations) {
+      if (!migrationAppliesToTarget(migration, "sqlite")) {
+        if (statusOnly) console.log(`${migration.filename}: skipped-${migration.target}-only`);
+        continue;
+      }
       const current = applied.get(migration.filename);
       const status = migrationStatus(current, migration);
       if (statusOnly) {
@@ -140,7 +171,7 @@ async function migrateSqlite(migrations: MigrationFile[]) {
       }
 
       const apply = db.transaction(() => {
-        db.exec(migration.sql);
+        db.exec(normalizeSqliteSql(migration.sql, db));
         db.prepare("INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES (?, ?, ?)")
           .run(migration.filename, migration.checksum, new Date().toISOString());
       });
@@ -160,9 +191,14 @@ async function ensurePostgresMigrationsTable(client: pg.PoolClient) {
 }
 
 async function ensurePostgresCompatibility(client: pg.PoolClient) {
+  await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS original_pdf_base64 TEXT");
+  await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS original_pdf_filename TEXT");
+  await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS original_pdf_sha256 TEXT");
+  await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS original_pdf_bytes INTEGER");
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_base64 TEXT");
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_sha256 TEXT");
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_bytes INTEGER");
+  await client.query("CREATE INDEX IF NOT EXISTS idx_agreements_original_pdf_sha256 ON agreements(original_pdf_sha256) WHERE original_pdf_sha256 IS NOT NULL");
   await client.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
 
   await client.query(`CREATE TABLE IF NOT EXISTS agentcontract_api_keys (
@@ -198,6 +234,10 @@ async function migratePostgres(migrations: MigrationFile[]) {
     const applied = new Map(result.rows.map((row) => [row.filename, row]));
 
     for (const migration of migrations) {
+      if (!migrationAppliesToTarget(migration, "postgres")) {
+        if (statusOnly) console.log(`${migration.filename}: skipped-${migration.target}-only`);
+        continue;
+      }
       const current = applied.get(migration.filename);
       const status = migrationStatus(current, migration);
       if (statusOnly) {

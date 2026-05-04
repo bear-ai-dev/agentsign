@@ -1,6 +1,6 @@
 # AgentContract
 
-AgentContract is an agent-native contract sending API and public CLI for marketplace onboarding. It can send NDAs, privacy acknowledgements, and contractor agreements, then notify your app or sender when a recipient signs.
+AgentContract is contract sending rails for agent-run onboarding. It lets agents send approved templates and uploaded PDFs, collect human signatures in the browser, then return signed PDFs, hashes, webhooks, and audit trails.
 
 ## Quickstart
 
@@ -38,13 +38,13 @@ Do not commit pulled env files. `.env*.local` is ignored, and `/tmp/agentcontrac
 
 ## Public CLI
 
-The npm package is prepared as `@bear-ai-dev/agentcontract` because the unscoped `agentcontract` package name is already taken on npm. The installed commands are both `agentcontract` and the backwards-compatible `agentsign` alias.
+The npm package is `agent-contract` because the unscoped `agentcontract` package name is already taken on npm. The installed commands are both `agentcontract` and the backwards-compatible `agentsign` alias.
 
 YC-style setup:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+agentcontract login --email you@example.com --api-url https://agentink-pied.vercel.app
 agentcontract skill
 ```
 
@@ -53,10 +53,10 @@ Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract
 `agentcontract login --email` sends a six-digit AgentContract code, creates a user-owned API key after verification, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login is still available with `agentcontract login`, but the email-code flow is the reliable default for remote agents and first-time users:
 
 ```bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+agentcontract login --email you@example.com --api-url https://agentink-pied.vercel.app
 ```
 
-`agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
+`agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect approved packets, fill known variables, send signing links, and track signed records from the CLI.
 
 The browser onboarding page is:
 
@@ -64,13 +64,13 @@ The browser onboarding page is:
 open https://agentink-pied.vercel.app/cli
 ```
 
-After npm publishing, the install script uses:
+After npm publishing, direct npm install will also work:
 
 ```bash
-npm install -g @bear-ai-dev/agentcontract
+npm install -g agent-contract
 ```
 
-Before npm publishing, it can be installed directly from GitHub:
+Before npm publishing, use the hosted installer above. It serves the current prebuilt package from AgentContract. GitHub install is a fallback:
 
 ```bash
 npm install -g github:bear-ai-dev/agentsign
@@ -78,36 +78,75 @@ agentcontract --version
 agentcontract doctor
 ```
 
+CLI updates:
+
+```bash
+agentcontract update --check
+agentcontract update --yes
+```
+
+`agentcontract update` checks the hosted AgentContract version and reruns the hosted installer. Current CLIs also auto-check once per day before normal commands, update themselves when a newer hosted version exists, then restart the original command. Use `--no-auto-update` or `AGENTCONTRACT_AUTO_UPDATE=0` for CI/debug sessions. After npm publishing, pass `--package-manager npm` to use the npm registry path.
+
+Dashboard shortcuts:
+
+```bash
+agentcontract dashboard
+agentcontract dashboard contractor
+agentcontract dashboard privacy
+agentcontract dashboard nda
+agentcontract dashboard api-keys
+```
+
+The dashboard command opens the sender UI or template form from the CLI. Add `--no-open --json` to print the URL for a remote agent instead of opening a browser.
+
 Env vars and command flags still override saved config, which is useful for CI or one-off sends. Run `agentcontract config get` to inspect config with the API key masked. For secret managers, you can also pipe a manually created key with `--api-key-stdin`.
 
 API key management is also CLI-first after login:
 
 ```bash
 agentcontract keys
-agentcontract key create --key-name "Sid laptop"
+agentcontract key create --key-name "Agent laptop"
 agentcontract key revoke key_...
 ```
 
 API keys created this way are stored as SHA-256 hashes. The env `AGENTCONTRACT_API_KEY` remains a bootstrap key for server ops, but day-to-day users should use email-code or WorkOS-issued user keys.
 
+First-party sending setup:
+
+```bash
+agentcontract domain setup \
+  --email-domain acme.com \
+  --signing-domain contracts.acme.com \
+  --from legal@acme.com \
+  --sender-name "Acme Legal" \
+  --json
+
+agentcontract domain status --json
+agentcontract domain verify --json
+```
+
+`domain setup` creates or updates the owner account's sender profile, returns Resend email DNS records, and returns the signing-domain CNAME target. With `VERCEL_API_TOKEN` and `VERCEL_PROJECT_ID` set, AgentContract asks Vercel to attach the signing domain; without them, the profile is marked `pending_operator_action` so an operator can attach the domain manually.
+
+After both domains verify, verified accounts can send from addresses on the verified email domain and receive branded signing links on the configured signing domain. Verified accounts can send up to 50 agreements per hour, 250 per day, and 50 recipients per bulk batch.
+
 For agent installation and operating instructions, see [SKILLS.md](./SKILLS.md).
 
 ## Production acceptance bar
 
-Treat Sid as a remote, picky first user with no local context. Every shipped CLI/server change should be verifiable from a clean machine with only the install command, should have explicit Supabase/Postgres migrations when schema changes, and should give Claude Code a one-command feedback path when anything breaks.
+Treat a remote tester as a picky first user with no local context. Every shipped CLI/server change should be verifiable from a clean machine with only the install command, should have explicit Supabase/Postgres migrations when schema changes, and should give Claude Code a one-command feedback path when anything breaks.
 
 ## Remote tester handoff
 
-Sid can test without Janak or Codex around:
+A remote tester can validate from a clean machine:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+agentcontract login --email you@example.com --api-url https://agentink-pied.vercel.app
 agentcontract doctor --json
 agentcontract feedback --message "Install/login worked" --category install --severity note --json
 agentcontract templates
 agentcontract template read privacy --out ./privacy.md
-agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-run --json
+agentcontract marketplace-onboard --to you@example.com --name "CLI Test" --dry-run --json
 ```
 
 The login command emails a six-digit AgentContract code. Paste it into the terminal when prompted. Browser WorkOS login is also supported once the WorkOS redirect URI is registered:
@@ -116,13 +155,13 @@ The login command emails a six-digit AgentContract code. Paste it into the termi
 agentcontract login --api-url https://agentink-pied.vercel.app
 ```
 
-After login, he can send a real test to himself:
+After login, they can send a real test to himself:
 
 ```bash
-agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --cc janak@usebear.ai
+agentcontract marketplace-onboard --to you@example.com --name "CLI Test" --cc legal@example.com
 ```
 
-He should send feedback as: command run, expected result, actual result, and what felt confusing. Claude Code can store that directly:
+They should send feedback as: command run, expected result, actual result, and what felt confusing. Claude Code can store that directly:
 
 ```bash
 agentcontract feedback \
@@ -136,13 +175,13 @@ agentcontract feedback \
 
 `agentcontract feedback` works before login so install/auth failures can still be reported. When logged in, feedback is attached to the account and stored in the hosted database/Supabase-backed production store. Review logged-in feedback with `agentcontract feedback list --json`.
 
-Marketplace onboarding sends the Specific Marketplace privacy acknowledgement:
+Marketplace onboarding sends the Acme Marketplace privacy acknowledgement:
 
 ```bash
 agentcontract marketplace-onboard \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --cc sid@usebear.ai
+  --cc you@example.com
 ```
 
 Bulk marketplace onboarding from a JSON file:
@@ -155,7 +194,31 @@ Bulk marketplace onboarding from a JSON file:
 ```
 
 ```bash
-agentcontract bulk-marketplace-onboard --file contributors.json --cc sid@usebear.ai
+agentcontract bulk-marketplace-onboard --file contributors.json --cc you@example.com --dry-run --json
+agentcontract bulk-marketplace-onboard --file contributors.json --cc you@example.com --yes
+```
+
+Bulk NDA batches return a durable `batch_id`:
+
+```bash
+agentcontract bulk-mnda \
+  --file recipients.json \
+  --company "Acme Inc." \
+  --from legal@acme.com \
+  --sender-name "Acme Legal" \
+  --dry-run \
+  --json
+
+agentcontract bulk-mnda \
+  --file recipients.json \
+  --company "Acme Inc." \
+  --from legal@acme.com \
+  --sender-name "Acme Legal" \
+  --yes \
+  --json
+
+agentcontract batches --json
+agentcontract batch read bat_... --json
 ```
 
 Read the contract text without opening a browser:
@@ -167,7 +230,7 @@ agentcontract read privacy \
 agentcontract contract read privacy \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --out ./specific-privacy.md
+  --out ./privacy.md
 ```
 
 Use `--dry-run --json` before a real send when an agent is preparing a contract:
@@ -186,12 +249,24 @@ After sending, agents can stay in the terminal:
 agentcontract agreements --status sent --limit 20
 agentcontract agreement read agr_... --out ./sent-contract.md
 agentcontract agreement audit agr_...
-agentcontract agreement remind agr_...
+agentcontract agreement remind agr_... --remind-recipient
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
 ```
 
 When an agreement is signed, AgentContract stores the structured field values and the final signed PDF in the database. The API also stores `signed_pdf_sha256` and `signed_pdf_bytes`, so the CLI can prove the downloadable PDF matches the saved document even on Vercel where local files are temporary.
+
+Bring your own PDF when the document already exists:
+
+```bash
+agentcontract send-pdf ./partner-sow.pdf \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --title "Partner SOW" \
+  --json
+```
+
+The recipient reviews the uploaded PDF in the browser, signs the normal AgentContract fields, and the executed PDF keeps the original PDF pages plus a signing certificate and audit trail.
 
 Server templates can be inspected and used without opening the template UI:
 
@@ -220,24 +295,24 @@ Create a new reusable contract from markdown and signing fields:
 agentcontract contract add partner-msa \
   --markdown-file ./contracts/partner-msa.md \
   --fields-file ./contracts/signing-fields.json \
-  --var company_name="Bear AI" \
+  --var company_name="Acme Inc." \
   --var effective_date=2026-04-29
 ```
 
-Agents that draft markdown on the fly can save it directly from stdin:
+For human-approved custom markdown, agents can save the packet directly from stdin:
 
 ```bash
-cat ./draft-contract.md | agentcontract contract add custom-sow \
+cat ./approved-contract.md | agentcontract contract add custom-sow \
   --markdown-stdin \
   --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
-  --var company_name="Specific Marketplace"
+  --var company_name="Acme Marketplace"
 ```
 
-Capture feedback before sending, then let an agent revise against the note:
+Capture feedback before sending, then edit the local packet against the note:
 
 ```bash
 agentcontract contract feedback custom-sow \
-  --author "Sid" \
+  --author "Agent" \
   --note "Make the IP assignment clearer and shorten the termination section."
 
 agentcontract contract read custom-sow --with-feedback
@@ -250,7 +325,7 @@ agentcontract contract read custom-sow --with-feedback
 Seed a new contract from a built-in, then edit it:
 
 ```bash
-agentcontract contract add marketplace-mnda --from-template nda --var company_name="Specific Marketplace"
+agentcontract contract add marketplace-mnda --from-template nda --var company_name="Acme Marketplace"
 agentcontract contract edit marketplace-mnda
 ```
 
@@ -271,19 +346,19 @@ agentcontract contract read marketplace-mnda \
 agentcontract contract send marketplace-mnda \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --cc sid@usebear.ai \
+  --cc you@example.com \
   --json
 ```
 
 ## CLI-first sender workflows
 
-Everything a sender needs can be done from the CLI: authenticate, manage API keys, list templates, read contracts, create/edit reusable contracts, capture feedback, preview locally, send, bulk send, remind, cancel, check status, read sent text, view audit events, and download PDFs. The sender dashboard and template forms are optional convenience views only.
+Everything a sender needs can be done from the CLI: authenticate, manage API keys, list templates, read contracts, create/edit reusable contracts, upload existing PDFs, capture feedback, preview locally, send, bulk send, remind, cancel, check status, read sent text, view audit events, and download PDFs. The sender dashboard and template forms are optional convenience views only.
 
 Recipient signing still uses the public token link in the email because the recipient must review, consent, and type their signature. Agents should use `agentcontract read`, `agentcontract contract send`, `agentcontract agreement read`, `agentcontract agreement audit`, and webhooks instead of browser flows.
 
 ## WorkOS Auth
 
-`agentcontract login --email` uses AgentContract email-code auth and requires no browser. Browser login uses WorkOS AuthKit with a localhost callback, similar to the YC CLI flow. The optional sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` accept either an AgentContract email-code session or a WorkOS session. Recipient signing links stay public. In WorkOS, configure AuthKit with the Bear/Specific Google Workspace connection so Sid can sign in with Google directly.
+`agentcontract login --email` uses AgentContract email-code auth and requires no browser. Browser login uses WorkOS AuthKit with a localhost callback, similar to the YC CLI flow. The optional sender/admin UI routes under `/dashboard`, `/dashboard/api-keys`, and `/templates/*` accept either an AgentContract email-code session or a WorkOS session. Recipient signing links stay public. In WorkOS, configure AuthKit with the Acme Google Workspace connection so testers can sign in with Google directly.
 
 Required production env vars:
 
@@ -301,7 +376,7 @@ In the WorkOS dashboard, configure:
 - Sign-out redirect: `https://agentink-pied.vercel.app/`
 - Google Workspace / Google OAuth connection for the allowed company domain
 
-Current production fallback: `/login` presents an email-code sign-in first and a WorkOS/Google button second. This is intentional so Sid can use the CLI and dashboard even if WorkOS SSO/social login still needs a dashboard-side provider toggle.
+Current production fallback: `/login` presents an email-code sign-in first and a WorkOS/Google button second. This is intentional so testers can use the CLI and dashboard even if WorkOS SSO/social login still needs a dashboard-side provider toggle.
 
 Generate a cookie password locally:
 
@@ -311,31 +386,31 @@ openssl rand -base64 32
 
 ## CLI: send contracts
 
-The fastest paths are the Sid/Bear helpers. MNDA defaults to Bear AI. The privacy and contributor-terms commands bake in the Specific Marketplace documents from the PDFs: `Specific Marketplace`, `Specific`, `usespecific.com`, `sid@usebear.ai`, and `39 Tehama, San Francisco, CA`.
+The fastest paths are the Acme helpers. MNDA defaults to Acme. The privacy and contributor-terms commands bake in the Acme Marketplace documents from the PDFs: `Acme Marketplace`, `Acme`, `example.com`, `you@example.com`, and `123 Market Street, San Francisco, CA`.
 
-Preview the Specific contributor terms before sending:
+Preview the Acme contributor terms before sending:
 
 ```bash
-npm run cli -- specific-contractor \
+npm run cli -- marketplace-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --preview \
-  --preview-file ./specific-contractor-preview.html
+  --preview-file ./contractor-preview.html
 ```
 
-Send the same Specific contributor terms:
+Send the same Acme contributor terms:
 
 ```bash
-npm run cli -- specific-contractor \
+npm run cli -- marketplace-contractor \
   --to contractor@example.com \
   --name "Jane Contractor"
 ```
 
-Send Bear MNDA or the Specific privacy acknowledgement:
+Send Acme MNDA or the Acme privacy acknowledgement:
 
 ```bash
-npm run cli -- bear-mnda --to jane@example.com --name "Jane Doe"
-npm run cli -- specific-privacy --to jane@example.com --name "Jane Doe"
+npm run cli -- send-mnda --to jane@example.com --name "Jane Doe"
+npm run cli -- marketplace-onboard --to jane@example.com --name "Jane Doe"
 ```
 
 Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth. The lower-level CLI is available for custom templates without hand-writing JSON.
@@ -343,15 +418,15 @@ Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth. The 
 ```bash
 export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
 export AGENTCONTRACT_API_KEY=<your production API key>
-export AGENTCONTRACT_SENDER_EMAIL=janak@usebear.ai
-export AGENTCONTRACT_SENDER_NAME="Bear AI"
+export AGENTCONTRACT_SENDER_EMAIL=legal@example.com
+export AGENTCONTRACT_SENDER_NAME="Acme"
 
 npm run cli -- send-mnda \
-  --from janak@usebear.ai \
+  --from legal@example.com \
   --to jane@example.com \
   --name "Jane Doe" \
-  --company "Bear AI" \
-  --cc sid@usebear.ai
+  --company "Acme Inc." \
+  --cc you@example.com
 ```
 
 `--from` is the human sender. The verified `EMAIL_FROM` address is still used for deliverability, while `--from` becomes the email `Reply-To` and the default completion notification address. `--to` is the receiver email. `--email` still works as a backwards-compatible alias.
@@ -360,10 +435,10 @@ Use `--json` when another agent or script should parse the result:
 
 ```bash
 npm run cli -- send-mnda \
-  --from janak@usebear.ai \
+  --from legal@example.com \
   --to jane@example.com \
   --name "Jane Doe" \
-  --company "Bear AI" \
+  --company "Acme Inc." \
   --json
 ```
 
@@ -371,32 +446,32 @@ Use `--dry-run` to let an agent inspect the exact payload before sending:
 
 ```bash
 npm run cli -- send-privacy \
-  --from janak@usebear.ai \
+  --from legal@example.com \
   --to jane@example.com \
   --name "Jane Doe" \
   --dry-run \
   --json
 ```
 
-Preview the built-in Specific contributor terms before sending:
+Preview the built-in Acme contributor terms before sending:
 
 ```bash
 npm run cli -- send-contract \
-  --from sid@usebear.ai \
-  --sender-name "Sid from Specific" \
+  --from you@example.com \
+  --sender-name "Sender from Acme" \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --template contractor \
   --preview \
-  --preview-file ./specific-contractor-preview.html
+  --preview-file ./contractor-preview.html
 ```
 
 Send the same contributor terms:
 
 ```bash
 npm run cli -- send-contract \
-  --from sid@usebear.ai \
-  --sender-name "Sid from Specific" \
+  --from you@example.com \
+  --sender-name "Sender from Acme" \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --template contractor
@@ -406,7 +481,7 @@ Use custom markdown and fields from files:
 
 ```bash
 npm run cli -- send-contract \
-  --from sid@usebear.ai \
+  --from you@example.com \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --markdown-file ./contracts/custom.md \
@@ -416,15 +491,27 @@ npm run cli -- send-contract \
   --json
 ```
 
-Agents can also draft a one-off contract through stdin and structured fields, inspect the payload, then send:
+Advanced: agents can send a one-off human-approved contract through stdin and structured fields, inspect the payload, then send:
 
 ```bash
-cat ./draft-contract.md | npm run cli -- send-contract \
-  --from sid@usebear.ai \
+cat ./approved-contract.md | npm run cli -- send-contract \
+  --from you@example.com \
   --to jane@example.com \
   --name "Jane Doe" \
   --markdown-stdin \
   --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
+  --dry-run \
+  --json
+```
+
+Already have a PDF? Wrap it in the same signing flow:
+
+```bash
+npm run cli -- send-pdf ./contracts/partner-sow.pdf \
+  --from you@example.com \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --title "Partner SOW" \
   --dry-run \
   --json
 ```
@@ -450,24 +537,24 @@ CLI design choices for agents:
 - `--preview` renders local HTML before sending; `agreement read` keeps sent-contract review in the terminal.
 - Errors go to stderr with a concrete example command.
 
-## Specific privacy policy template
+## Acme privacy policy template
 
 Inspect the template from the CLI:
 
 ```bash
 agentcontract template show privacy --markdown
-agentcontract template read privacy --out ./specific-privacy.md
+agentcontract template read privacy --out ./privacy.md
 ```
 
-The privacy document body is fixed to the local PDF named `Bear AI Privacy Policy with Jason Zeng.pdf`. The reusable template intentionally does not copy Jason's Common Paper audit block; it only uses the policy text and adds a fresh AgentContract audit trail for each new recipient.
+The privacy document body is fixed to the local PDF named `Acme Privacy Policy with example signer.pdf`. The reusable template intentionally does not copy the original Common Paper audit block; it only uses the policy text and adds a fresh AgentContract audit trail for each new recipient.
 
 The fixed policy values are:
 
-- Company: `Specific Marketplace`
-- Service: `Specific`
-- Website: `usespecific.com`
-- Contact email: `sid@usebear.ai`
-- Address: `39 Tehama, San Francisco, CA`
+- Company: `Acme Marketplace`
+- Service: `Acme`
+- Website: `example.com`
+- Contact email: `you@example.com`
+- Address: `123 Market Street, San Francisco, CA`
 
 The only template variable exposed by default is `effective_date`, defaulting to `April 29, 2026`.
 
@@ -480,10 +567,10 @@ It sends a `privacy` template agreement with these required signing fields:
 Agents can send the same privacy policy directly:
 
 ```bash
-npm run cli -- specific-privacy \
+npm run cli -- marketplace-onboard \
   --to jane@example.com \
   --name "Jane Doe" \
-  --cc janak@usebear.ai
+  --cc legal@example.com
 ```
 
 Template metadata is available through the CLI or API:
@@ -498,26 +585,26 @@ curl http://localhost:3000/v1/templates/privacy \
   -H "Authorization: Bearer ak_local_dev_key_change_me"
 ```
 
-## Specific contributor terms template
+## Acme contributor terms template
 
-The contractor/contributor document is reconstructed from `Bear AI Contractor with Jason Zeng.pdf` as reusable Specific Marketplace contributor terms. The template keeps the company/service/website/contact placeholders specific and excludes the old Common Paper signature/audit block so each send gets a fresh AgentContract audit trail.
+The contractor/contributor document is reconstructed from `Acme Contractor with example signer.pdf` as reusable Acme Marketplace contributor terms. The template keeps the company/service/website/contact placeholders specific and excludes the old Common Paper signature/audit block so each send gets a fresh AgentContract audit trail.
 
 Agents can inspect or send it without a browser:
 
 ```bash
 npm run cli -- template show contractor --markdown
 npm run cli -- read contractor --var effective_date="April 29, 2026"
-npm run cli -- specific-contractor \
+npm run cli -- marketplace-contractor \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --cc sid@usebear.ai
+  --cc you@example.com
 ```
 
 The built-in templates available to agents are:
 
-- `nda`: Bear AI mutual NDA
-- `privacy`: Specific Marketplace privacy acknowledgement
-- `contractor`: Specific Marketplace contributor terms
+- `nda`: Acme Inc. nondisclosure agreement
+- `privacy`: Acme Marketplace privacy acknowledgement
+- `contractor`: Acme Marketplace contributor terms
 
 Bulk send MNDAs from a JSON file:
 
@@ -529,7 +616,13 @@ Bulk send MNDAs from a JSON file:
 ```
 
 ```bash
-npm run cli -- bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI"
+npm run cli -- bulk-mnda --from legal@example.com --file recipients.json --company "Acme Inc."
+```
+
+Bulk send Acme contractor agreements from the same JSON shape:
+
+```bash
+agentcontract bulk-marketplace-contractor --from you@example.com --file contractors.json --json
 ```
 
 ## Send a single NDA
@@ -540,13 +633,13 @@ curl -X POST http://localhost:3000/v1/agreements \
   -H "Content-Type: application/json" \
   -d '{
     "recipient": {"name": "Jane Doe", "email": "jane@example.com"},
-    "cc": ["sid@example.com"],
+    "cc": ["legal@example.com"],
     "sender_email": "sender@example.com",
-    "sender_name": "Bear AI",
+    "sender_name": "Acme Inc.",
     "notification_email": ["sender@example.com"],
     "template": "nda",
     "template_vars": {
-      "company_name": "Bear AI",
+      "company_name": "Acme Inc.",
       "effective_date": "2026-04-29",
       "term_years": 2
     },
@@ -558,7 +651,7 @@ curl -X POST http://localhost:3000/v1/agreements \
   }'
 ```
 
-## Bulk send Specific contributor terms
+## Bulk send Acme contributor terms
 
 ```bash
 curl -X POST http://localhost:3000/v1/agreements/bulk \
@@ -567,11 +660,11 @@ curl -X POST http://localhost:3000/v1/agreements/bulk \
   -d '{
     "template": "contractor",
     "template_vars_default": {
-      "company_name": "Specific Marketplace",
-      "service_name": "Specific",
-      "website_url": "usespecific.com",
-      "contact_email": "sid@usebear.ai",
-      "company_address": "39 Tehama, San Francisco, CA",
+      "company_name": "Acme Marketplace",
+      "service_name": "Acme",
+      "website_url": "example.com",
+      "contact_email": "you@example.com",
+      "company_address": "123 Market Street, San Francisco, CA",
       "effective_date": "April 29, 2026"
     },
     "recipients": [
@@ -600,6 +693,17 @@ curl -X POST http://localhost:3000/v1/agreements \
   -H "Authorization: Bearer ak_local_dev_key_change_me" \
   -H "Content-Type: application/json" \
   -d '{"recipient":{"name":"Jane Doe","email":"jane@example.com"},"document_markdown":"# Test Agreement\n\nHello {{name}}","template_vars":{"name":"Jane"},"fields":[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]}'
+```
+
+## Uploaded PDF agreement
+
+```bash
+PDF_B64="$(base64 -i ./partner-sow.pdf | tr -d '\n')"
+
+curl -X POST http://localhost:3000/v1/agreements \
+  -H "Authorization: Bearer ak_local_dev_key_change_me" \
+  -H "Content-Type: application/json" \
+  -d "{\"recipient\":{\"name\":\"Jane Doe\",\"email\":\"jane@example.com\"},\"document_pdf_base64\":\"$PDF_B64\",\"document_pdf_filename\":\"partner-sow.pdf\",\"document_title\":\"Partner SOW\",\"fields\":[{\"id\":\"full_name\",\"label\":\"Full legal name\",\"type\":\"text\",\"required\":true},{\"id\":\"signature\",\"label\":\"Signature\",\"type\":\"signature\",\"required\":true}]}"
 ```
 
 ## Read agreement text
@@ -641,7 +745,7 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
 ## Template variables
 
-`nda`: `company_name`, `effective_date`, `term_years`
+`nda`: `company_name`
 
 `privacy`: `effective_date`
 
@@ -649,16 +753,16 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
 ## v1 limitations
 
-- Single recipient only; no multi-signer routing.
+- Single recipient only; agreements with `sender_email` require both recipient and sender signatures before completion.
 - Sender/admin workflows are CLI-complete; the browser dashboard and template forms are optional convenience views.
-- Recipient signing still uses the public token link so the recipient can review, consent, and type their electronic signature.
+- Recipient and sender signing use public token links so each party can review, consent, and type their electronic signature.
 - Webhook retries run only while the Node process is alive.
 - `webhook_secret` is generated per agreement because there is no customer model yet.
 - Create and bulk requests support one-off `cc`, but reminders do not persist the original CC list yet.
-- `sender_email` is stored per agreement, used as request `Reply-To`, and used as the signed-notification target unless `notification_email` is provided.
-- `notification_email` sends a completion email when the recipient signs; webhooks are still the source of truth for machine callbacks.
-- Signature and initials use typed-signature capture for the v1 UI; older drawn image data URLs are still accepted by the API/PDF renderer.
-- Signed PDFs are persisted in SQLite/Postgres as base64 plus SHA-256 for v1 durability; high-volume production should move the PDF bytes to object storage while keeping the hash and metadata in the database.
+- `sender_email` is stored per agreement, used as request `Reply-To`, receives the sender signing request, and is used as the signed-notification target unless `notification_email` is provided.
+- After all required parties sign, AgentContract emails the executed PDF attachment to the recipient, sender, and any `notification_email` addresses; webhooks are still the source of truth for machine callbacks.
+- Signature and initials use typed-signature capture for the v1 UI, and the PDF renderer embeds a signature font so typed names render as cursive signatures; older drawn image data URLs are still accepted by the API/PDF renderer.
+- Signed PDFs are persisted in SQLite/Postgres as base64 plus SHA-256 for v1 durability; uploaded source PDFs are stored the same way so completed PDFs can include the original pages plus the signing certificate. High-volume production should move the PDF bytes to object storage while keeping the hash and metadata in the database.
 - PDF rendering is optimized for local/Railway demo use, not high-volume throughput.
 - Template substitution is simple `{{var}}` replacement.
 - Audit logs are append-only by application behavior, not database-level immutability.

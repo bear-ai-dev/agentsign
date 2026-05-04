@@ -13,13 +13,15 @@ YC-style setup for a new machine:
 
 ```bash
 curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+agentcontract login --email you@example.com --api-url https://agentink-pied.vercel.app
 agentcontract skill
 ```
 
 Requires Node.js 20+ and npm. The install script uses the hosted prebuilt package, so a remote tester does not need the repo or local build setup.
 
 `agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentink-pied.vercel.app` once the WorkOS provider is enabled. `agentcontract skill` installs or updates this skill for the selected AI agent.
+
+`agentcontract update --check` checks npm for a newer CLI. `agentcontract update --yes` self-updates the global npm install with the detected package manager.
 
 Until the npm package is published, install directly:
 
@@ -30,7 +32,7 @@ npm install -g github:bear-ai-dev/agentsign
 After publishing:
 
 ```bash
-npm install -g @bear-ai-dev/agentcontract
+npm install -g agent-contract
 ```
 
 Manual config is still available for CI or secret-manager flows. Never print or commit the API key.
@@ -38,9 +40,9 @@ Manual config is still available for CI or secret-manager flows. Never print or 
 ```bash
 agentcontract init \
   --api-url https://agentink-pied.vercel.app \
-  --sender-email sid@usebear.ai \
-  --sender-name "Sid from Specific" \
-  --notify sid@usebear.ai
+  --sender-email you@example.com \
+  --sender-name "Sender from Acme" \
+  --notify you@example.com
 ```
 
 When pulling from a secret manager, pipe the key instead of putting it in argv:
@@ -49,30 +51,35 @@ When pulling from a secret manager, pipe the key instead of putting it in argv:
 printf '%s' "$AGENTCONTRACT_API_KEY" | agentcontract init \
   --api-url https://agentink-pied.vercel.app \
   --api-key-stdin \
-  --sender-email sid@usebear.ai
+  --sender-email you@example.com
 ```
 
 Validate the install:
 
 ```bash
 agentcontract doctor --json
+agentcontract update --check
 agentcontract keys --json
 ```
 
 ## Project Memory
 
-Sid is the picky remote acceptance tester. Assume he has no repo context and will bounce off anything vague. Keep flows CLI-first, give exactly copy-pasteable commands, verify from a clean install, and capture breakage with `agentcontract feedback`.
+The remote acceptance tester is picky. Assume they have no repo context and will bounce off anything vague. Keep flows CLI-first, give exactly copy-pasteable commands, verify from a clean install, and capture breakage with `agentcontract feedback`.
 
 Schema changes must use explicit migrations. `npm run migrate` targets local SQLite by default and Supabase/Postgres when `DATABASE_URL` is present; do not rely on boot-time schema repair as the production migration plan.
 
 ## Default Workflow
 
-1. Read or dry-run first. Use local preview files only if the human asks for visual rendering.
-2. List or inspect the contract before sending if the human did not specify an exact contract id.
-3. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
-4. Use `--json` for all agent-to-agent or script usage.
-5. Store the returned `id`, `signing_url`, and `webhook_secret` in the calling system if a webhook is configured.
-6. Check status with `agentcontract status <agreement_id> --json`, then read the sent agreement with `agentcontract agreement read <agreement_id>`.
+0. Before sending, reading, reminding, cancelling, or checking status, run `agentcontract update --check --json`. If `update_available` is true, run `agentcontract update --yes`, then `agentcontract skill`, then continue with the original task. If `agentcontract update` is not recognized, run `curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash`, then `agentcontract skill`, then continue. If npm/network is unavailable, continue with the current CLI and report the update failure with `agentcontract feedback`.
+1. For any contract/onboarding/signing task, keep the context small. Pass a one-line `--prompt`, `--goal`, or `--chat-summary` only when there is an explicit user/agent goal worth attaching to the send. Do not upload chat transcripts, message logs, or tool event dumps.
+2. Read or dry-run first. Use local preview files only if the human asks for visual rendering.
+3. List or inspect the contract before sending if the human did not specify an exact contract id.
+4. Send only after the recipient name, recipient email, sender email, and template variables are specific to the recipient.
+5. Use `--json` for all agent-to-agent or script usage.
+6. Store the returned `id`, `signing_url`, and `webhook_secret` in the calling system if a webhook is configured.
+7. After a send, store the returned `id`, `signing_url`, and `webhook_secret` in the calling system when needed; use the agreement id for future status checks.
+8. Check status with `agentcontract status <agreement_id> --json`, then read the sent agreement with `agentcontract agreement read <agreement_id>`.
+9. Before sending any reminder, explicitly ask whether the reminder should go to the sender/themselves, the recipient/everyone else, or all signing parties. Use `--remind-self`, `--remind-recipient`, or `--remind-all`; never run a plain `agreement remind` from an agent.
 
 ## Agent-Native Commands
 
@@ -81,19 +88,62 @@ Stay in the terminal unless a recipient needs to sign:
 ```bash
 agentcontract keys --json
 agentcontract key create --key-name "Agent laptop" --json
+agentcontract domain setup --email-domain acme.com --signing-domain contracts.acme.com --from legal@acme.com --sender-name "Acme Legal" --json
+agentcontract domain status --json
+agentcontract domain verify --json
 agentcontract templates --json
 agentcontract template read privacy --out ./privacy.md
 agentcontract read privacy --var effective_date="April 29, 2026"
+agentcontract send-pdf ./agreement.pdf --to jane@example.com --name "Jane Doe" --title "Partner SOW" --json
+agentcontract dashboard contractor
 agentcontract agreements --status sent --limit 20 --json
+agentcontract batches --json
+agentcontract batch read bat_... --json
 agentcontract agreement read agr_... --out ./agreement.md
 agentcontract agreement audit agr_...
-agentcontract agreement remind agr_...
+agentcontract agreement remind agr_... --remind-recipient
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./agreement.pdf
-agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai" --category login --severity high --json
+agentcontract update --yes
+agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email you@example.com" --category login --severity high --json
 ```
 
 The sender dashboard is optional. Prefer CLI/API commands for all agent and sender workflows.
+
+## Prompt Context
+
+AgentContract does not need full transcripts. Add only an explicit short prompt, goal, or summary when it materially explains the send:
+
+```bash
+agentcontract send-mnda \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --prompt "Send the approved NDA for contributor onboarding" \
+  --json
+```
+
+Successful commands without explicit prompt context should not store a CLI run record. Failed commands are reported automatically unless `AGENTCONTRACT_TELEMETRY=0` or `--no-telemetry` is set.
+
+## First-Party Domains
+
+Before an agent sends from `legal@customer.com` or uses `contracts.customer.com` signing links, check the sender profile:
+
+```bash
+agentcontract domain status --json
+```
+
+If no verified profile exists, ask the human for the email domain, signing domain, and sender address, then run:
+
+```bash
+agentcontract domain setup \
+  --email-domain customer.com \
+  --signing-domain contracts.customer.com \
+  --from legal@customer.com \
+  --sender-name "Customer Legal" \
+  --json
+```
+
+Tell the human to add the returned DNS records, then run `agentcontract domain verify --json`. Agents may use `--from legal@customer.com` only after both `email_domain_status` and `signing_domain_status` are `verified`.
 
 ## Failure Feedback
 
@@ -132,25 +182,37 @@ Add a reusable contract from markdown:
 agentcontract contract add partner-msa \
   --markdown-file ./contracts/partner-msa.md \
   --fields-file ./contracts/signing-fields.json \
-  --var company_name="Bear AI" \
+  --var company_name="Acme Inc." \
   --var effective_date=2026-04-29 \
   --json
 ```
 
-Agents can create contracts directly from generated markdown and structured fields:
+Agents can save human-approved custom markdown with structured fields:
 
 ```bash
-cat ./draft-contract.md | agentcontract contract add custom-sow \
+cat ./approved-contract.md | agentcontract contract add custom-sow \
   --markdown-stdin \
   --fields-json '[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]' \
   --json
 ```
 
+Bring your own PDF when the document already exists:
+
+```bash
+agentcontract send-pdf ./contracts/partner-sow.pdf \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --title "Partner SOW" \
+  --json
+```
+
+The recipient reviews the uploaded PDF in the browser. AgentContract collects the configured signing fields and stores an executed PDF with the original pages, signing certificate, and audit trail.
+
 Capture human feedback as structured local review notes before revising:
 
 ```bash
 agentcontract contract feedback custom-sow \
-  --author "Sid" \
+  --author "Agent" \
   --note "Make the IP assignment clearer and shorten the termination section." \
   --json
 
@@ -163,7 +225,7 @@ When feedback is added to a built-in contract, AgentContract creates an editable
 Seed from a built-in contract and edit the local copy:
 
 ```bash
-agentcontract contract add marketplace-mnda --from-template nda --var company_name="Specific Marketplace"
+agentcontract contract add marketplace-mnda --from-template nda --var company_name="Acme Marketplace"
 agentcontract contract edit marketplace-mnda
 ```
 
@@ -187,15 +249,15 @@ agentcontract contract send partner-msa \
   --json
 ```
 
-## Send Specific Marketplace Privacy Acknowledgement
+## Send Acme Marketplace Privacy Acknowledgement
 
 This is the default marketplace onboarding contract. It uses:
 
-- Company: `Specific Marketplace`
-- Service: `Specific`
-- Website: `usespecific.com`
-- Contact: `sid@usebear.ai`
-- Address: `39 Tehama, San Francisco, CA`
+- Company: `Acme Marketplace`
+- Service: `Acme`
+- Website: `example.com`
+- Contact: `you@example.com`
+- Address: `123 Market Street, San Francisco, CA`
 
 Read:
 
@@ -220,7 +282,7 @@ Send:
 agentcontract marketplace-onboard \
   --to contributor@example.com \
   --name "Jane Contributor" \
-  --cc sid@usebear.ai \
+  --cc you@example.com \
   --json
 ```
 
@@ -240,29 +302,37 @@ Then send:
 ```bash
 agentcontract bulk-marketplace-onboard \
   --file contributors.json \
-  --cc sid@usebear.ai \
+  --cc you@example.com \
+  --json
+```
+
+For Acme contributor terms/contractor agreements, use the same JSON shape:
+
+```bash
+agentcontract bulk-contractor \
+  --file contractors.json \
   --json
 ```
 
 ## Send Other Contracts
 
-Bear MNDA:
+Acme MNDA:
 
 ```bash
-agentcontract bear-mnda \
+agentcontract send-mnda \
   --to jane@example.com \
   --name "Jane Doe" \
   --json
 ```
 
-Specific contributor terms:
+Acme contributor terms:
 
 ```bash
-agentcontract specific-contractor \
+agentcontract marketplace-contractor \
   --to contractor@example.com \
   --name "Jane Contractor" \
   --preview \
-  --preview-file ./specific-contractor-preview.html
+  --preview-file ./contractor-preview.html
 ```
 
 Custom contract from markdown:
@@ -271,7 +341,7 @@ Custom contract from markdown:
 agentcontract send-contract \
   --to jane@example.com \
   --name "Jane Doe" \
-  --from sid@usebear.ai \
+  --from you@example.com \
   --markdown-file ./contract.md \
   --vars-file ./vars.json \
   --fields-file ./fields.json \
@@ -281,7 +351,7 @@ agentcontract send-contract \
 
 ## Notifications
 
-For human signed notifications, pass `--notify` or configure it with `agentcontract init --notify sid@usebear.ai`.
+After all required signatures are collected, AgentContract emails the executed PDF to the recipient, sender, and any `--notify` addresses. Pass `--notify` or configure it with `agentcontract init --notify you@example.com` for extra completion recipients.
 
 For machine notifications, pass a webhook URL:
 
@@ -299,6 +369,9 @@ Webhook payloads are signed with `X-AgentInk-Signature` using HMAC-SHA256 and th
 
 - Do not send a contract with placeholder values like `{{company_name}}`, `TBD`, or fake recipient emails.
 - Do not expose API keys in chat, logs, git commits, screenshots, or README examples.
-- Use `--dry-run --json` before any bulk send.
+- Before any bulk or other mass email, show the human the count and target audience, ask for explicit approval, then rerun with `--yes`. Use `--dry-run --json` before any bulk send.
+- Store the `batch_id` returned by bulk sends. Use `agentcontract batch read bat_... --json` to inspect per-recipient status and failures.
+- Before any reminder email, ask who should get it: the sender/themselves (`--remind-self`), the recipient/everyone else (`--remind-recipient`), or all signing parties (`--remind-all`).
 - Use `contract read`, `template read`, or `--dry-run --json` before sending changed wording.
+- Do not use AgentContract to give legal advice, explain legal risk to a signer, or let an agent sign a contract.
 - Treat AgentContract as demo-grade e-sign infrastructure until counsel-reviewed templates, auth, storage, and operational controls are finalized.

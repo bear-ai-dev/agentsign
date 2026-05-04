@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createEmailLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
+import { checkRateLimit } from "../lib/rateLimit.js";
 import { completeWorkosCallback, loginUrl, logout, readEmailAdminSession, setEmailAdminSession, workosConfigured } from "../lib/workos.js";
 
 export const auth = new Hono();
@@ -24,6 +25,19 @@ function validEmail(value: unknown) {
   const email = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   return email;
+}
+
+function clientIp(headers: Headers) {
+  return (headers.get("x-forwarded-for") ?? headers.get("x-real-ip") ?? "unknown").split(",")[0].trim() || "unknown";
+}
+
+function rateLimitPage(returnTo: string, email: string | undefined, workosUrl: string | null) {
+  return loginPage({
+    returnTo,
+    email,
+    error: "Too many sign-in codes requested. Please wait and try again.",
+    workosUrl
+  });
 }
 
 function loginPage(input: {
@@ -58,7 +72,7 @@ function loginPage(input: {
       <form method="post" action="/login/email/start" class="mt-5 space-y-3">
         <input type="hidden" name="returnTo" value="${escapeHtml(input.returnTo)}" />
         <label class="block text-sm font-semibold">Email
-          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" type="email" name="email" value="${escapeHtml(input.email ?? "")}" placeholder="sid@usebear.ai" autocomplete="email" required />
+          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" type="email" name="email" value="${escapeHtml(input.email ?? "")}" placeholder="you@example.com" autocomplete="email" required />
         </label>
         <button class="w-full rounded bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Send sign-in code</button>
       </form>
@@ -102,6 +116,12 @@ auth.post("/login/email/start", async (c) => {
   const email = validEmail(body.email);
   const workosUrl = workosConfigured() ? `/login?workos=1&returnTo=${encodeURIComponent(returnTo)}` : null;
   if (!email) return c.html(loginPage({ returnTo, error: "Enter a valid email address.", workosUrl }), 400);
+
+  const emailLimit = await checkRateLimit({ scope: "login_code_email_hour", subject: email, limit: 5, windowMs: 60 * 60 * 1000 });
+  if (!emailLimit.allowed) return c.html(rateLimitPage(returnTo, email, workosUrl), 429);
+
+  const ipLimit = await checkRateLimit({ scope: "login_code_ip_hour", subject: clientIp(c.req.raw.headers), limit: 20, windowMs: 60 * 60 * 1000 });
+  if (!ipLimit.allowed) return c.html(rateLimitPage(returnTo, email, workosUrl), 429);
 
   try {
     const code = await createEmailLoginCode({

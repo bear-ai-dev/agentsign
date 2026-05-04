@@ -5,6 +5,7 @@ import { requireApiKey } from "../lib/auth.js";
 import { all, getAgreement, getAuditEvents, parseJson, run } from "../lib/db.js";
 import { auditEventsForApi } from "../lib/audit.js";
 import { renderPDF } from "../lib/pdf.js";
+import { signedPartyCount } from "../lib/signing.js";
 import { applyTemplateVars, contractorTemplateDefinition, defaultTemplateVars, loadTemplate, privacyTemplateDefinition, templateDefinitions } from "../lib/templates.js";
 import { requireAdminSession } from "../lib/workos.js";
 import { createAgreement } from "./agreements.js";
@@ -106,9 +107,16 @@ function metadataValue(agreement: Agreement, key: string) {
 function agreementRow(agreement: Agreement) {
   const fields = parseJson<FieldDefinition[]>(agreement.fields_json, []);
   const signedFields = parseJson<SignedFields | null>(agreement.signed_fields_json, null);
-  const sender = metadataValue(agreement, "sender_email") || "—";
+  const metadata = parseJson<Record<string, unknown>>(agreement.metadata_json, {});
+  const sender = typeof metadata.sender_email === "string" ? metadata.sender_email : "—";
+  const senderToken = typeof metadata.sender_signing_token === "string" ? metadata.sender_signing_token : "";
+  const senderRequired = metadata.sender_signature_required === true && Boolean(senderToken);
   const workflow = metadataValue(agreement, "workflow") || metadataValue(agreement, "template_kind") || "custom";
-  const signedCount = signedFields ? Object.keys(signedFields).length : 0;
+  const signedCount = signedPartyCount({ signedFields, fields, senderRequired });
+  const requiredPartyCount = senderRequired ? 2 : 1;
+  const senderSignLink = senderToken
+    ? `<a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/sign/${escapeHtml(senderToken)}">Sender Sign</a>`
+    : "";
   return `
     <tr class="border-b border-slate-100 last:border-0">
       <td class="py-3 pr-4 align-top">
@@ -126,11 +134,12 @@ function agreementRow(agreement: Agreement) {
       </td>
       <td class="py-3 pr-4 align-top text-sm text-slate-600">
         <div>${formatDate(agreement.created_at)}</div>
-        <div class="text-xs text-slate-400">${signedCount}/${fields.length} fields</div>
+        <div class="text-xs text-slate-400">${signedCount}/${requiredPartyCount} parties signed</div>
       </td>
       <td class="py-3 align-top">
         <div class="flex flex-wrap gap-2">
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/preview/${escapeHtml(agreement.signing_token)}">Preview</a>
+          ${senderSignLink}
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/document">Text</a>
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/pdf">PDF</a>
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/audit">Audit</a>
@@ -189,9 +198,9 @@ async function renderDashboard(c: Context) {
         <h1 class="text-2xl font-semibold">Sender Dashboard</h1>
       </div>
       <nav class="flex flex-wrap items-center gap-2">
-        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/bear-privacy">Privacy</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/privacy">Privacy</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/nda">NDA</a>
-        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/specific-contractor">Contractor</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/contractor">Contractor</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/dashboard/api-keys">API Keys</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/logout">Sign out</a>
       </nav>
@@ -246,9 +255,9 @@ async function renderDashboard(c: Context) {
     </section>
 
     <section class="mt-6 grid gap-4 lg:grid-cols-3">
-      ${templateCard("nda", "/templates/nda", "agentcontract read nda --var company_name=\\\"Specific Marketplace\\\"\\nagentcontract contract send nda --to jane@example.com --name \\\"Jane Doe\\\" --var company_name=\\\"Specific Marketplace\\\" --json")}
-      ${templateCard("privacy", "/templates/bear-privacy", "agentcontract read privacy --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract marketplace-onboard --to jane@example.com --name \\\"Jane Doe\\\" --json")}
-      ${templateCard("contractor", "/templates/specific-contractor", "agentcontract read contractor --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract contract send contractor --to jane@example.com --name \\\"Jane Doe\\\" --json")}
+      ${templateCard("nda", "/templates/nda", "agentcontract read nda\\nagentcontract contract send nda --to jane@example.com --name \\\"Jane Doe\\\" --json")}
+      ${templateCard("privacy", "/templates/privacy", "agentcontract read privacy --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract marketplace-onboard --to jane@example.com --name \\\"Jane Doe\\\" --json")}
+      ${templateCard("contractor", "/templates/contractor", "agentcontract read contractor --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract contract send contractor --to jane@example.com --name \\\"Jane Doe\\\" --json")}
     </section>
 
     <section class="mt-6 rounded-lg border border-slate-200 bg-white p-4">
@@ -362,12 +371,12 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
   <main class="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[27rem_1fr]">
     <form id="template-form" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p class="text-sm leading-6 text-slate-600">${escapeHtml(definition.description)}</p>
-      <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-      <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+      <label><span>Sender name</span><input name="sender_name" value="Sender from Acme" required /></label>
+      <label><span>Sender email</span><input name="sender_email" type="email" value="you@example.com" required /></label>
       <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Recipient" required /></label>
       <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
       <div class="grid gap-3">${variables}</div>
-      <label><span>CC on request</span><input name="cc" type="email" placeholder="janak@usebear.ai" /></label>
+      <label><span>CC on request</span><input name="cc" type="email" placeholder="legal@example.com" /></label>
       <button class="w-full rounded bg-slate-950 px-4 py-3 font-semibold text-white" type="submit">Send</button>
       <p id="status" class="hidden rounded border px-3 py-2 text-sm"></p>
       <textarea id="payload" readonly></textarea>
@@ -430,7 +439,7 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
         return;
       }
       statusBox.className = "rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700";
-      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.preview_url + "\\">Preview</a> · <a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Signing link</a>";
+      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.preview_url + "\\">Preview</a> · <a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Recipient signing link</a>" + (result.sender_signing_url ? " · <a class=\\"underline\\" href=\\"" + result.sender_signing_url + "\\">Sender signing link</a>" : "");
     });
     sync();
   </script>
@@ -461,7 +470,7 @@ function renderPrivacyTemplatePage(c: Context) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Specific Privacy Policy | AgentContract</title>
+  <title>Acme Privacy Policy | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -480,11 +489,11 @@ function renderPrivacyTemplatePage(c: Context) {
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
       <div>
-        <p class="text-sm font-semibold text-slate-500">Specific Contributor Agreements</p>
-        <h1 class="text-2xl font-semibold">Specific Marketplace Privacy Policy</h1>
+        <p class="text-sm font-semibold text-slate-500">Acme Contributor Agreements</p>
+        <h1 class="text-2xl font-semibold">Acme Marketplace Privacy Policy</h1>
       </div>
       <div class="flex items-center gap-2">
-        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/specific-contractor">Contractor</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/contractor">Contractor</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/logout">Sign out</a>
       </div>
     </div>
@@ -494,15 +503,15 @@ function renderPrivacyTemplatePage(c: Context) {
     <section class="space-y-5">
       <form id="template-form" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 class="text-lg font-semibold">Send Specific Privacy Policy</h2>
-          <p class="mt-1 text-sm text-slate-600">Creates the Specific Marketplace privacy-policy acknowledgement from the PDF with recipient name, acknowledgement date, typed signature, audit trail, and signed notification.</p>
+          <h2 class="text-lg font-semibold">Send Acme Privacy Policy</h2>
+          <p class="mt-1 text-sm text-slate-600">Creates the Acme Marketplace privacy-policy acknowledgement from the PDF with recipient name, acknowledgement date, typed signature, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-        <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+        <label><span>Sender name</span><input name="sender_name" value="Sender from Acme" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="you@example.com" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contributor" required /></label>
         <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
-        <label><span>CC on request</span><input name="cc" type="email" placeholder="janak@usebear.ai" /></label>
+        <label><span>CC on request</span><input name="cc" type="email" placeholder="legal@example.com" /></label>
 
         <div class="grid gap-3">
           ${variables}
@@ -577,7 +586,7 @@ function renderPrivacyTemplatePage(c: Context) {
         template: "privacy",
         template_vars: templateVars,
         fields,
-        metadata: { source: "specific-privacy-template-ui", workflow: "specific_privacy_acknowledgement", company: "Specific Marketplace" }
+        metadata: { source: "privacy-template-ui", workflow: "privacy_acknowledgement", company: "Acme Marketplace" }
       };
     }
 
@@ -607,7 +616,7 @@ function renderPrivacyTemplatePage(c: Context) {
         return;
       }
       statusBox.className = "rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700";
-      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Open signing link</a>";
+      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Recipient signing link</a>" + (result.sender_signing_url ? " · <a class=\\"underline\\" href=\\"" + result.sender_signing_url + "\\">Sender signing link</a>" : "");
     });
 
     sync();
@@ -616,6 +625,7 @@ function renderPrivacyTemplatePage(c: Context) {
 </html>`);
 }
 
+templates.get("/templates/contractor", renderContractorTemplatePage);
 templates.get("/templates/specific-contractor", renderContractorTemplatePage);
 templates.get("/templates/bear-contractor", renderContractorTemplatePage);
 
@@ -640,7 +650,7 @@ function renderContractorTemplatePage(c: Context) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Specific Contributor Terms | AgentContract</title>
+  <title>Acme Contributor Terms | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -657,11 +667,11 @@ function renderContractorTemplatePage(c: Context) {
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
       <div>
-        <p class="text-sm font-semibold text-slate-500">Specific Marketplace Onboarding</p>
+        <p class="text-sm font-semibold text-slate-500">Acme Marketplace Onboarding</p>
         <h1 class="text-2xl font-semibold">Contributor Terms</h1>
       </div>
       <div class="flex items-center gap-2">
-        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/bear-privacy">Privacy Policy</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/templates/privacy">Privacy Policy</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold" href="/logout">Sign out</a>
       </div>
     </div>
@@ -671,18 +681,18 @@ function renderContractorTemplatePage(c: Context) {
     <section class="space-y-5">
       <form id="template-form" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 class="text-lg font-semibold">Send Specific Contributor Terms</h2>
-          <p class="mt-1 text-sm text-slate-600">Creates the Specific Marketplace contributor/contractor terms from the PDF with typed signature, acknowledgement date, audit trail, and signed notification.</p>
+          <h2 class="text-lg font-semibold">Send Acme Contributor Terms</h2>
+          <p class="mt-1 text-sm text-slate-600">Creates the Acme Marketplace contributor/contractor terms from the PDF with typed signature, acknowledgement date, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-        <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+        <label><span>Sender name</span><input name="sender_name" value="Sender from Acme" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="you@example.com" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contractor" required /></label>
         <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
         <div class="grid gap-3">
           ${variables}
         </div>
-        <label><span>CC on request</span><input name="cc" type="email" placeholder="janak@usebear.ai" /></label>
+        <label><span>CC on request</span><input name="cc" type="email" placeholder="legal@example.com" /></label>
 
         <button class="w-full rounded bg-slate-950 px-4 py-3 font-semibold text-white disabled:bg-slate-400" type="submit">Send Contributor Terms</button>
         <p id="status" class="hidden rounded border px-3 py-2 text-sm"></p>
@@ -690,7 +700,7 @@ function renderContractorTemplatePage(c: Context) {
 
       <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-lg font-semibold">API Payload</h2>
-        <p class="mt-1 text-sm text-slate-600">This is the Specific contributor-terms payload an agent can send.</p>
+        <p class="mt-1 text-sm text-slate-600">This is the Acme contributor-terms payload an agent can send.</p>
         <textarea id="payload" readonly></textarea>
       </section>
     </section>
@@ -699,9 +709,9 @@ function renderContractorTemplatePage(c: Context) {
       <div class="mb-4 flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
         <div>
           <h2 class="text-lg font-semibold">Filled Contract Preview</h2>
-          <p class="text-sm text-slate-600">This preview uses the specific recipient and terms variables above.</p>
+          <p class="text-sm text-slate-600">This preview uses the selected recipient and terms variables above.</p>
         </div>
-        <span class="rounded bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Specific ready</span>
+        <span class="rounded bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Acme ready</span>
       </div>
       <article id="preview" class="preview max-w-3xl">${previewHtml}</article>
     </section>
@@ -746,13 +756,13 @@ function renderContractorTemplatePage(c: Context) {
       return {
         recipient: { name: values.recipient_name || "", email: values.recipient_email || "" },
         cc: values.cc ? [values.cc] : undefined,
-        sender_email: values.sender_email || "sid@usebear.ai",
-        sender_name: values.sender_name || "Sid from Specific",
-        notification_email: values.sender_email ? [values.sender_email] : ["sid@usebear.ai"],
+        sender_email: values.sender_email || "you@example.com",
+        sender_name: values.sender_name || "Sender from Acme",
+        notification_email: values.sender_email ? [values.sender_email] : ["you@example.com"],
         template: "contractor",
         template_vars: templateVars,
         fields,
-        metadata: { source: "specific-contributor-terms-template-ui", workflow: "specific_contributor_terms", company: "Specific Marketplace" }
+        metadata: { source: "contractor-template-ui", workflow: "contractor_terms", company: "Acme Marketplace" }
       };
     }
 
@@ -782,7 +792,7 @@ function renderContractorTemplatePage(c: Context) {
         return;
       }
       statusBox.className = "rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700";
-      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.preview_url + "\\">Preview</a> · <a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Signing link</a>";
+      statusBox.innerHTML = "Sent <strong>" + result.id + "</strong><br><a class=\\"underline\\" href=\\"" + result.preview_url + "\\">Preview</a> · <a class=\\"underline\\" href=\\"" + result.signing_url + "\\">Recipient signing link</a>" + (result.sender_signing_url ? " · <a class=\\"underline\\" href=\\"" + result.sender_signing_url + "\\">Sender signing link</a>" : "");
     });
 
     sync();

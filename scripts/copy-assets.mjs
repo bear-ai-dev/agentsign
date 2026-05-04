@@ -11,4 +11,5 @@ function copyDirFiles(source, target) {
 }
 
 copyDirFiles("src/templates", "dist/src/templates");
+copyDirFiles("src/assets", "dist/src/assets");
 copyDirFiles("migrations", "dist/migrations");

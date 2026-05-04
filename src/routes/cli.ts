@@ -8,7 +8,7 @@ import { requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
 
-const cliTarballName = "agentcontract-0.1.1.tgz";
+const cliTarballName = "agentcontract-0.1.9.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 
@@ -86,7 +86,7 @@ fi
 
 if npm install -g "${origin}/${cliTarballName}"; then
   :
-elif npm install -g @bear-ai-dev/agentcontract; then
+elif npm install -g agent-contract; then
   :
 else
   echo "Packaged install failed; falling back to GitHub install..."
@@ -96,7 +96,7 @@ fi
 echo
 echo "AgentContract CLI installed."
 echo "Next:"
-echo "  agentcontract login --email sid@usebear.ai --api-url ${origin}"
+echo "  agentcontract login --email you@example.com --api-url ${origin}"
 echo "  agentcontract skill"
 `;
 }

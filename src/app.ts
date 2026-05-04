@@ -7,7 +7,9 @@ import { cli } from "./routes/cli.js";
 import { feedback } from "./routes/feedback.js";
 import { sign } from "./routes/sign.js";
 import { site } from "./routes/site.js";
+import { senderProfiles } from "./routes/senderProfiles.js";
 import { templates } from "./routes/templates.js";
+import { telemetry } from "./routes/telemetry.js";
 import { startWebhookRetryWorker } from "./routes/webhooks.js";
 
 export const app = new Hono();
@@ -23,6 +25,8 @@ app.route("/", auth);
 app.route("/", cli);
 app.route("/", apiKeys);
 app.route("/", feedback);
+app.route("/", telemetry);
+app.route("/", senderProfiles);
 app.route("/", agreements);
 app.route("/", sign);
 app.route("/", templates);

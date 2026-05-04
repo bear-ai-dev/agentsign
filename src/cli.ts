@@ -3,11 +3,12 @@
 import "dotenv/config";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { marked } from "marked";
 import { nanoid } from "nanoid";
@@ -20,6 +21,16 @@ type CliConfig = {
   sender_email?: string;
   sender_name?: string;
   notify_email?: string[];
+};
+type AutoUpdateState = {
+  api_url?: string;
+  current_version?: string;
+  latest_version?: string;
+  update_available?: boolean;
+  last_checked_at?: string;
+  last_error?: string;
+  last_error_at?: string;
+  updated_at?: string;
 };
 type SavedContractDefinition = {
   id: string;
@@ -59,12 +70,22 @@ type ProductFeedbackForCli = {
   status: string;
   created_at: string;
 };
+type ReminderTarget = "recipient" | "sender" | "all";
 
-const cliVersion = "0.1.1";
-const packageName = "@bear-ai-dev/agentcontract";
+const cliVersion = "0.1.9";
+const packageName = "agent-contract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
+const autoUpdateStatePath = process.env.AGENTCONTRACT_UPDATE_STATE ?? join(dirname(configPath), "update.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
 let configLoadError: string | undefined;
+let activeCliTelemetry: {
+  id: string;
+  command: string;
+  argv: string[];
+  args: Args;
+  startedAt: string;
+  startedMs: number;
+} | null = null;
 const cliConfig = loadCliConfig();
 const defaultApiUrl = cleanString(process.env.AGENTCONTRACT_API_URL)
   ?? cleanString(process.env.AGENTSIGN_API_URL)
@@ -75,24 +96,24 @@ const defaultApiKey = cleanString(process.env.AGENTCONTRACT_API_KEY)
   ?? cleanString(process.env.AGENTSIGN_API_KEY)
   ?? cleanString(process.env.AGENTINK_API_KEY)
   ?? configString("api_key");
-const bearDefaults = {
-  companyName: "Bear AI",
-  senderEmail: "sid@usebear.ai",
-  senderName: "Sid from Bear AI",
-  websiteUrl: "https://usebear.ai",
-  contactEmail: "sid@usebear.ai",
-  companyAddress: "39 Tehama, San Francisco, CA",
+const demoDefaults = {
+  companyName: "Acme Inc.",
+  senderEmail: "you@example.com",
+  senderName: "Sender from Acme",
+  websiteUrl: "https://example.com",
+  contactEmail: "you@example.com",
+  companyAddress: "123 Market Street, San Francisco, CA",
   termsName: "Contributor Terms of Use",
   dataUsePolicyName: "Data Use Policy"
 };
-const specificPrivacyDefaults = {
-  companyName: "Specific Marketplace",
-  serviceName: "Specific",
-  senderEmail: "sid@usebear.ai",
-  senderName: "Sid from Specific",
-  websiteUrl: "usespecific.com",
-  contactEmail: "sid@usebear.ai",
-  companyAddress: "39 Tehama, San Francisco, CA",
+const demoMarketplaceDefaults = {
+  companyName: "Acme Marketplace",
+  serviceName: "Acme",
+  senderEmail: "you@example.com",
+  senderName: "Sender from Acme",
+  websiteUrl: "example.com",
+  contactEmail: "you@example.com",
+  companyAddress: "123 Market Street, San Francisco, CA",
   effectiveDate: "April 29, 2026"
 };
 
@@ -365,41 +386,54 @@ function usage() {
 
 Usage:
   agentcontract login
-  agentcontract login --email sid@usebear.ai
+  agentcontract login --email you@example.com
   agentcontract skill
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
   agentcontract keys
-  agentcontract key create --key-name "Sid laptop"
+  agentcontract key create --key-name "Agent laptop"
   agentcontract key revoke key_123
+  agentcontract domain setup --email-domain acme.com --signing-domain contracts.acme.com --from legal@acme.com
+  agentcontract domain status
+  agentcontract domain verify
   agentcontract templates
   agentcontract template read privacy --out ./privacy.md
   agentcontract template send nda --to jane@example.com --name "Jane Doe"
   agentcontract contracts
   agentcontract read privacy --var effective_date=2026-04-29
   agentcontract agreements --status sent --limit 20
+  agentcontract batches
+  agentcontract batch read bat_123
   agentcontract agreement read agr_123 --out ./agreement.md
   agentcontract agreement audit agr_123
+  agentcontract agreement remind agr_123 --remind-recipient
   agentcontract agreement pdf agr_123 --out ./agreement.pdf
   agentcontract contract show privacy
   agentcontract contract add partner-msa --markdown-file ./partner-msa.md --fields-file ./fields.json
   agentcontract contract feedback partner-msa --note "Use California law and shorten the termination section"
   agentcontract contract edit partner-msa
   agentcontract contract read partner-msa --with-feedback
-  agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai"
+  agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email you@example.com"
   agentcontract feedback list --json
-  agentcontract contract preview partner-msa --var company_name="Bear AI" --preview-file ./preview.html
+  agentcontract update
+  agentcontract update --check
+  agentcontract dashboard
+  agentcontract dashboard contractor
+  agentcontract contract preview partner-msa --var company_name="Acme Inc." --preview-file ./preview.html
   agentcontract contract send partner-msa --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-pdf ./agreement.pdf --to jane@example.com --name "Jane Doe" [options]
   agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" [options]
   agentcontract bulk-marketplace-onboard --file contributors.json [options]
-  agentcontract specific-contractor --to jane@example.com --name "Jane Doe" [options]
-  agentcontract bear-mnda --to jane@example.com --name "Jane Doe" [options]
-  agentcontract specific-privacy --to jane@example.com --name "Jane Doe" [options]
-  agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI" [options]
-  agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe" [options]
-  agentcontract send-contract --from sid@usebear.ai --to jane@example.com --name "Jane Doe" --template contractor [options]
-  agentcontract preview --template contractor --var company_name="Specific Marketplace" --preview-file ./preview.html
-  agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
+  agentcontract bulk-contractor --file contractors.json [options]
+  agentcontract marketplace-contractor --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-mnda --to jane@example.com --name "Jane Doe" [options]
+  agentcontract marketplace-onboard --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-mnda --from legal@example.com --to jane@example.com --name "Jane Doe" --company "Acme Inc." [options]
+  agentcontract send-privacy --from legal@example.com --to jane@example.com --name "Jane Doe" [options]
+  agentcontract send-contract --from you@example.com --to jane@example.com --name "Jane Doe" --template contractor [options]
+  agentcontract preview --template contractor --var company_name="Acme Marketplace" --preview-file ./preview.html
+  agentcontract bulk-mnda --from legal@example.com --file recipients.json --company "Acme Inc." [options]
+  agentcontract bulk-contractor --from you@example.com --file contractors.json [options]
   agentcontract doctor [options]
   agentcontract status <agreement_id> [options]
   agentcontract version
@@ -413,10 +447,15 @@ Setup:
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract feedback                Report CLI/product breakage to AgentContract
+  agentcontract update                  Check npm and update this global CLI install
+  agentcontract dashboard               Open the sender dashboard or template UI
   agentcontract config path             Print the config path
   agentcontract keys                    List user-owned API keys without opening the dashboard
   agentcontract key create              Create another user-owned API key from the current key
   agentcontract key revoke <key_id>     Revoke a user-owned API key
+  agentcontract domain setup            Configure first-party email and signing domains
+  agentcontract domain status           Show sender domain verification status and DNS records
+  agentcontract domain verify           Re-check Resend and Vercel domain verification
   agentcontract templates               List server templates from the API
   agentcontract template read <id>      Print server template markdown from the API
   agentcontract contracts               List built-in and local reusable contracts
@@ -426,13 +465,13 @@ Setup:
 
 Sender / Receiver:
   --from, --from-email, --sender-email <email>
-                                      Human sender. Used as Reply-To and default signed notification target
-  --sender-name <name>               Human sender name shown in request email
+                                      Human sender. Receives sender signing link and default completion notification
+  --sender-name <name>               Human sender name shown in request and sender signing emails
   --to, --email, --receiver-email    Recipient email
   --name, --receiver-name <name>     Recipient name
   --cc <email[,email]>               CC the signing request email
   --notify, --notify-email <email[,email]>
-                                      Override who gets emailed when the agreement is signed
+                                      Override who gets emailed when all required parties sign
 
 Options:
   --api-url <url>                    API base URL. Defaults to AGENTCONTRACT_API_URL or ${defaultApiUrl}
@@ -443,11 +482,15 @@ Options:
   --code <123456>                    Login code for email-code login. Omit to type it interactively
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
+  --email-domain <domain>            Email domain for first-party sending, for example acme.com
+  --signing-domain <domain>          Signing CNAME, for example contracts.acme.com
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor
   --var <key=value>                  Template variable. Repeatable
   --vars-json <json>                 Template variables as JSON
   --vars-file <path>                 Template variables JSON file
   --markdown-file <path>             Custom markdown contract file
+  --pdf-file <path>                  Upload an existing PDF and wrap it in the signing flow
+  --title, --document-title <text>   Title for a custom markdown or uploaded PDF agreement
   --markdown-stdin                   Read custom contract markdown from stdin
   --fields-json <json>               JSON field definitions array
   --fields-file <path>               JSON field definitions file
@@ -462,13 +505,19 @@ Options:
   --severity <level>                 Feedback severity: note, low, normal, high, blocker
   --reporter-email <email>           Reporter email for unauthenticated feedback
   --reporter-name <name>             Reporter name for feedback
+  --prompt, --goal <text>             Explicit agent/user goal saved with a sent agreement or failed run
+  --chat-summary <text>               Short summary saved with a sent agreement
+  --reason-sent <text>                Why this contract was sent
+  --approval-message <text>           User approval message before sending
+  --agent <name>                      Agent name for failure reporting, for example codex or claude
+  --no-telemetry                     Skip best-effort failed-run reporting for this invocation
   --with-feedback                    Include feedback when reading/showing a contract
   --author <name>                    Human or agent name for contract feedback
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
   --contract-dir <path>              Override local contract library directory for this command
   --directory <path>                 Install skill into this skills directory
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
-  --no-open                          Print auth URL instead of opening a browser
+  --no-open                          Print auth/dashboard URL instead of opening a browser
   --force                            Overwrite existing local config or contract copy when supported
   --preview                          Render local HTML preview instead of sending
   --preview-file <path>              Where to write preview HTML
@@ -477,18 +526,31 @@ Options:
   --scope <text>                     Legacy contractor scope override for custom templates
   --rate <amount>                    Legacy contractor rate override for custom templates
   --start-date <date>                Legacy contractor start date override for custom templates
-  --effective-date <date>            Defaults to today, except Specific privacy defaults to April 29, 2026
+  --effective-date <date>            Defaults to today, except Acme privacy defaults to April 29, 2026
   --term-years <years>               MNDA term. Defaults to 2
-  --website <url>                    Legacy privacy override. Specific template hardcodes usespecific.com
-  --contact <email>                  Legacy privacy override. Specific template hardcodes sid@usebear.ai
-  --address <text>                   Legacy privacy override. Specific template hardcodes 39 Tehama
+  --website <url>                    Legacy privacy override. Acme template hardcodes example.com
+  --contact <email>                  Legacy privacy override. Acme template hardcodes you@example.com
+  --address <text>                   Legacy privacy override. Acme template hardcodes 123 Market Street
   --dry-run                          Print the request without sending it
   --json                             Print raw JSON only
   --show-secrets                     Show saved API key in config output
+  --check                            Check for updates without installing
+  --remind-recipient, --remind-others
+                                      Send a reminder to the recipient / everyone else
+  --remind-self, --remind-sender     Send a reminder to the sender's own signing link
+  --remind-all                       Send reminder emails to all signing parties
+  --yes                              Skip update prompts and confirm noninteractive bulk/reminder-all emails
+  --no-auto-update                   Skip the automatic pre-command update check
+  --package-manager <npm|pnpm|yarn|bun>
+                                      Use a package manager for agentcontract update instead of hosted installer
+  --registry <url>                   npm registry for package-manager update checks
   --version                          Print CLI version
 
 Environment:
   AGENTCONTRACT_API_URL, AGENTCONTRACT_API_KEY, AGENTCONTRACT_SENDER_EMAIL, AGENTCONTRACT_SENDER_NAME, AGENTCONTRACT_NOTIFY_EMAIL, AGENTCONTRACT_CONFIG
+  AGENTCONTRACT_AUTO_UPDATE=0 disables automatic CLI update checks
+  AGENTCONTRACT_AGENT names the local agent in failure reports
+  AGENTCONTRACT_TELEMETRY=0 disables best-effort failed-run reporting
   Legacy aliases: AGENTSIGN_API_URL, AGENTSIGN_API_KEY, AGENTSIGN_SENDER_EMAIL, AGENTSIGN_SENDER_NAME, AGENTSIGN_NOTIFY_EMAIL
 
 Bulk JSON can be either an array of recipients or { "recipients": [...] }.
@@ -554,9 +616,9 @@ function stringArgSource(args: Args, keys: string[]) {
   return undefined;
 }
 
-function cleanString(value: string | undefined) {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+function cleanString(value: unknown, maxLength = 10_000) {
+  const trimmed = typeof value === "string" ? value.trim() : undefined;
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
 }
 
 function envString(...names: string[]) {
@@ -658,6 +720,8 @@ function today() {
 function mndaFields() {
   return [
     { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "company_entity", label: "Company / Entity (if applicable)", type: "text" },
+    { id: "title", label: "Title", type: "text" },
     { id: "signature", label: "Signature", type: "signature", required: true }
   ];
 }
@@ -678,7 +742,15 @@ function contractorFields() {
   ];
 }
 
+function pdfFields() {
+  return [
+    { id: "full_name", label: "Full legal name", type: "text", required: true },
+    { id: "signature", label: "Signature", type: "signature", required: true }
+  ];
+}
+
 function defaultFieldsFor(template: string | undefined) {
+  if (template === "pdf") return pdfFields();
   if (template === "privacy") return privacyFields();
   if (template === "contractor") return contractorFields();
   return mndaFields();
@@ -765,6 +837,307 @@ function jsonOutput(args: Args) {
   return Boolean(args.json) || stringArg(args, "output") === "json";
 }
 
+function normalizeReminderTarget(value: string | undefined): ReminderTarget | undefined {
+  const normalized = value?.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (!normalized) return undefined;
+  if (["recipient", "recipients", "other", "others", "everyone-else", "counterparty", "counterparties"].includes(normalized)) return "recipient" as const;
+  if (["sender", "self", "me", "myself"].includes(normalized)) return "sender" as const;
+  if (["all", "both", "everyone", "all-signers"].includes(normalized)) return "all" as const;
+  throw new CliError(
+    `Unknown reminder target: ${value}`,
+    "Use --remind-recipient, --remind-self, --remind-all, or --target recipient|sender|all."
+  );
+}
+
+function reminderTargetFromArgs(args: Args): ReminderTarget | undefined {
+  const candidates: ReminderTarget[] = [];
+  const targetArg = normalizeReminderTarget(stringArg(args, "target", "reminder-target", "remind-target", "to-role"));
+  if (targetArg) candidates.push(targetArg);
+  if (args["remind-recipient"] || args["to-recipient"] || args.recipient || args["remind-others"] || args["to-others"] || args["everyone-else"]) {
+    candidates.push("recipient");
+  }
+  if (args["remind-self"] || args["to-self"] || args.self || args["remind-sender"] || args["to-sender"] || args.sender) {
+    candidates.push("sender");
+  }
+  if (args["remind-all"] || args["to-all"] || args.all || args.both) {
+    candidates.push("all");
+  }
+
+  const unique = [...new Set(candidates)];
+  if (unique.length > 1) {
+    throw new CliError(
+      "Choose one reminder target.",
+      "Use exactly one of --remind-recipient, --remind-self, or --remind-all."
+    );
+  }
+  return unique[0];
+}
+
+async function promptReminderTarget(args: Args, apiUrl: string, apiKey: string, id: string): Promise<ReminderTarget> {
+  const explicit = reminderTargetFromArgs(args);
+  if (explicit) return explicit;
+
+  if (!process.stdin.isTTY || jsonOutput(args)) {
+    throw new CliError(
+      "Reminder target confirmation required.",
+      "Choose who should receive the reminder: --remind-self for your own signing link, --remind-recipient for everyone else, or --remind-all."
+    );
+  }
+
+  const detail = await getJson(apiUrl, apiKey, `/v1/agreements/${id}`) as {
+    recipient?: { name?: string; email?: string };
+    metadata?: { sender_email?: unknown; sender_name?: unknown };
+  };
+  const recipient = detail.recipient?.email
+    ? `${detail.recipient.name ?? "Recipient"} <${detail.recipient.email}>`
+    : "recipient / everyone else";
+  const senderEmail = typeof detail.metadata?.sender_email === "string" ? detail.metadata.sender_email : "";
+  const senderName = typeof detail.metadata?.sender_name === "string" ? detail.metadata.sender_name : "";
+  const sender = senderEmail ? `${senderName || "Sender"} <${senderEmail}>` : "sender / yourself";
+
+  console.log(`Who should receive the reminder email for ${id}?`);
+  console.log(`  recipient: ${recipient}`);
+  console.log(`  sender: ${sender}`);
+  console.log("  all: all signing parties");
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question("Reminder target [recipient/sender/all/cancel]: ")).trim().toLowerCase();
+    if (!answer || answer === "cancel" || answer === "c" || answer === "no" || answer === "n") {
+      throw new CliError("Reminder cancelled.");
+    }
+    const target = normalizeReminderTarget(answer);
+    if (!target) throw new CliError("Reminder cancelled.");
+    return target;
+  } finally {
+    rl.close();
+  }
+}
+
+async function confirmMassEmail(args: Args, command: string, recipientCount: number, label = "emails"): Promise<boolean> {
+  if (recipientCount <= 1 || dryRun(args) || args.preview) return true;
+  if (args.yes) return true;
+
+  const hint = `Review with ${command} --dry-run --json, then rerun with --yes only after the user explicitly confirms sending ${recipientCount} ${label}.`;
+  if (!process.stdin.isTTY || jsonOutput(args)) {
+    throw new CliError("Bulk email confirmation required.", hint);
+  }
+
+  const phrase = `SEND ${recipientCount}`;
+  console.log(`${command} will send ${recipientCount} ${label}.`);
+  console.log(`Type ${phrase} to confirm.`);
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question("Confirm mass email: ")).trim();
+    return answer === phrase;
+  } finally {
+    rl.close();
+  }
+}
+
+function telemetryDisabled(args: Args) {
+  const value = cleanString(process.env.AGENTCONTRACT_TELEMETRY)?.toLowerCase();
+  return Boolean(args["no-telemetry"] || value === "0" || value === "false" || value === "off" || value === "no");
+}
+
+function sessionId(args: Args) {
+  return cleanString(stringArg(args, "session-id", "agent-session-id"))
+    ?? cleanString(process.env.AGENTCONTRACT_SESSION_ID)
+    ?? cleanString(process.env.AGENTCONTRACT_AGENT_SESSION_ID);
+}
+
+function agentName(args: Args) {
+  return cleanString(stringArg(args, "agent"))
+    ?? cleanString(process.env.AGENTCONTRACT_AGENT)
+    ?? cleanString(process.env.CURSOR_TRACE_ID ? "cursor" : undefined)
+    ?? cleanString(process.env.CODEX_HOME ? "codex" : undefined);
+}
+
+function sha256Short(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 24);
+}
+
+function sanitizedArgv(argv: string[]) {
+  const sensitive = new Set(["api-key", "webhook-secret", "secret", "token", "password"]);
+  const result: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const item = argv[index];
+    if (!item.startsWith("--")) {
+      result.push(item);
+      continue;
+    }
+    const raw = item.slice(2);
+    const [key] = raw.split("=", 1);
+    if (sensitive.has(key)) {
+      result.push(item.includes("=") ? `--${key}=REDACTED` : `--${key}`);
+      if (!item.includes("=") && argv[index + 1] && !argv[index + 1].startsWith("--")) {
+        result.push("REDACTED");
+        index += 1;
+      }
+      continue;
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+function commandText(argv: string[]) {
+  return ["agentcontract", ...argv].map(shellQuote).join(" ");
+}
+
+function readMaybeJsonFile(path: string, label: string) {
+  const text = readTextFile(path, label);
+  try {
+    return { json: JSON.parse(text) as unknown, text };
+  } catch {
+    return { json: undefined, text };
+  }
+}
+
+function contextFromArgs(args: Args) {
+  const contextFile = cleanString(stringArg(args, "chat-context-file", "context-file"))
+    ?? cleanString(process.env.AGENTCONTRACT_CHAT_CONTEXT_FILE)
+    ?? cleanString(process.env.AGENTCONTRACT_CONTEXT_FILE);
+  const prompt = cleanString(stringArg(args, "prompt", "goal", "initial-goal"));
+  const chatSummary = cleanString(stringArg(args, "chat-summary", "summary"))
+    ?? cleanString(process.env.AGENTCONTRACT_CHAT_SUMMARY);
+  const reasonSent = cleanString(stringArg(args, "reason-sent", "reason"));
+  const approvalMessage = cleanString(stringArg(args, "approval-message", "approval"));
+
+  let contextJson: unknown;
+  let contextText: string | undefined;
+  if (contextFile) {
+    const parsed = readMaybeJsonFile(contextFile, "--chat-context-file");
+    contextJson = parsed.json;
+    contextText = parsed.text;
+  }
+
+  const contextObject = contextJson && typeof contextJson === "object" && !Array.isArray(contextJson)
+    ? contextJson as Record<string, unknown>
+    : {};
+  const summaryFromContext = typeof contextObject.chat_summary === "string"
+    ? contextObject.chat_summary
+    : typeof contextObject.summary === "string"
+      ? contextObject.summary
+      : typeof contextObject.prompt === "string"
+        ? contextObject.prompt
+        : typeof contextObject.goal === "string"
+          ? contextObject.goal
+          : undefined;
+  const promptText = prompt ?? chatSummary ?? summaryFromContext;
+
+  const metadata: Record<string, unknown> = {
+    agent: agentName(args) ?? contextObject.agent ?? null,
+    ...(promptText ? { prompt: promptText } : {})
+  };
+  if (contextFile) metadata.context_file_sha256 = sha256Short(contextText ?? "");
+
+  const payload = {
+    source: cleanString(String(contextObject.source ?? contextObject.agent ?? agentName(args) ?? "agentcontract-cli"), 80),
+    reason_sent: reasonSent ?? cleanString(contextObject.reason_sent as string | undefined) ?? cleanString(contextObject.reason as string | undefined),
+    approval_message: approvalMessage ?? cleanString(contextObject.approval_message as string | undefined),
+    chat_summary: promptText,
+    metadata
+  };
+
+  const hasContext = Boolean(
+    payload.reason_sent
+    || payload.approval_message
+    || payload.chat_summary
+  );
+  return hasContext ? payload : undefined;
+}
+
+function promptFromArgs(args: Args) {
+  const context = contextFromArgs(args);
+  return context?.chat_summary
+    ?? context?.reason_sent
+    ?? cleanString(stringArg(args, "goal", "initial-goal"))
+    ?? undefined;
+}
+
+function attachAgreementTelemetry(args: Args, payload: AgreementPayload) {
+  const agent = agentName(args);
+  const context = contextFromArgs(args);
+  return {
+    ...payload,
+    ...(context ? { agreement_context: context } : {}),
+    metadata: {
+      ...(payload.metadata ?? {}),
+      ...(agent ? { agent } : {})
+    }
+  };
+}
+
+async function postAgreementJson(apiUrl: string, apiKey: string, path: string, body: AgreementPayload, args: Args, command: string) {
+  void command;
+  return postJson(apiUrl, apiKey, path, attachAgreementTelemetry(args, body));
+}
+
+function agreementDryRunResult(command: string, apiUrl: string, path: string, body: AgreementPayload, args: Args) {
+  return dryRunResult(command, apiUrl, path, attachAgreementTelemetry(args, body));
+}
+
+function agreementIdsFromResult(result: unknown) {
+  if (typeof result !== "object" || !result) return [];
+  if ("id" in result && typeof (result as { id?: unknown }).id === "string") return [(result as { id: string }).id];
+  if ("agreements" in result && Array.isArray((result as { agreements?: unknown }).agreements)) {
+    return (result as { agreements: Array<{ id?: unknown }> }).agreements
+      .map((agreement) => typeof agreement.id === "string" ? agreement.id : null)
+      .filter((id): id is string => Boolean(id));
+  }
+  return [];
+}
+
+function cliErrorFingerprint(error: unknown) {
+  const name = error instanceof Error ? error.name : "Error";
+  const message = error instanceof Error ? error.message : String(error);
+  return sha256Short(`${name}:${message.replace(/\s+/g, " ").toLowerCase()}`);
+}
+
+async function recordCliTelemetry(exitCode: number, result?: unknown, error?: unknown) {
+  if (exitCode === 0) return;
+  const telemetry = activeCliTelemetry;
+  if (!telemetry || telemetryDisabled(telemetry.args)) return;
+  const { apiUrl, apiKey } = apiConfig(telemetry.args, false);
+  if (!apiKey) return;
+
+  const agreementIds = agreementIdsFromResult(result);
+  const argv = sanitizedArgv(telemetry.argv);
+  const prompt = promptFromArgs(telemetry.args);
+  const payload = {
+    id: telemetry.id,
+    agreement_id: agreementIds[0],
+    command: commandText(argv),
+    argv,
+    started_at: telemetry.startedAt,
+    ended_at: new Date().toISOString(),
+    duration_ms: Date.now() - telemetry.startedMs,
+    exit_code: exitCode,
+    success: exitCode === 0,
+    error_name: error instanceof Error ? error.name : error ? "Error" : undefined,
+    error_message: error instanceof Error ? error.message : error ? String(error) : undefined,
+    error_fingerprint: error ? cliErrorFingerprint(error) : undefined,
+    cli_version: cliVersion,
+    package_name: packageName,
+    node_version: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    cwd_hash: sha256Short(process.cwd()),
+    agreement_ids: agreementIds,
+    prompt,
+    metadata: {
+      agent: agentName(telemetry.args) ?? null,
+      ...(prompt ? { prompt } : {}),
+      config_loaded: !configLoadError,
+      json_output: jsonOutput(telemetry.args),
+      dry_run: dryRun(telemetry.args)
+    }
+  };
+
+  await postJson(apiUrl, apiKey, "/v1/cli-runs", payload).catch(() => undefined);
+}
+
 function senderEmail(args: Args) {
   const value = cleanString(stringArg(args, "from", "from-email", "sender-email"))
     ?? cleanString(process.env.AGENTCONTRACT_SENDER_EMAIL)
@@ -785,7 +1158,7 @@ function receiverName(args: Args) {
   return requireArg(
     stringArg(args, "name", "receiver-name"),
     "--name / --receiver-name",
-    'Example: agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"'
+    'Example: agentcontract send-mnda --from legal@example.com --to jane@example.com --name "Jane Doe" --company "Acme Inc."'
   );
 }
 
@@ -793,7 +1166,7 @@ function receiverEmail(args: Args) {
   const email = requireArg(
     stringArg(args, "to", "email", "receiver-email"),
     "--to / --email / --receiver-email",
-    'Example: agentcontract send-privacy --from janak@usebear.ai --to jane@example.com --name "Jane Doe"'
+    'Example: agentcontract send-privacy --from legal@example.com --to jane@example.com --name "Jane Doe"'
   );
   return validateEmail(email, "--to / receiver email");
 }
@@ -820,17 +1193,17 @@ function sharedSendOptions(args: Args, fallbackSenderName?: string) {
   };
 }
 
-function withBearDefaults(args: Args): Args {
+function withDemoDefaults(args: Args): Args {
   return {
     ...args,
-    from: stringArg(args, "from", "from-email", "sender-email") ?? bearDefaults.senderEmail,
-    "sender-name": stringArg(args, "sender-name") ?? bearDefaults.senderName,
-    company: stringArg(args, "company") ?? bearDefaults.companyName,
-    website: stringArg(args, "website") ?? bearDefaults.websiteUrl,
-    contact: stringArg(args, "contact") ?? bearDefaults.contactEmail,
-    address: stringArg(args, "address") ?? bearDefaults.companyAddress,
-    "terms-name": stringArg(args, "terms-name") ?? bearDefaults.termsName,
-    "data-use-policy-name": stringArg(args, "data-use-policy-name") ?? bearDefaults.dataUsePolicyName
+    from: stringArg(args, "from", "from-email", "sender-email") ?? demoDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? demoDefaults.senderName,
+    company: stringArg(args, "company") ?? demoDefaults.companyName,
+    website: stringArg(args, "website") ?? demoDefaults.websiteUrl,
+    contact: stringArg(args, "contact") ?? demoDefaults.contactEmail,
+    address: stringArg(args, "address") ?? demoDefaults.companyAddress,
+    "terms-name": stringArg(args, "terms-name") ?? demoDefaults.termsName,
+    "data-use-policy-name": stringArg(args, "data-use-policy-name") ?? demoDefaults.dataUsePolicyName
   };
 }
 
@@ -864,6 +1237,43 @@ function readTextFile(path: string, label: string) {
     const message = error instanceof Error ? error.message : String(error);
     throw new CliError(`${label} could not be read: ${message}`);
   }
+}
+
+function readBinaryFile(path: string, label: string) {
+  try {
+    return readFileSync(path);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`${label} could not be read: ${message}`);
+  }
+}
+
+function cleanPdfFilename(path: string) {
+  const filename = basename(path).trim() || "uploaded-document.pdf";
+  return filename.toLowerCase().endsWith(".pdf") ? filename : `${filename}.pdf`;
+}
+
+function titleFromPdfPath(path: string) {
+  const filename = cleanPdfFilename(path);
+  const extension = extname(filename);
+  const stem = filename.slice(0, filename.length - extension.length);
+  return stem.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim() || "Uploaded PDF Agreement";
+}
+
+function pdfFileFromArgs(args: Args, positional: string[] = []) {
+  return stringArg(args, "pdf-file", "pdf", "document-pdf") ?? positional[0];
+}
+
+function pdfDocumentFromFile(path: string) {
+  const buffer = readBinaryFile(path, "--pdf-file");
+  if (buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    throw new CliError("--pdf-file must point to a PDF file");
+  }
+  return {
+    base64: buffer.toString("base64"),
+    filename: cleanPdfFilename(path),
+    title: titleFromPdfPath(path)
+  };
 }
 
 function parseJsonFile(path: string, label: string) {
@@ -934,40 +1344,60 @@ type AgreementPayload = {
   notification_email?: string[];
   template?: string;
   document_markdown?: string;
+  document_pdf_base64?: string;
+  document_pdf_filename?: string;
+  document_title?: string;
   template_vars?: Record<string, unknown>;
   fields?: Array<Record<string, unknown>>;
   webhook_url?: string;
   metadata?: Record<string, unknown>;
+  session_id?: string;
+  cli_run_id?: string;
+  agreement_context?: Record<string, unknown>;
 };
 
 function withCustomContractArgs(args: Args, payload: AgreementPayload) {
   const templateOverride = stringArg(args, "template");
   const markdown = markdownFromArgs(args);
+  const pdfFile = pdfFileFromArgs(args);
+  const pdf = pdfFile ? pdfDocumentFromFile(pdfFile) : null;
   const template = markdown ? undefined : templateOverride ?? payload.template;
-  const fallbackFields = payload.fields ?? defaultFieldsFor(template);
+  const fallbackFields = payload.fields ?? defaultFieldsFor(pdf ? "pdf" : template);
   const customized: AgreementPayload = {
     ...payload,
-    ...(template ? { template } : {}),
-    ...(markdown ? { document_markdown: markdown } : {}),
+    ...(template && !pdf ? { template } : {}),
+    ...(markdown && !pdf ? { document_markdown: markdown } : {}),
+    ...(pdf ? {
+      document_pdf_base64: pdf.base64,
+      document_pdf_filename: pdf.filename,
+      document_title: stringArg(args, "title", "document-title") ?? pdf.title
+    } : {}),
     template_vars: {
       ...(payload.template_vars ?? {}),
       ...templateVarsFromArgs(args)
     },
     fields: fieldsFromArgs(args, fallbackFields)
   };
-  if (markdown) delete customized.template;
+  if (markdown || pdf) delete customized.template;
+  if (pdf) {
+    delete customized.document_markdown;
+    delete customized.template_vars;
+    customized.metadata = {
+      ...(customized.metadata ?? {}),
+      workflow: "byo_pdf",
+      document_pdf_filename: pdf.filename
+    };
+  }
   return customized;
 }
 
 function baseMndaPayload(args: Args) {
-  const company = requireArg(stringArg(args, "company"), "--company", 'Example: agentcontract send-mnda --from janak@usebear.ai --to jane@example.com --name "Jane Doe" --company "Bear AI"');
+  const company = stringArg(args, "company") ?? String(defaultTemplateVars(templateDefinitions.nda).company_name ?? demoDefaults.companyName);
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "nda",
     template_vars: {
-      company_name: company,
-      effective_date: stringArg(args, "effective-date") ?? today(),
-      term_years: Number(stringArg(args, "term-years") ?? 2)
+      company_name: company
     },
     fields: mndaFields(),
     metadata: { source: "agentcontract-cli" }
@@ -975,12 +1405,12 @@ function baseMndaPayload(args: Args) {
 }
 
 function basePrivacyPayload(args: Args) {
-  const company = stringArg(args, "company") ?? specificPrivacyDefaults.companyName;
+  const company = stringArg(args, "company") ?? demoMarketplaceDefaults.companyName;
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template: "privacy",
     template_vars: {
-      effective_date: stringArg(args, "effective-date") ?? specificPrivacyDefaults.effectiveDate
+      effective_date: stringArg(args, "effective-date") ?? demoMarketplaceDefaults.effectiveDate
     },
     fields: privacyFields(),
     metadata: { source: "agentcontract-cli", template_kind: "privacy_policy", company }
@@ -996,7 +1426,7 @@ function baseContractPayload(args: Args) {
   const vars = templateVarsFromArgs(args);
   const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
   const defaultVars = definition ? defaultTemplateVars(definition) : {};
-  const company = stringArg(args, "company") ?? String(vars.company_name ?? defaultVars.company_name ?? "Bear AI");
+  const company = stringArg(args, "company") ?? String(vars.company_name ?? defaultVars.company_name ?? "Acme Inc.");
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template,
@@ -1011,39 +1441,39 @@ function baseContractPayload(args: Args) {
   });
 }
 
-function baseBearMndaPayload(args: Args) {
-  const bearArgs = withBearDefaults(args);
-  const payload = baseMndaPayload(bearArgs);
+function baseDemoNdaPayload(args: Args) {
+  const demoArgs = withDemoDefaults(args);
+  const payload = baseMndaPayload(demoArgs);
   return {
     ...payload,
-    metadata: { ...(payload.metadata ?? {}), workflow: "bear_mnda", company: bearDefaults.companyName }
+    metadata: { ...(payload.metadata ?? {}), workflow: "demo_nda", company: demoDefaults.companyName }
   };
 }
 
-function baseBearPrivacyPayload(args: Args) {
+function baseDemoPrivacyPayload(args: Args) {
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
-    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+    from: stringArg(args, "from", "from-email", "sender-email") ?? demoMarketplaceDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? demoMarketplaceDefaults.senderName
   };
   const payload = basePrivacyPayload(specificArgs);
   return {
     ...payload,
-    metadata: { ...(payload.metadata ?? {}), workflow: "specific_privacy_acknowledgement", company: specificPrivacyDefaults.companyName }
+    metadata: { ...(payload.metadata ?? {}), workflow: "privacy_acknowledgement", company: demoMarketplaceDefaults.companyName }
   };
 }
 
-function baseBearContractorPayload(args: Args) {
+function baseDemoContractorPayload(args: Args) {
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
-    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+    from: stringArg(args, "from", "from-email", "sender-email") ?? demoMarketplaceDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? demoMarketplaceDefaults.senderName
   };
   const vars = templateVarsFromArgs(args);
   const defaults = defaultTemplateVars(templateDefinitions.contractor);
 
   return withCustomContractArgs(specificArgs, {
-    ...sharedSendOptions(specificArgs, specificPrivacyDefaults.senderName),
+    ...sharedSendOptions(specificArgs, demoMarketplaceDefaults.senderName),
     template: "contractor",
     template_vars: {
       ...defaults,
@@ -1053,13 +1483,32 @@ function baseBearContractorPayload(args: Args) {
     fields: contractorFields(),
     metadata: {
       source: "agentcontract-cli",
-      workflow: "specific_contributor_terms",
-      company: specificPrivacyDefaults.companyName
+      workflow: "contractor_terms",
+      company: demoMarketplaceDefaults.companyName
     }
   });
 }
 
 function previewHtmlFor(payload: AgreementPayload) {
+  if (payload.document_pdf_base64) {
+    const title = payload.document_title ?? payload.document_pdf_filename ?? "Uploaded PDF Agreement";
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)} | AgentContract Preview</title>
+  <style>
+    body { margin: 0; background: #f8fafc; color: #0f172a; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(100% - 32px, 960px); margin: 32px auto; }
+    header { margin-bottom: 16px; color: #475569; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    iframe { display: block; width: 100%; min-height: 78vh; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
+  </style>
+</head>
+<body><main><header>AgentContract PDF preview</header><iframe title="${escapeHtml(title)}" src="data:application/pdf;base64,${payload.document_pdf_base64}"></iframe></main></body>
+</html>`;
+  }
+
   const source = payload.document_markdown ?? loadTemplate(payload.template ?? "nda");
   const rendered = applyTemplateVars(source, {
     ...(payload.template_vars ?? {}),
@@ -1103,7 +1552,14 @@ function writePreview(payload: AgreementPayload, args: Args) {
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, previewHtmlFor(payload));
   if (args.open) openTarget(output);
-  return { preview: true, path: output, opened: Boolean(args.open), title: titleFromMarkdown(applyTemplateVars(payload.document_markdown ?? loadTemplate(payload.template ?? "nda"), payload.template_vars ?? {})) };
+  return {
+    preview: true,
+    path: output,
+    opened: Boolean(args.open),
+    title: payload.document_pdf_base64
+      ? payload.document_title ?? payload.document_pdf_filename
+      : titleFromMarkdown(applyTemplateVars(payload.document_markdown ?? loadTemplate(payload.template ?? "nda"), payload.template_vars ?? {}))
+  };
 }
 
 function writeTextOutput(text: string, args: Args, title?: string) {
@@ -1131,6 +1587,329 @@ function openTarget(target: string) {
   if (result.error) throw new CliError(`Could not open ${target}: ${result.error.message}`);
 }
 
+function shellQuote(value: string) {
+  if (/^[a-zA-Z0-9_/:=.,@%+-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function parseVersion(version: string) {
+  const [core] = version.replace(/^v/, "").split(/[+-]/);
+  return core.split(".").map((part) => {
+    const number = Number.parseInt(part.replace(/\D.*$/, ""), 10);
+    return Number.isFinite(number) ? number : 0;
+  });
+}
+
+function compareVersions(left: string, right: string) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  const length = Math.max(a.length, b.length, 3);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function npmPackageUrl(registry: string) {
+  const base = registry.replace(/\/+$/, "");
+  return `${base}/${packageName.replace("/", "%2F")}/latest`;
+}
+
+function usePackageManagerUpdate(args: Args) {
+  return Boolean(stringArg(args, "package-manager", "pm") || stringArg(args, "registry"));
+}
+
+function packageManagerForUpdate(args: Args) {
+  const explicit = cleanString(stringArg(args, "package-manager", "pm"));
+  if (explicit) return explicit;
+
+  const userAgent = process.env.npm_config_user_agent?.toLowerCase() ?? "";
+  if (userAgent.startsWith("pnpm/")) return "pnpm";
+  if (userAgent.startsWith("yarn/")) return "yarn";
+  if (userAgent.startsWith("bun/")) return "bun";
+  return "npm";
+}
+
+function updateCommand(args: Args, targetVersion = "latest") {
+  const packageSpec = `${packageName}@${targetVersion}`;
+  const manager = packageManagerForUpdate(args);
+  if (manager === "npm") return { manager, command: "npm", args: ["install", "-g", packageSpec] };
+  if (manager === "pnpm") return { manager, command: "pnpm", args: ["add", "-g", packageSpec] };
+  if (manager === "yarn") return { manager, command: "yarn", args: ["global", "add", packageSpec] };
+  if (manager === "bun") return { manager, command: "bun", args: ["add", "-g", packageSpec] };
+  throw new CliError(`Unsupported package manager: ${manager}`, "Use --package-manager npm, pnpm, yarn, or bun.");
+}
+
+function hostedUpdateCommand(args: Args) {
+  const { apiUrl } = apiConfig(args, false);
+  const scriptUrl = `${apiUrl}/cli/install.sh`;
+  return {
+    manager: "hosted-installer",
+    command: "bash",
+    args: ["-lc", `curl -fsSL ${shellQuote(scriptUrl)} | bash`],
+    installCommand: `curl -fsSL ${shellQuote(scriptUrl)} | bash`,
+    installer_url: scriptUrl
+  };
+}
+
+function installCommandForUpdate(args: Args) {
+  if (!usePackageManagerUpdate(args)) return hostedUpdateCommand(args);
+  const install = updateCommand(args, "latest");
+  return {
+    ...install,
+    installCommand: [install.command, ...install.args].map(shellQuote).join(" "),
+    installer_url: null
+  };
+}
+
+async function latestVersionForUpdate(args: Args) {
+  const override = cleanString(stringArg(args, "latest-version"));
+  if (override) return { latestVersion: override, registryUrl: null, source: "override" };
+
+  if (!usePackageManagerUpdate(args)) {
+    const { apiUrl } = apiConfig(args, false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const response = await fetch(`${apiUrl}/healthz`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new CliError(`Could not check hosted CLI version: ${response.status} ${response.statusText}`);
+      const latestVersion = typeof result.version === "string" ? result.version : "";
+      if (!latestVersion) throw new CliError("Hosted AgentContract response did not include a version");
+      return { latestVersion, registryUrl: null, source: "hosted" };
+    } catch (error) {
+      if (error instanceof CliError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliError(`Could not check hosted CLI version: ${message}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const registry = cleanString(stringArg(args, "registry")) ?? cleanString(process.env.NPM_CONFIG_REGISTRY) ?? "https://registry.npmjs.org";
+  const registryUrl = npmPackageUrl(registry);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(registryUrl, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new CliError(`Could not check npm for updates: ${response.status} ${response.statusText}`);
+    const latestVersion = typeof result.version === "string" ? result.version : "";
+    if (!latestVersion) throw new CliError("npm registry response did not include a version");
+    return { latestVersion, registryUrl, source: "npm" };
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`Could not check npm for updates: ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function updateCheck(args: Args) {
+  const { latestVersion, registryUrl, source } = await latestVersionForUpdate(args);
+  const updateAvailable = compareVersions(latestVersion, cliVersion) > 0;
+  const install = installCommandForUpdate(args);
+  return {
+    update_check: true,
+    package: packageName,
+    current_version: cliVersion,
+    latest_version: latestVersion,
+    update_available: updateAvailable,
+    update_source: source,
+    registry_url: registryUrl,
+    installer_url: install.installer_url,
+    install_command: install.installCommand
+  };
+}
+
+async function confirmUpdateInstall(args: Args, commandText: string) {
+  if (args.yes || args.force) return true;
+  if (!process.stdin.isTTY || jsonOutput(args)) {
+    throw new CliError("Use --yes to run the updater non-interactively.", `Run agentcontract update --yes or run ${commandText}`);
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(`Run ${commandText}? [y/N] `)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
+}
+
+async function updateCli(args: Args) {
+  const check = await updateCheck(args);
+  if (args.check) return check;
+
+  if (!check.update_available && !args.force) {
+    return { ...check, updated: false, already_latest: true };
+  }
+
+  const install = installCommandForUpdate(args);
+  const installCommand = install.installCommand;
+  if (dryRun(args)) return { ...check, dry_run: true, updated: false, command: installCommand };
+
+  const confirmed = await confirmUpdateInstall(args, installCommand);
+  if (!confirmed) return { ...check, updated: false, cancelled: true };
+
+  const result = spawnSync(install.command, install.args, {
+    stdio: jsonOutput(args) ? "pipe" : "inherit",
+    encoding: "utf8"
+  });
+  if (result.error) throw new CliError(`Update failed: ${result.error.message}`, installCommand);
+  if (result.status !== 0) {
+    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
+    throw new CliError(`Update failed with exit code ${result.status}${stderr ? `: ${stderr}` : ""}`, installCommand);
+  }
+
+  return { ...check, updated: true, command: installCommand };
+}
+
+function autoUpdateEnvDisabled() {
+  const value = cleanString(process.env.AGENTCONTRACT_AUTO_UPDATE)?.toLowerCase();
+  return value === "0" || value === "false" || value === "off" || value === "no";
+}
+
+function autoUpdateIntervalMs() {
+  const hours = Number(process.env.AGENTCONTRACT_AUTO_UPDATE_INTERVAL_HOURS ?? 24);
+  return Number.isFinite(hours) && hours > 0 ? hours * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+}
+
+function loadAutoUpdateState(): AutoUpdateState {
+  if (!existsSync(autoUpdateStatePath)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(autoUpdateStatePath, "utf8")) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as AutoUpdateState : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeAutoUpdateState(state: AutoUpdateState) {
+  try {
+    mkdirSync(dirname(autoUpdateStatePath), { recursive: true, mode: 0o700 });
+    writeFileSync(`${autoUpdateStatePath}.tmp`, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+    chmodSync(`${autoUpdateStatePath}.tmp`, 0o600);
+    renameSync(`${autoUpdateStatePath}.tmp`, autoUpdateStatePath);
+    chmodSync(autoUpdateStatePath, 0o600);
+  } catch {
+    // Auto-update state is best-effort and should never block a contract command.
+  }
+}
+
+function isFreshAutoUpdateState(state: AutoUpdateState, apiUrl: string) {
+  if (state.api_url !== apiUrl || state.current_version !== cliVersion || state.update_available) return false;
+  const checkedAt = state.last_checked_at ? Date.parse(state.last_checked_at) : Number.NaN;
+  return Number.isFinite(checkedAt) && Date.now() - checkedAt < autoUpdateIntervalMs();
+}
+
+function isLocalCheckoutRun() {
+  if (process.env.AGENTCONTRACT_AUTO_UPDATE_LOCAL === "1") return false;
+  const entrypoint = process.argv[1] ? resolve(process.argv[1]) : "";
+  const cwd = resolve(process.cwd());
+  return entrypoint.startsWith(join(cwd, "dist"))
+    || entrypoint.startsWith(join(cwd, "src"));
+}
+
+function shouldAutoUpdate(command: string, args: Args) {
+  if (process.env.AGENTCONTRACT_SKIP_AUTO_UPDATE === "1") return false;
+  if (autoUpdateEnvDisabled() || args["no-auto-update"] || args["no-update"]) return false;
+  if (dryRun(args) || args.preview) return false;
+  if (isLocalCheckoutRun()) return false;
+
+  const skipped = new Set(["help", "--help", "-h", "version", "--version", "-v", "update", "upgrade", "self-update", "feedback", "bug", "report"]);
+  return !skipped.has(command);
+}
+
+function warnAutoUpdate(message: string, args: Args) {
+  if (!jsonOutput(args)) console.error(message);
+}
+
+async function autoUpdateAndMaybeRerun(command: string, args: Args, originalArgv: string[]) {
+  if (!shouldAutoUpdate(command, args)) return;
+
+  const { apiUrl } = apiConfig(args, false);
+  const state = loadAutoUpdateState();
+  if (isFreshAutoUpdateState(state, apiUrl)) return;
+
+  let check: Awaited<ReturnType<typeof updateCheck>>;
+  try {
+    check = await updateCheck(args);
+    writeAutoUpdateState({
+      api_url: apiUrl,
+      current_version: cliVersion,
+      latest_version: check.latest_version,
+      update_available: check.update_available,
+      last_checked_at: new Date().toISOString()
+    });
+  } catch (error) {
+    writeAutoUpdateState({
+      ...state,
+      api_url: apiUrl,
+      current_version: cliVersion,
+      last_error: error instanceof Error ? error.message : String(error),
+      last_error_at: new Date().toISOString()
+    });
+    warnAutoUpdate(`AgentContract auto-update check failed; continuing with ${cliVersion}.`, args);
+    return;
+  }
+
+  if (!check.update_available) return;
+
+  const install = installCommandForUpdate(args);
+  warnAutoUpdate(`AgentContract ${check.latest_version} is available. Auto-updating before running ${command}...`, args);
+
+  const update = spawnSync(install.command, install.args, {
+    stdio: jsonOutput(args) ? "pipe" : "inherit",
+    encoding: "utf8"
+  });
+  if (update.error || update.status !== 0) {
+    const detail = update.error?.message ?? (typeof update.stderr === "string" ? update.stderr.trim() : "");
+    writeAutoUpdateState({
+      api_url: apiUrl,
+      current_version: cliVersion,
+      latest_version: check.latest_version,
+      update_available: true,
+      last_checked_at: new Date().toISOString(),
+      last_error: detail || `installer exited with ${update.status}`,
+      last_error_at: new Date().toISOString()
+    });
+    warnAutoUpdate(`AgentContract auto-update failed; continuing with ${cliVersion}. Run: ${install.installCommand}`, args);
+    return;
+  }
+
+  writeAutoUpdateState({
+    api_url: apiUrl,
+    current_version: check.latest_version,
+    latest_version: check.latest_version,
+    update_available: false,
+    last_checked_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  });
+
+  const entrypoint = process.argv[1];
+  if (!entrypoint) return;
+  warnAutoUpdate("AgentContract updated. Restarting the command with the new CLI...", args);
+  const rerun = spawnSync(process.argv[0], [entrypoint, ...originalArgv], {
+    stdio: "inherit",
+    env: { ...process.env, AGENTCONTRACT_SKIP_AUTO_UPDATE: "1" },
+    encoding: "utf8"
+  });
+  if (rerun.error) {
+    warnAutoUpdate(`AgentContract updated, but command restart failed: ${rerun.error.message}`, args);
+    return;
+  }
+  process.exit(rerun.status ?? 0);
+}
+
 function dryRunResult(command: string, apiUrl: string, path: string, payload: unknown) {
   return {
     dry_run: true,
@@ -1147,7 +1926,7 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
-  if (typeof result === "object" && result && "dry_run" in result) {
+  if (typeof result === "object" && result && "dry_run" in result && "payload" in result) {
     const dry = result as unknown as { command: string; method: string; url: string; payload: { recipient?: { name?: string; email?: string }; sender_email?: string; notification_email?: string[] } };
     console.log(`Dry run: ${dry.command}`);
     console.log(`${dry.method} ${dry.url}`);
@@ -1183,6 +1962,14 @@ function printResult(result: unknown, json: boolean) {
     console.log(`Wrote file: ${file.path}`);
     if (file.bytes !== undefined) console.log(`Bytes: ${file.bytes}`);
     if (file.opened) console.log("Opened");
+    return;
+  }
+
+  if (typeof result === "object" && result && "dashboard_url" in result) {
+    const dashboard = result as { dashboard_url: string; target?: string; opened?: boolean };
+    console.log(`Dashboard URL: ${dashboard.dashboard_url}`);
+    if (dashboard.target) console.log(`Target: ${dashboard.target}`);
+    if (dashboard.opened) console.log("Opened in browser");
     return;
   }
 
@@ -1285,6 +2072,36 @@ function printResult(result: unknown, json: boolean) {
       const command = item.command ? ` command="${item.command}"` : "";
       console.log(`${item.id} [${item.status}/${item.severity}/${item.category}] ${item.created_at}${command}`);
       console.log(`  ${item.message}`);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "update_check" in result) {
+    const update = result as {
+      package?: string;
+      current_version?: string;
+      latest_version?: string;
+      update_available?: boolean;
+      install_command?: string;
+      updated?: boolean;
+      already_latest?: boolean;
+      cancelled?: boolean;
+      dry_run?: boolean;
+      command?: string;
+    };
+    console.log(`${update.package ?? packageName} ${update.current_version ?? cliVersion}`);
+    console.log(`Latest: ${update.latest_version ?? "unknown"}`);
+    if (update.updated) {
+      console.log("Updated successfully.");
+    } else if (update.cancelled) {
+      console.log("Update cancelled.");
+    } else if (update.dry_run && update.command) {
+      console.log(`Dry run: ${update.command}`);
+    } else if (update.already_latest || !update.update_available) {
+      console.log("Already up to date.");
+    } else {
+      console.log("Update available.");
+      if (update.install_command) console.log(`Run: ${update.install_command}`);
     }
     return;
   }
@@ -1430,7 +2247,7 @@ function printResult(result: unknown, json: boolean) {
   }
 
   if (typeof result === "object" && result && "agreements" in result && Array.isArray(result.agreements)) {
-    const list = result as { agreements: Array<{ id: string; status?: string; signing_url?: string; document_title?: string; recipient?: { name?: string; email?: string }; created_at?: string }>; next_cursor?: string | null };
+    const list = result as { agreements: Array<{ id: string; status?: string; signing_url?: string; sender_signing_url?: string | null; document_title?: string; recipient?: { name?: string; email?: string }; created_at?: string }>; next_cursor?: string | null };
     console.log(`Agreements: ${list.agreements.length}`);
     for (const agreement of list.agreements) {
       const recipient = agreement.recipient?.email ? ` ${agreement.recipient.name ?? ""} <${agreement.recipient.email}>` : "";
@@ -1438,6 +2255,7 @@ function printResult(result: unknown, json: boolean) {
       const status = agreement.status ? ` [${agreement.status}]` : "";
       const url = agreement.signing_url ? ` ${agreement.signing_url}` : "";
       console.log(`${agreement.id}${status}${recipient}${title}${url}`);
+      if (agreement.sender_signing_url) console.log(`  sender signing: ${agreement.sender_signing_url}`);
     }
     if (list.next_cursor) console.log(`Next cursor: ${list.next_cursor}`);
     return;
@@ -1448,6 +2266,7 @@ function printResult(result: unknown, json: boolean) {
       id: string;
       status?: string;
       signing_url?: string;
+      sender_signing_url?: string | null;
       preview_url?: string;
       signed_pdf_url?: string | null;
       signed_pdf_saved?: boolean;
@@ -1459,7 +2278,8 @@ function printResult(result: unknown, json: boolean) {
     console.log(`Sent agreement: ${agreement.id}`);
     if (agreement.status) console.log(`Status: ${agreement.status}`);
     if (agreement.preview_url) console.log(`Preview URL: ${agreement.preview_url}`);
-    if (agreement.signing_url) console.log(`Signing URL: ${agreement.signing_url}`);
+    if (agreement.signing_url) console.log(`Recipient signing URL: ${agreement.signing_url}`);
+    if (agreement.sender_signing_url) console.log(`Sender signing URL: ${agreement.sender_signing_url}`);
     if (agreement.signed_pdf_url) console.log(`Signed PDF: ${agreement.signed_pdf_url}`);
     if (typeof agreement.signed_pdf_saved === "boolean") console.log(`Signed PDF saved: ${agreement.signed_pdf_saved ? "yes" : "no"}`);
     if (agreement.signed_pdf_bytes) console.log(`Signed PDF bytes: ${agreement.signed_pdf_bytes}`);
@@ -1479,8 +2299,8 @@ async function sendMnda(args: Args) {
     ...baseMndaPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("send-mnda", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("send-mnda", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "send-mnda");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
@@ -1492,8 +2312,8 @@ async function sendPrivacy(args: Args) {
     ...basePrivacyPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("send-privacy", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("send-privacy", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "send-privacy");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
@@ -1505,47 +2325,47 @@ async function sendContract(args: Args) {
     ...baseContractPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("send-contract", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("send-contract", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "send-contract");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
 
-async function sendBearMnda(args: Args) {
+async function sendDemoNda(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = {
     recipient: { name: receiverName(args), email: receiverEmail(args) },
-    ...baseBearMndaPayload(args)
+    ...baseDemoNdaPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("bear-mnda", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("send-mnda", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "send-mnda");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
 
-async function sendBearPrivacy(args: Args) {
+async function sendDemoPrivacy(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = {
     recipient: { name: receiverName(args), email: receiverEmail(args) },
-    ...baseBearPrivacyPayload(args)
+    ...baseDemoPrivacyPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult(String(args.command_name ?? "specific-privacy"), apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult(String(args.command_name ?? "marketplace-onboard"), apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, String(args.command_name ?? "marketplace-onboard"));
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
 
-async function sendBearContractor(args: Args) {
+async function sendDemoContractor(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = {
     recipient: { name: receiverName(args), email: receiverEmail(args) },
-    ...baseBearContractorPayload(args)
+    ...baseDemoContractorPayload(args)
   };
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("specific-contractor", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("marketplace-contractor", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "marketplace-contractor");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
@@ -1798,8 +2618,41 @@ async function sendSavedContract(args: Args, positional: string[]) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
   const payload = contractPayload(args, contract, true);
   if (args.preview) return writePreview(payload, args);
-  if (dryRun(args)) return dryRunResult("contract send", apiUrl, "/v1/agreements", payload);
-  const result = await postJson(apiUrl, apiKey, "/v1/agreements", payload);
+  if (dryRun(args)) return agreementDryRunResult("contract send", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "contract send");
+  if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
+  return result;
+}
+
+function pdfPayload(args: Args, positional: string[]) {
+  const pdfFile = requireArg(
+    pdfFileFromArgs(args, positional),
+    "--pdf-file or PDF path",
+    'Example: agentcontract send-pdf ./agreement.pdf --to jane@example.com --name "Jane Doe"'
+  );
+  const pdf = pdfDocumentFromFile(pdfFile);
+  const title = stringArg(args, "title", "document-title") ?? pdf.title;
+  return {
+    recipient: { name: receiverName(args), email: receiverEmail(args) },
+    ...sharedSendOptions(args, title),
+    document_pdf_base64: pdf.base64,
+    document_pdf_filename: pdf.filename,
+    document_title: title,
+    fields: fieldsFromArgs(args, pdfFields()),
+    metadata: {
+      source: "agentcontract-cli",
+      workflow: "byo_pdf",
+      document_pdf_filename: pdf.filename
+    }
+  };
+}
+
+async function sendPdf(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const payload = pdfPayload(args, positional);
+  if (args.preview) return writePreview(payload, args);
+  if (dryRun(args)) return agreementDryRunResult("send-pdf", apiUrl, "/v1/agreements", payload, args);
+  const result = await postAgreementJson(apiUrl, apiKey, "/v1/agreements", payload, args, "send-pdf");
   if (args.open && typeof result === "object" && result && "preview_url" in result) openTarget(String((result as { preview_url: string }).preview_url));
   return result;
 }
@@ -1838,7 +2691,7 @@ function normalizeBulkRecipients(parsed: unknown) {
 
 async function bulkMnda(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
-  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company \"Bear AI\"");
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-mnda --from legal@example.com --file recipients.json --company \"Acme Inc.\"");
   const recipients = normalizeBulkRecipients(parseJsonFile(file, "--file"));
   const base = baseMndaPayload(args);
   const payload = {
@@ -1853,15 +2706,18 @@ async function bulkMnda(args: Args) {
       ...base
     }, args);
   }
-  if (dryRun(args)) return dryRunResult("bulk-mnda", apiUrl, "/v1/agreements/bulk", payload);
-  return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
+  if (dryRun(args)) return agreementDryRunResult("bulk-mnda", apiUrl, "/v1/agreements/bulk", payload, args);
+  if (!await confirmMassEmail(args, "bulk-mnda", recipients.length, "signing request emails")) {
+    return { bulk_email_cancelled: true, command: "bulk-mnda", recipients: recipients.length };
+  }
+  return postAgreementJson(apiUrl, apiKey, "/v1/agreements/bulk", payload, args, "bulk-mnda");
 }
 
 async function bulkMarketplaceOnboard(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
-  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-marketplace-onboard --file contributors.json --from sid@usebear.ai");
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-marketplace-onboard --file contributors.json --from you@example.com");
   const recipients = normalizeBulkRecipients(parseJsonFile(file, "--file"));
-  const base = baseBearPrivacyPayload(args);
+  const base = baseDemoPrivacyPayload(args);
   const payload = {
     recipients,
     template_vars_default: base.template_vars,
@@ -1874,8 +2730,35 @@ async function bulkMarketplaceOnboard(args: Args) {
       ...base
     }, args);
   }
-  if (dryRun(args)) return dryRunResult("bulk-marketplace-onboard", apiUrl, "/v1/agreements/bulk", payload);
-  return postJson(apiUrl, apiKey, "/v1/agreements/bulk", payload);
+  if (dryRun(args)) return agreementDryRunResult("bulk-marketplace-onboard", apiUrl, "/v1/agreements/bulk", payload, args);
+  if (!await confirmMassEmail(args, "bulk-marketplace-onboard", recipients.length, "signing request emails")) {
+    return { bulk_email_cancelled: true, command: "bulk-marketplace-onboard", recipients: recipients.length };
+  }
+  return postAgreementJson(apiUrl, apiKey, "/v1/agreements/bulk", payload, args, "bulk-marketplace-onboard");
+}
+
+async function bulkDemoContractor(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args) && !args.preview);
+  const file = requireArg(stringArg(args, "file"), "--file", "Example: agentcontract bulk-contractor --file contractors.json --from you@example.com");
+  const recipients = normalizeBulkRecipients(parseJsonFile(file, "--file"));
+  const base = baseDemoContractorPayload(args);
+  const payload = {
+    recipients,
+    template_vars_default: base.template_vars,
+    ...base
+  };
+  delete (payload as { template_vars?: unknown }).template_vars;
+  if (args.preview) {
+    return writePreview({
+      recipient: { name: recipients[0].name, email: recipients[0].email },
+      ...base
+    }, args);
+  }
+  if (dryRun(args)) return agreementDryRunResult("bulk-contractor", apiUrl, "/v1/agreements/bulk", payload, args);
+  if (!await confirmMassEmail(args, "bulk-contractor", recipients.length, "signing request emails")) {
+    return { bulk_email_cancelled: true, command: "bulk-contractor", recipients: recipients.length };
+  }
+  return postAgreementJson(apiUrl, apiKey, "/v1/agreements/bulk", payload, args, "bulk-contractor");
 }
 
 async function doctor(args: Args) {
@@ -1960,7 +2843,7 @@ async function submitProductFeedback(args: Args, positional: string[]) {
   if (!message) {
     throw new CliError(
       "feedback message is required",
-      'Example: agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai"'
+      'Example: agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email you@example.com"'
     );
   }
 
@@ -2003,6 +2886,73 @@ async function productFeedbackCommand(args: Args, positional: string[]) {
   return submitProductFeedback(args, positional);
 }
 
+function eventTextFromArgs(args: Args, positional: string[]) {
+  const fromArg = cleanString(stringArg(args, "text", "message", "content"));
+  if (fromArg) return fromArg;
+  const file = cleanString(stringArg(args, "file", "text-file", "message-file"));
+  if (file) return readTextFile(file, "--file");
+  if (args.stdin) return readFileSync(0, "utf8");
+  return positional.join(" ").trim() || undefined;
+}
+
+async function sessionCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "start";
+  const rest = positional.slice(1);
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+
+  if (action === "start" || action === "new") {
+    const payload = {
+      agent: agentName(args) ?? "unknown",
+      source: stringArg(args, "source") ?? "agentcontract-cli",
+      initial_goal: stringArg(args, "goal", "initial-goal") ?? cleanString(rest.join(" ")),
+      privacy_mode: stringArg(args, "privacy-mode") ?? "full",
+      metadata: {
+        cli_version: cliVersion,
+        package: packageName,
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch
+      }
+    };
+    if (dryRun(args)) return dryRunResult("session start", apiUrl, "/v1/agent-sessions", payload);
+    return postJson(apiUrl, apiKey, "/v1/agent-sessions", payload);
+  }
+
+  if (action === "event" || action === "log" || action === "message") {
+    const id = requireArg(sessionId(args) ?? rest[0], "--session-id", "Example: agentcontract session event --session-id sess_... --type user_message --text \"send the NDA\"");
+    const text = eventTextFromArgs(args, sessionId(args) ? rest : rest.slice(1));
+    const jsonFile = cleanString(stringArg(args, "json-file", "content-json-file"));
+    const content = jsonFile ? parseJsonFile(jsonFile, "--json-file") : undefined;
+    const payload = {
+      event_type: stringArg(args, "type", "event-type") ?? "message",
+      role: stringArg(args, "role") ?? "user",
+      content_text: text,
+      content_json: content,
+      metadata: {
+        cli_version: cliVersion,
+        agent: agentName(args) ?? null
+      }
+    };
+    if (dryRun(args)) return dryRunResult("session event", apiUrl, `/v1/agent-sessions/${id}/events`, payload);
+    return postJson(apiUrl, apiKey, `/v1/agent-sessions/${id}/events`, payload);
+  }
+
+  if (action === "end" || action === "finish" || action === "close") {
+    const id = requireArg(sessionId(args) ?? rest[0], "--session-id", "Example: agentcontract session end --session-id sess_... --outcome sent");
+    const payload = {
+      outcome: stringArg(args, "outcome") ?? cleanString(sessionId(args) ? rest.join(" ") : rest.slice(1).join(" ")),
+      metadata: {
+        cli_version: cliVersion,
+        agent: agentName(args) ?? null
+      }
+    };
+    if (dryRun(args)) return dryRunResult("session end", apiUrl, `/v1/agent-sessions/${id}/end`, payload);
+    return postJson(apiUrl, apiKey, `/v1/agent-sessions/${id}/end`, payload);
+  }
+
+  throw new CliError(`Unknown session command: ${action}`, "Run agentcontract session start --goal \"...\" or agentcontract session event --session-id sess_...");
+}
+
 async function listApiKeys(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args);
   return getJson(apiUrl, apiKey, "/v1/api-keys");
@@ -2039,6 +2989,32 @@ async function keyCommand(args: Args, positional: string[]) {
   if (action === "create" || action === "new") return createApiKeyCommand(args);
   if (action === "revoke" || action === "delete" || action === "rm") return revokeApiKeyCommand(args, rest);
   throw new CliError(`Unknown key command: ${action}`, "Run agentcontract help to see key commands.");
+}
+
+async function domainCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "status";
+  const { apiUrl, apiKey } = apiConfig(args);
+  if (action === "setup" || action === "configure" || action === "create") {
+    const payload = {
+      email_domain: requireArg(stringArg(args, "email-domain", "domain"), "--email-domain", "Example: agentcontract domain setup --email-domain acme.com --signing-domain contracts.acme.com --from legal@acme.com"),
+      signing_domain: requireArg(stringArg(args, "signing-domain", "sign-domain"), "--signing-domain", "Example: agentcontract domain setup --email-domain acme.com --signing-domain contracts.acme.com --from legal@acme.com"),
+      from_email: senderEmail(args),
+      from_name: senderName(args)
+    };
+    if (!payload.from_email) {
+      throw new CliError("--from / --sender-email is required", "Example: agentcontract domain setup --email-domain acme.com --signing-domain contracts.acme.com --from legal@acme.com");
+    }
+    if (dryRun(args)) return dryRunResult("domain setup", apiUrl, "/v1/sender-profile", payload);
+    return postJson(apiUrl, apiKey, "/v1/sender-profile", payload);
+  }
+  if (action === "status" || action === "show" || action === "dns") {
+    return getJson(apiUrl, apiKey, "/v1/sender-profile");
+  }
+  if (action === "verify" || action === "check") {
+    if (dryRun(args)) return dryRunResult("domain verify", apiUrl, "/v1/sender-profile/verify", {});
+    return postJson(apiUrl, apiKey, "/v1/sender-profile/verify", {});
+  }
+  throw new CliError(`Unknown domain command: ${action}`, "Run agentcontract domain setup, domain status, or domain verify.");
 }
 
 async function listServerTemplates(args: Args) {
@@ -2121,6 +3097,33 @@ async function listAgreements(args: Args) {
   return getJson(apiUrl, apiKey, `/v1/agreements${suffix}`);
 }
 
+async function listBatches(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const query = new URLSearchParams();
+  const limit = stringArg(args, "limit");
+  const cursor = stringArg(args, "cursor");
+  if (limit) query.set("limit", limit);
+  if (cursor) query.set("cursor", cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJson(apiUrl, apiKey, `/v1/agreement-batches${suffix}`);
+}
+
+async function readBatch(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0] ?? stringArg(args, "id", "batch-id");
+  if (!id) throw new CliError("batch_id is required", "Example: agentcontract batch read bat_123 --json");
+  return getJson(apiUrl, apiKey, `/v1/agreement-batches/${id}`);
+}
+
+async function batchCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "list";
+  const rest = positional.slice(1);
+  if (action === "list" || action === "ls") return listBatches(args);
+  if (action === "read" || action === "show" || action === "status") return readBatch(args, rest);
+  if (action.startsWith("bat_")) return readBatch(args, [action, ...rest]);
+  throw new CliError(`Unknown batch command: ${action}`, "Run agentcontract batches or agentcontract batch read bat_...");
+}
+
 async function readAgreement(args: Args, positional: string[]) {
   const { apiUrl, apiKey } = apiConfig(args);
   const id = positional[0];
@@ -2155,10 +3158,16 @@ async function auditAgreement(args: Args, positional: string[]) {
 }
 
 async function remindAgreement(args: Args, positional: string[]) {
-  const { apiUrl, apiKey } = apiConfig(args);
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
   const id = positional[0];
-  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement remind agr_123");
-  return postJson(apiUrl, apiKey, `/v1/agreements/${id}/remind`, {});
+  if (!id) throw new CliError("agreement_id is required", "Example: agentcontract agreement remind agr_123 --remind-recipient");
+  const target = await promptReminderTarget(args, apiUrl, apiKey, id);
+  if (target === "all" && !await confirmMassEmail(args, "agreement remind", 2, "reminder emails")) {
+    return { reminder_cancelled: true, agreement_id: id, target };
+  }
+  const payload = { target };
+  if (dryRun(args)) return dryRunResult("agreement remind", apiUrl, `/v1/agreements/${id}/remind`, payload);
+  return postJson(apiUrl, apiKey, `/v1/agreements/${id}/remind`, payload);
 }
 
 async function cancelAgreement(args: Args, positional: string[]) {
@@ -2212,6 +3221,31 @@ async function view(args: Args, positional: string[]) {
   return result;
 }
 
+function dashboardPath(target: string | undefined) {
+  const key = (target ?? "home").toLowerCase();
+  if (key === "home" || key === "dashboard" || key === "agreements") return "/dashboard";
+  if (key === "templates" || key === "template") return "/templates";
+  if (key === "privacy" || key === "bear-privacy" || key === "specific-privacy") return "/templates/privacy";
+  if (key === "contractor" || key === "specific-contractor" || key === "bear-contractor") return "/templates/contractor";
+  if (key === "nda" || key === "mnda" || key === "bear-mnda") return "/templates/nda";
+  if (key === "api-keys" || key === "keys") return "/dashboard/api-keys";
+  if (key === "login" || key === "auth") return "/login";
+  if (key === "cli" || key === "install") return "/cli";
+  throw new CliError(`Unknown dashboard target: ${target}`, "Use dashboard, templates, privacy, contractor, nda, api-keys, login, or cli.");
+}
+
+function dashboardCommand(args: Args, positional: string[]) {
+  const { apiUrl } = apiConfig(args, false);
+  const target = stringArg(args, "target", "page") ?? positional[0];
+  const url = `${apiUrl}${dashboardPath(target)}`;
+  if (!args["no-open"]) openTarget(url);
+  return {
+    dashboard_url: url,
+    target: target ?? "dashboard",
+    opened: !args["no-open"]
+  };
+}
+
 function normalizeApiUrl(value: string) {
   const trimmed = value.trim().replace(/\/+$/, "");
   try {
@@ -2249,7 +3283,7 @@ async function loginWithEmailCode(args: Args) {
 
   const apiUrl = normalizeApiUrl(cleanString(stringArg(args, "api-url")) ?? cliConfig.api_url ?? defaultApiUrl);
   const email = validateEmail(
-    requireArg(stringArg(args, "email", "login-email"), "--email", "Example: agentcontract login --email sid@usebear.ai"),
+    requireArg(stringArg(args, "email", "login-email"), "--email", "Example: agentcontract login --email you@example.com"),
     "--email"
   );
   const keyName = cleanString(stringArg(args, "key-name")) ?? "AgentContract CLI";
@@ -2414,12 +3448,34 @@ draft/revise a contract, capture contract feedback, check signing status, or dow
 ## Setup
 
 agentcontract login
-agentcontract login --email sid@usebear.ai
+agentcontract login --email you@example.com
 agentcontract config get
 agentcontract doctor
+agentcontract update --check
 agentcontract keys
 
 If the user is not logged in, run \`agentcontract login --email <email>\`; it sends an email code and stores a local API key after verification. Browser WorkOS login is also available with \`agentcontract login\` once the WorkOS redirect URI is registered.
+
+## Auto Update
+
+Before sending, reading, reminding, cancelling, or checking status, run:
+
+agentcontract update --check --json
+
+If \`update_available\` is true, run:
+
+agentcontract update --yes
+agentcontract skill
+
+Then continue with the user's original AgentContract task. If \`agentcontract update\` is not recognized, run \`curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash\`, then run \`agentcontract skill\`, then continue. If the update check fails because npm/network is unavailable, continue with the current CLI and report the update failure with \`agentcontract feedback\`.
+
+## Prompt And Failure Logging
+
+Do not upload chat transcripts or conversation events. For a real send, pass only a short explicit goal or user prompt when it helps the sender understand why the contract was sent:
+
+agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" --prompt "Send the approved onboarding privacy acknowledgement" --json
+
+The CLI reports failed commands only. Successful sends with no \`--prompt\`, \`--goal\`, or \`--chat-summary\` should not create CLI run telemetry.
 
 ## Core Commands
 
@@ -2429,6 +3485,7 @@ agentcontract key revoke key_...
 agentcontract templates
 agentcontract template read privacy --out ./privacy.md
 agentcontract contracts
+agentcontract dashboard contractor
 agentcontract read privacy --var effective_date="April 29, 2026"
 agentcontract contract show contractor --markdown
 agentcontract contract add custom-sow --markdown-file ./contract.md --fields-file ./fields.json
@@ -2436,19 +3493,25 @@ agentcontract contract feedback custom-sow --note "Make the IP assignment cleare
 agentcontract contract read custom-sow --with-feedback
 agentcontract contract edit custom-sow
 agentcontract contract send custom-sow --to jane@example.com --name "Jane Doe" --json
+agentcontract send-pdf ./agreement.pdf --to jane@example.com --name "Jane Doe" --title "Partner SOW" --json
+agentcontract update --yes
+agentcontract dashboard contractor
 agentcontract feedback --message "What broke" --command "exact command" --expected "expected result" --actual "actual result or error" --json
 
 ## Built-ins
 
-- \`nda\`: Bear AI mutual NDA
-- \`privacy\`: Specific Marketplace privacy acknowledgement
-- \`contractor\`: Specific Marketplace contributor terms
+- \`nda\`: Acme Inc. nondisclosure agreement
+- \`privacy\`: Acme Marketplace privacy acknowledgement
+- \`contractor\`: Acme Marketplace contributor terms
 
 ## Sending
 
 agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" --json
-agentcontract specific-contractor --to contributor@example.com --name "Jane Contributor" --json
-agentcontract bear-mnda --to jane@example.com --name "Jane Doe" --json
+agentcontract marketplace-contractor --to contributor@example.com --name "Jane Contributor" --json
+agentcontract bulk-contractor --file contractors.json --json
+agentcontract send-pdf ./agreement.pdf --to jane@example.com --name "Jane Doe" --title "Partner SOW" --json
+agentcontract send-mnda --to jane@example.com --name "Jane Doe" --json
+agentcontract dashboard contractor
 
 ## Tracking
 
@@ -2456,7 +3519,7 @@ agentcontract agreements --status sent --json
 agentcontract status agr_... --json
 agentcontract agreement read agr_... --out ./agreement.md
 agentcontract agreement audit agr_...
-agentcontract agreement remind agr_...
+agentcontract agreement remind agr_... --remind-recipient
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
 
@@ -2477,7 +3540,9 @@ Use \`--category install\`, \`--category login\`, \`--category sending\`, \`--ca
 ## Rules
 
 - Do not send placeholder values.
-- Prefer \`--dry-run --json\` before bulk sends.
+- Keep the CLI fresh with the Auto Update flow before doing contract work.
+- Before sending a reminder, explicitly ask whether the email should go to the sender/themselves, the recipient/everyone else, or all signing parties. Use \`--remind-self\`, \`--remind-recipient\`, or \`--remind-all\`; do not run a plain \`agreement remind\` in noninteractive mode.
+- Prefer \`--dry-run --json\` before bulk sends, then ask the user for explicit approval before rerunning with \`--yes\`.
 - Use \`contract read --with-feedback\` before sending revised contracts.
 - When something fails or feels confusing, run \`agentcontract feedback\` with the command, expected result, and actual result.
 - Prefer CLI/API commands over sender dashboard or template forms.
@@ -2628,7 +3693,8 @@ async function main() {
   }
 
   if (command === "version" || command === "--version" || command === "-v") {
-    printResult(versionResult(), argv.includes("--json") || argv.includes("-j"));
+    const { args } = parseArgs(rest);
+    printResult(args.check ? await updateCheck(args) : versionResult(), jsonOutput(args));
     return;
   }
 
@@ -2639,21 +3705,40 @@ async function main() {
     return;
   }
 
+  activeCliTelemetry = {
+    id: `run_${nanoid(14)}`,
+    command,
+    argv,
+    args,
+    startedAt: new Date().toISOString(),
+    startedMs: Date.now()
+  };
+
+  await autoUpdateAndMaybeRerun(command, args, argv);
+
   let result: unknown;
   if (command === "login") {
     result = await login(args);
+  } else if (command === "update" || command === "upgrade" || command === "self-update") {
+    result = await updateCli(args);
   } else if (command === "skill") {
     result = await installSkill(args);
   } else if (command === "feedback" || command === "bug" || command === "report") {
     result = await productFeedbackCommand(args, positional);
+  } else if (command === "session" || command === "sessions" || command === "telemetry") {
+    result = await sessionCommand(args, positional);
   } else if (command === "init") {
     result = await initConfig(args);
   } else if (command === "config") {
     result = await configCommand(args, positional);
+  } else if (command === "dashboard" || command === "ui" || command === "admin") {
+    result = dashboardCommand(args, positional);
   } else if (command === "keys" || command === "api-keys") {
     result = await keyCommand(args, positional.length ? positional : ["list"]);
   } else if (command === "key" || command === "api-key") {
     result = await keyCommand(args, positional);
+  } else if (command === "domain" || command === "sender-domain" || command === "sender-profile") {
+    result = await domainCommand(args, positional);
   } else if (command === "templates" || command === "template-list") {
     result = await listServerTemplates(args);
   } else if (command === "template" || command === "server-template") {
@@ -2664,6 +3749,10 @@ async function main() {
     result = await contractCommand(args, positional);
   } else if (command === "agreements" || command === "agreement-list") {
     result = await listAgreements(args);
+  } else if (command === "batches" || command === "batch-list") {
+    result = await listBatches(args);
+  } else if (command === "batch" || command === "agreement-batch") {
+    result = await batchCommand(args, positional);
   } else if (command === "agreement" || command === "agreements-api") {
     result = await agreementCommand(args, positional);
   } else if (command === "read") {
@@ -2674,18 +3763,22 @@ async function main() {
     result = await sendPrivacy(args);
   } else if (command === "send-contract" || command === "send-agreement") {
     result = await sendContract(args);
+  } else if (command === "send-pdf" || command === "send-document" || command === "send-uploaded-pdf") {
+    result = await sendPdf(args, positional);
   } else if (command === "bear-mnda" || command === "send-bear-mnda") {
-    result = await sendBearMnda(args);
+    result = await sendDemoNda(args);
   } else if (command === "marketplace-onboard" || command === "onboard-contributor" || command === "specific-privacy" || command === "send-specific-privacy" || command === "bear-privacy" || command === "send-bear-privacy") {
-    result = await sendBearPrivacy({ ...args, command_name: command });
+    result = await sendDemoPrivacy({ ...args, command_name: command });
   } else if (command === "specific-contractor" || command === "marketplace-contractor" || command === "bear-contractor" || command === "send-bear-contractor") {
-    result = await sendBearContractor(args);
+    result = await sendDemoContractor(args);
   } else if (command === "preview") {
     result = await preview(args);
   } else if (command === "bulk-mnda" || command === "bulk-nda") {
     result = await bulkMnda(args);
   } else if (command === "bulk-marketplace-onboard" || command === "bulk-onboard-contributors") {
     result = await bulkMarketplaceOnboard(args);
+  } else if (command === "bulk-specific-contractor" || command === "bulk-contractor" || command === "bulk-bear-contractor" || command === "bulk-marketplace-contractor") {
+    result = await bulkDemoContractor(args);
   } else if (command === "doctor") {
     result = await doctor(args);
   } else if (command === "view") {
@@ -2696,10 +3789,12 @@ async function main() {
     throw new CliError(`Unknown command: ${command}`, "Run agentcontract help to see available commands.");
   }
 
+  await recordCliTelemetry(0, result);
   printResult(result, jsonOutput(args));
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
+  await recordCliTelemetry(1, undefined, error);
   if (error instanceof CliError) {
     console.error(`Error: ${error.message}`);
     if (error.usageHint) console.error(`Hint: ${error.usageHint}`);

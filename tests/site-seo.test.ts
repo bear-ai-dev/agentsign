@@ -15,15 +15,27 @@ test("root renders crawlable SEO metadata for the marketing page", async () => {
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/html/);
-  assert.match(html, /<title>AgentContract \| Contract signing API and CLI for AI agents<\/title>/);
-  assert.match(html, /<meta name="description" content="AgentContract is a contract signing API and CLI that lets AI agents send approved NDAs, privacy acknowledgements, and contractor agreements for human e-signature\." \/>/);
+  assert.match(html, /<title>AgentContract \| Contract sending rails for AI agents<\/title>/);
+  assert.match(html, /<meta name="description" content="AgentContract lets AI agents send approved templates and uploaded PDFs for human e-signature, then returns signed PDFs, hashes, webhooks, and audit trails\." \/>/);
   assert.match(html, /<meta name="robots" content="index,follow,max-image-preview:large" \/>/);
   assert.match(html, /<link rel="canonical" href="https:\/\/agentcontract\.to\/" \/>/);
   assert.match(html, /<link rel="alternate" type="text\/plain" href="https:\/\/agentcontract\.to\/llms\.txt" title="llms\.txt" \/>/);
   assert.match(html, /<meta property="og:type" content="website" \/>/);
   assert.match(html, /<meta property="og:url" content="https:\/\/agentcontract\.to\/" \/>/);
-  assert.match(html, /<meta property="og:title" content="AgentContract \| Contract signing API and CLI for AI agents" \/>/);
+  assert.match(html, /<meta property="og:title" content="AgentContract \| Contract sending rails for AI agents" \/>/);
   assert.match(html, /<meta name="twitter:card" content="summary" \/>/);
+});
+
+test("root frames AgentContract as controlled send infrastructure instead of AI legal drafting", async () => {
+  const response = await site.request("https://agentcontract.to/");
+  const html = await response.text();
+
+  assert.match(html, /Contract sending rails for AI agents\./);
+  assert.match(html, /Approved templates in\. Signed records out\./);
+  assert.match(html, /Send existing PDFs without rebuilding the document\./);
+  assert.match(html, /Built for controlled sends, not legal improvisation\./);
+  assert.match(html, /AgentContract does not let agents sign, give legal advice, or rewrite approved terms\./);
+  assert.match(html, /No document training by default\./);
 });
 
 test("root exposes brand and service structured data without unsupported FAQ markup", async () => {
@@ -40,7 +52,7 @@ test("root exposes brand and service structured data without unsupported FAQ mar
 
   const service = graph.find((item) => item["@type"] === "Service");
   assert.equal(service?.name, "AgentContract");
-  assert.equal(service?.serviceType, "Contract signing API and CLI for AI agents");
+  assert.equal(service?.serviceType, "Contract sending rails for AI agents");
 });
 
 test("robots.txt points crawlers to the sitemap and keeps private workflows out", async () => {
@@ -77,11 +89,12 @@ test("llms.txt summarizes the public agent-facing documentation", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/plain/);
   assert.match(body, /^# AgentContract$/m);
-  assert.match(body, /^> Contract signing API and CLI for AI agents\./m);
+  assert.match(body, /^> Contract sending rails for AI agents\./m);
   assert.match(body, /- \[Homepage\]\(https:\/\/agentcontract\.to\/\):/);
   assert.match(body, /- \[CLI docs\]\(https:\/\/agentcontract\.to\/cli\):/);
   assert.match(body, /- \[CLI installer\]\(https:\/\/agentcontract\.to\/cli\/install\.sh\):/);
-  assert.match(body, /Agents send approved packets only; humans sign contracts in the browser\./);
+  assert.match(body, /Agents fill known variables and send approved packets only; humans sign contracts in the browser\./);
+  assert.match(body, /Do not use AgentContract to let agents draft legal terms, explain legal risk, or sign contracts\./);
   assert.doesNotMatch(body, /dashboard/);
   assert.doesNotMatch(body, /sign\//);
 });

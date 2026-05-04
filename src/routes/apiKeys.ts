@@ -204,7 +204,7 @@ async function renderApiKeysPage(c: Context, newKey?: string) {
         <h2 class="font-semibold">Create Key</h2>
         <p class="mt-1 text-sm leading-6 text-slate-600">Name it for the agent or machine that will use it.</p>
         <label class="mt-4 block text-sm font-semibold">Name
-          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" name="name" value="Sid CLI" required />
+          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" name="name" value="AgentContract CLI" required />
         </label>
         <button class="mt-4 w-full rounded bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Create API Key</button>
       </form>
