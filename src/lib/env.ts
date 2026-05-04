@@ -8,12 +8,22 @@ function positiveInteger(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
+function emailSet(value: string | undefined) {
+  return new Set(
+    String(value ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   baseUrl: process.env.BASE_URL ?? "http://localhost:3000",
   apiKey: explicitApiKey ?? (isProduction ? "" : "ak_local_dev_key_change_me"),
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendEmailsPerSecond: positiveInteger(process.env.RESEND_EMAILS_PER_SECOND, 5),
+  unlimitedAgreementSendOwners: emailSet(process.env.AGENTCONTRACT_UNLIMITED_SEND_OWNERS),
   emailFrom: process.env.EMAIL_FROM ?? "contracts@yourdomain.com",
   emailFromName: process.env.EMAIL_FROM_NAME ?? "AgentContract",
   vercelApiToken: process.env.VERCEL_API_TOKEN ?? "",

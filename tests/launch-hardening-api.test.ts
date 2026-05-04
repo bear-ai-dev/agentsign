@@ -10,6 +10,7 @@ process.env.PDF_OUTPUT_DIR = join(tempDir, "pdfs");
 process.env.AGENTCONTRACT_API_KEY = "ak_bootstrap_test";
 process.env.RESEND_API_KEY = "";
 process.env.BASE_URL = "http://agentcontract.test";
+process.env.AGENTCONTRACT_UNLIMITED_SEND_OWNERS = "unlimited@example.com";
 
 test.after(() => {
   rmSync(tempDir, { recursive: true, force: true });
@@ -211,6 +212,20 @@ test("agreement sends are rate-limited per owner and bulk sends are capped", asy
   });
   assert.equal(bulk.status, 400);
   assert.match(JSON.stringify(await bulk.json()), /25/);
+});
+
+test("configured unlimited owners can send past the standard agreement cap", async () => {
+  const { agreements } = await apiModules();
+  const key = await userKey("unlimited@example.com");
+
+  for (let index = 0; index < 12; index += 1) {
+    const response = await agreements.request("http://agentcontract.test/v1/agreements", {
+      method: "POST",
+      headers: authHeaders(key),
+      body: JSON.stringify(agreementBody(`unlimited-${index}@example.com`))
+    });
+    assert.equal(response.status, 201, `unlimited send ${index + 1}`);
+  }
 });
 
 test("email login code starts are rate-limited by email", async () => {

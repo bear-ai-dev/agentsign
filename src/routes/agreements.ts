@@ -118,6 +118,7 @@ function rateLimitJson(result: Awaited<ReturnType<typeof checkRateLimits>>) {
 async function enforceAgreementRateLimit(c: Context, ownerEmail: string | null, cost = 1) {
   if (isBootstrapKey(c)) return null;
   if (!ownerEmail) return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  if (env.unlimitedAgreementSendOwners.has(ownerEmail)) return null;
   const verified = await ownerHasVerifiedSenderProfile(ownerEmail);
   const result = await checkRateLimits([
     { scope: "agreement_send_owner_hour", subject: ownerEmail, limit: verified ? 50 : 10, windowMs: 60 * 60 * 1000, cost },
