@@ -1012,6 +1012,18 @@ function homePage(origin: string) {
   const safeOrigin = escapeHtml(origin);
   const safeCanonical = escapeHtml(publicUrl());
   const installCommand = `curl -fsSL ${origin}/cli/install.sh | bash`;
+  const agentPrompt = `Use AgentContract to send contracts.
+
+First, run agentcontract skill.
+Read the available templates before sending.
+Use dry-run before any email goes out.
+Never edit the legal terms.
+
+When you send an agreement, tell me:
+- the agreement id
+- the recipient
+- the status
+- the signing URL`;
   const structuredDataJson = jsonLd(structuredData(primaryOrigin));
 
   return `<!doctype html>
@@ -1080,20 +1092,6 @@ function homePage(origin: string) {
     .shell {
       width: min(100% - 2rem, 1180px);
       margin: 0 auto;
-    }
-
-    .notice {
-      border-bottom: 1px solid var(--line);
-      background: var(--paper);
-      color: var(--ink);
-      font-size: .86rem;
-      text-align: center;
-      padding: .58rem 1rem;
-    }
-
-    .notice a {
-      border-bottom: 1px solid currentColor;
-      font-weight: 700;
     }
 
     .topbar {
@@ -1271,24 +1269,12 @@ function homePage(origin: string) {
       border-bottom: 1px solid var(--line-dark);
     }
 
-    .tabs {
-      display: flex;
-      min-width: 0;
-    }
-
-    .tab {
-      border-right: 1px solid var(--line);
+    .prompt-label {
       padding: .78rem .9rem;
-      color: var(--muted);
+      color: var(--ink);
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-size: .76rem;
       font-weight: 700;
-    }
-
-    .tab.active {
-      color: var(--ink);
-      background: var(--blue-soft);
-      box-shadow: inset 0 -2px 0 var(--blue);
     }
 
     .copy-button {
@@ -1313,10 +1299,6 @@ function homePage(origin: string) {
       line-height: 1.72;
       white-space: pre-wrap;
     }
-
-    .kw { color: var(--blue); font-weight: 700; }
-    .str { color: var(--green); }
-    .dim { color: var(--quiet); }
 
     .live-window {
       display: grid;
@@ -1736,13 +1718,10 @@ function homePage(origin: string) {
 
     @media (max-width: 620px) {
       .shell { width: min(100% - 1rem, 1180px); }
-      .notice { font-size: .76rem; }
       .topbar { min-height: 3.8rem; }
       .hero { padding: 2.2rem 0; }
       .hero h1 { font-size: 2.65rem; }
       .actions .button { width: 100%; }
-      .tabs { overflow-x: auto; }
-      .tab { padding: .68rem .72rem; }
       .code-window pre,
       .dark-code pre,
       .cta code {
@@ -1767,8 +1746,6 @@ function homePage(origin: string) {
   </style>
 </head>
 <body>
-  <div class="notice">AgentContract is for <strong>sending</strong> approved contracts from agent workflows. People still sign in the browser. <a href="/cli">Install the CLI</a></div>
-
   <header class="shell topbar">
     <a class="brand" href="/" aria-label="AgentContract home">
       <span class="mark" aria-hidden="true">
@@ -1805,22 +1782,10 @@ function homePage(origin: string) {
       <div class="hero-product" aria-label="AgentContract product preview">
         <div class="code-window">
           <div class="code-tabs">
-            <div class="tabs" aria-label="Code examples">
-              <div class="tab active">CLI</div>
-              <div class="tab">cURL</div>
-              <div class="tab">TypeScript</div>
-              <div class="tab">Webhook</div>
-            </div>
-            <button class="copy-button" type="button" data-copy="${escapeHtml(installCommand)}">Copy</button>
+            <div class="prompt-label">Paste this into your agent</div>
+            <button class="copy-button" type="button" data-copy="${escapeHtml(agentPrompt)}">Copy</button>
           </div>
-          <pre><code><span class="kw">$</span> agentcontract marketplace-onboard \\
-  --to jane@example.com \\
-  --name <span class="str">"Jane Contributor"</span> \\
-  --cc legal@example.com
-
-<span class="dim">sent</span> agr_7ks9p2p8a4qv
-<span class="dim">signing_url</span> ${safeOrigin}/sign/...
-<span class="dim">status</span> waiting_on_recipient</code></pre>
+          <pre><code>${escapeHtml(agentPrompt)}</code></pre>
         </div>
 
         <div class="live-window">
