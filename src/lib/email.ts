@@ -9,6 +9,25 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", "&#039;");
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(response: Response, attempt: number) {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const dateMs = Date.parse(retryAfter);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+  return Math.min(250 * 2 ** attempt, 2_000);
+}
+
+function shouldRetryEmail(response: Response) {
+  return response.status === 429 || response.status >= 500;
+}
+
 async function deliverEmail(input: {
   to: string[];
   cc?: string[];
@@ -28,32 +47,43 @@ async function deliverEmail(input: {
     return;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8_000);
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.resendApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: `${env.emailFromName} <${env.emailFrom}>`,
-      to: input.to,
-      cc: input.cc?.length ? input.cc : undefined,
-      reply_to: input.replyTo?.length ? input.replyTo : undefined,
-      subject: input.subject,
-      html: input.html,
-      text: input.text
-    }),
-    signal: controller.signal
+  const body = JSON.stringify({
+    from: `${env.emailFromName} <${env.emailFrom}>`,
+    to: input.to,
+    cc: input.cc?.length ? input.cc : undefined,
+    reply_to: input.replyTo?.length ? input.replyTo : undefined,
+    subject: input.subject,
+    html: input.html,
+    text: input.text
   });
-  clearTimeout(timeout);
+  const maxAttempts = 5;
 
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.resendApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body,
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
+
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) {
+      console.log(`[AgentContract email sent] ${input.logLabel}: ${result.id ?? "accepted"} to ${input.to.join(", ")}${input.cc?.length ? ` cc ${input.cc.join(", ")}` : ""}`);
+      return;
+    }
+
+    if (attempt < maxAttempts - 1 && shouldRetryEmail(response)) {
+      await sleep(retryDelayMs(response, attempt));
+      continue;
+    }
+
     throw new Error(`Resend email failed: ${result.message ?? response.statusText}`);
   }
-  console.log(`[AgentContract email sent] ${input.logLabel}: ${result.id ?? "accepted"} to ${input.to.join(", ")}${input.cc?.length ? ` cc ${input.cc.join(", ")}` : ""}`);
 }
 
 export async function sendSigningEmail(input: {

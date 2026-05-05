@@ -85,3 +85,28 @@ export type ProductFeedback = {
   status: "open" | "triaged" | "closed";
   created_at: string;
 };
+
+export type AgentSession = {
+  id: string;
+  owner_email: string | null;
+  agent: string;
+  source: string;
+  initial_goal: string | null;
+  privacy_mode: string;
+  started_at: string;
+  ended_at: string | null;
+  outcome: string | null;
+  metadata_json: string | null;
+};
+
+export type AgentSessionEvent = {
+  id: string;
+  session_id: string;
+  sequence_number: number;
+  event_type: string;
+  actor_role: string | null;
+  content_text: string | null;
+  content_json: string | null;
+  created_at: string;
+  metadata_json: string | null;
+};

@@ -111,14 +111,15 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   };
 }
 
-function agreementForApi(agreement: Agreement) {
+function agreementForApi(agreement: Agreement, options: { includeSignedFields?: boolean } = {}) {
+  const signedFields = parseJson<SignedFields | null>(agreement.signed_fields_json, null);
   return {
     id: agreement.id,
     status: agreement.status,
     recipient: { name: agreement.recipient_name, email: agreement.recipient_email },
     document_title: agreement.document_title,
     fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
-    signed_fields: parseJson<SignedFields | null>(agreement.signed_fields_json, null),
+    ...(options.includeSignedFields ? { signed_fields: signedFields } : { signed_fields_saved: Boolean(signedFields) }),
     webhook_url: agreement.webhook_url,
     webhook_secret: agreement.webhook_secret,
     metadata: parseJson<Record<string, unknown> | null>(agreement.metadata_json, null),
@@ -187,6 +188,7 @@ agreements.get("/v1/agreements", async (c) => {
   const status = c.req.query("status");
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
   const cursor = c.req.query("cursor");
+  const includeSignedFields = c.req.query("include") === "signed_fields";
   const params: unknown[] = [];
   const where: string[] = [];
   if (status) {
@@ -204,13 +206,16 @@ agreements.get("/v1/agreements", async (c) => {
      ORDER BY created_at DESC LIMIT ?`,
     ...params
   );
-  return c.json({ agreements: rows.map(agreementForApi), next_cursor: rows.at(-1)?.created_at ?? null });
+  return c.json({
+    agreements: rows.map((agreement) => agreementForApi(agreement, { includeSignedFields })),
+    next_cursor: rows.at(-1)?.created_at ?? null
+  });
 });
 
 agreements.get("/v1/agreements/:id", async (c) => {
   const agreement = await getAgreement(c.req.param("id"));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
-  return c.json({ ...agreementForApi(agreement), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
+  return c.json({ ...agreementForApi(agreement, { includeSignedFields: true }), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });
 
 agreements.get("/v1/agreements/:id/document", async (c) => {
@@ -239,7 +244,7 @@ agreements.post("/v1/agreements/:id/cancel", async (c) => {
   await addAuditEvent({ agreementId: agreement.id, eventType: "cancelled" });
   const updated = (await getAgreement(agreement.id))!;
   if (updated.webhook_url) enqueueWebhook(updated.id, updated.webhook_url, cancelledPayload(updated));
-  return c.json(agreementForApi(updated));
+  return c.json(agreementForApi(updated, { includeSignedFields: true }));
 });
 
 agreements.post("/v1/agreements/:id/remind", async (c) => {
