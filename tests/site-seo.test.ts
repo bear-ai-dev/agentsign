@@ -38,6 +38,13 @@ test("root frames AgentContract as controlled send infrastructure instead of AI 
   assert.match(html, /No document training by default\./);
 });
 
+test("root footer includes the contact email", async () => {
+  const response = await site.request("https://agentcontract.to/");
+  const html = await response.text();
+
+  assert.match(html, /<footer class="footer">[\s\S]*href="mailto:janak@withspecific\.com"[\s\S]*janak@withspecific\.com[\s\S]*<\/footer>/);
+});
+
 test("root exposes brand and service structured data without unsupported FAQ markup", async () => {
   const response = await site.request("https://agentcontract.to/");
   const html = await response.text();

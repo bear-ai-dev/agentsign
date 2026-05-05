@@ -1320,6 +1320,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
   <footer class="footer">
     <div class="shell footer-inner">
       <span>AgentContract turns controlled agent sends into signed records.</span>
+      <span>Contact: <a href="mailto:janak@withspecific.com">janak@withspecific.com</a></span>
       <span><a href="/cli">CLI</a> · <a href="/dashboard">Dashboard</a> · <a href="/healthz">Status</a></span>
     </div>
   </footer>
