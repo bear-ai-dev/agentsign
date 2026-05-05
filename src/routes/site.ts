@@ -368,10 +368,10 @@ function publicTemplateCss() {
     .nav a.primary { background: var(--ink); color: white; border-color: var(--ink); }
     .hero {
       display: grid;
-      grid-template-columns: minmax(0, .8fr) minmax(24rem, 1.2fr);
-      gap: clamp(2rem, 5vw, 4rem);
-      align-items: end;
-      padding: clamp(2.8rem, 6vw, 5rem) 0 2.3rem;
+      grid-template-columns: minmax(0, .92fr) minmax(22rem, 1.08fr);
+      gap: clamp(1.75rem, 4vw, 3.5rem);
+      align-items: center;
+      padding: clamp(2.4rem, 5vw, 4.2rem) 0 clamp(1.6rem, 3vw, 2.4rem);
     }
     .eyebrow {
       display: inline-flex;
@@ -386,8 +386,9 @@ function publicTemplateCss() {
     }
     h1 {
       margin: 1rem 0 0;
+      max-width: 12ch;
       color: var(--ink);
-      font-size: clamp(2.4rem, 5vw, 4.35rem);
+      font-size: clamp(2.45rem, 4.2vw, 4.1rem);
       line-height: 1;
       font-weight: 650;
       letter-spacing: 0;
@@ -405,19 +406,22 @@ function publicTemplateCss() {
       padding: 1rem;
       color: #4a3300;
       line-height: 1.55;
+      max-width: 40rem;
     }
     .template-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1rem;
-      margin: 1rem 0 3rem;
+      margin: 0 auto clamp(2.4rem, 5vw, 4rem);
     }
     .template-card {
       display: grid;
+      grid-template-rows: auto auto 1fr auto;
       gap: .85rem;
       border: 1px solid var(--line-dark);
       background: var(--paper);
-      padding: 1.1rem;
+      min-height: 14.5rem;
+      padding: 1.15rem;
       box-shadow: 0 12px 40px rgba(15, 23, 42, .06);
     }
     .template-card h2,
@@ -459,6 +463,7 @@ function publicTemplateCss() {
       font-weight: 750;
       text-transform: uppercase;
       width: fit-content;
+      align-self: end;
     }
     .detail {
       display: grid;
@@ -529,11 +534,15 @@ function publicTemplateCss() {
       .template-grid {
         grid-template-columns: 1fr;
       }
+      h1 { max-width: 13ch; }
+      .notice { max-width: none; }
     }
     @media (max-width: 620px) {
       .shell { width: min(100% - 1rem, 1120px); }
       .topbar { align-items: flex-start; flex-direction: column; padding: .85rem 0; }
-      h1 { font-size: 2.45rem; }
+      h1 { font-size: 2.35rem; }
+      .hero { padding-top: 1.65rem; }
+      .template-card { min-height: auto; }
     }
   `;
 }
