@@ -389,7 +389,7 @@ function publicTemplateCss() {
       max-width: 12ch;
       color: var(--ink);
       font-size: clamp(2.45rem, 4.2vw, 4.1rem);
-      line-height: 1;
+      line-height: 1.06;
       font-weight: 650;
       letter-spacing: 0;
     }
@@ -505,7 +505,7 @@ function publicTemplateCss() {
     .document h1 {
       margin: 0 0 1rem;
       font-size: clamp(1.85rem, 3vw, 2.5rem);
-      line-height: 1.08;
+      line-height: 1.16;
     }
     .document h2 {
       margin-top: 1.45rem;
