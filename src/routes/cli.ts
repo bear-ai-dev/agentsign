@@ -9,7 +9,7 @@ import { requireAdminSession } from "../lib/workos.js";
 export const cli = new Hono();
 
 const primaryOrigin = "https://agentcontract.to";
-const cliTarballName = "agentcontract-0.1.1.tgz";
+const cliTarballName = "agentcontract-0.1.9.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 
@@ -85,13 +85,28 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-if npm install -g "${origin}/${cliTarballName}"; then
-  :
-elif npm install -g @bear-ai-dev/agentcontract; then
+agentcontract_npm_install() {
+  npm install -g "$@"
+}
+
+global_root="$(npm root -g 2>/dev/null || true)"
+global_prefix="$(npm prefix -g 2>/dev/null || true)"
+if [ -z "$global_root" ] || { [ ! -w "$global_root" ] && [ ! -w "$(dirname "$global_root")" ]; }; then
+  user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-\${npm_config_prefix:-$HOME/.npm-global}}"
+  mkdir -p "$user_prefix/bin"
+  export npm_config_prefix="$user_prefix"
+  export PATH="$user_prefix/bin:$PATH"
+  echo "Global npm directory is not writable; installing AgentContract under $user_prefix"
+  echo "If agentcontract is not found later, add this to PATH: $user_prefix/bin"
+elif [ -n "$global_prefix" ]; then
+  export PATH="$global_prefix/bin:$PATH"
+fi
+
+if agentcontract_npm_install "${origin}/${cliTarballName}"; then
   :
 else
   echo "Packaged install failed; falling back to GitHub install..."
-  npm install -g github:bear-ai-dev/agentsign
+  agentcontract_npm_install github:bear-ai-dev/agentsign
 fi
 
 echo

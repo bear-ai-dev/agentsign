@@ -60,7 +60,7 @@ type ProductFeedbackForCli = {
   created_at: string;
 };
 
-const cliVersion = "0.1.1";
+const cliVersion = "0.1.9";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -366,7 +366,9 @@ function usage() {
 Usage:
   agentcontract login
   agentcontract login --email sid@usebear.ai
+  agentcontract update --check
   agentcontract skill
+  agentcontract session start --agent codex --goal "send onboarding agreements"
   agentcontract init --api-url https://agentink-pied.vercel.app [options]
   agentcontract config get
   agentcontract keys
@@ -402,6 +404,7 @@ Usage:
   agentcontract bulk-mnda --from janak@usebear.ai --file recipients.json --company "Bear AI" [options]
   agentcontract doctor [options]
   agentcontract status <agreement_id> [options]
+  agentcontract update
   agentcontract version
 
 The legacy "agentsign" command name is also supported when installed from npm.
@@ -410,6 +413,8 @@ Setup:
   agentcontract login                    Browser login via WorkOS/Google Workspace, saves config automatically
   agentcontract login --email <email>    Email-code login. Use when browser redirect is blocked
   agentcontract skill                    Install/update the AI-agent skill
+  agentcontract update                  Check hosted version and update this CLI
+  agentcontract session start           Start a lightweight AgentContract task session
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract feedback                Report CLI/product breakage to AgentContract
@@ -484,6 +489,12 @@ Options:
   --address <text>                   Legacy privacy override. Specific template hardcodes 39 Tehama
   --dry-run                          Print the request without sending it
   --json                             Print raw JSON only
+  --check                            Check for updates without installing
+  --yes                              Skip update confirmation prompts
+  --latest-version <version>          Test/override latest version for update checks
+  --package-manager <npm|pnpm|yarn|bun>
+                                      Use a package manager instead of hosted installer for updates
+  --registry <url>                   npm registry for package-manager update checks
   --show-secrets                     Show saved API key in config output
   --version                          Print CLI version
 
@@ -765,6 +776,187 @@ function dryRun(args: Args) {
 
 function jsonOutput(args: Args) {
   return Boolean(args.json) || stringArg(args, "output") === "json";
+}
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function parseVersion(version: string) {
+  const [core] = version.replace(/^v/, "").split(/[+-]/);
+  return core.split(".").map((part) => {
+    const number = Number.parseInt(part.replace(/\D.*$/, ""), 10);
+    return Number.isFinite(number) ? number : 0;
+  });
+}
+
+function compareVersions(left: string, right: string) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  const length = Math.max(a.length, b.length, 3);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (a[index] ?? 0) - (b[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function npmPackageUrl(registry: string) {
+  const base = registry.replace(/\/+$/, "");
+  return `${base}/${packageName.replace("/", "%2F")}/latest`;
+}
+
+function usePackageManagerUpdate(args: Args) {
+  return Boolean(stringArg(args, "package-manager", "pm") || stringArg(args, "registry"));
+}
+
+function packageManagerForUpdate(args: Args) {
+  const explicit = cleanString(stringArg(args, "package-manager", "pm"));
+  if (explicit) return explicit;
+  const userAgent = process.env.npm_config_user_agent?.toLowerCase() ?? "";
+  if (userAgent.startsWith("pnpm/")) return "pnpm";
+  if (userAgent.startsWith("yarn/")) return "yarn";
+  if (userAgent.startsWith("bun/")) return "bun";
+  return "npm";
+}
+
+function updateCommand(args: Args, targetVersion = "latest") {
+  const packageSpec = `${packageName}@${targetVersion}`;
+  const manager = packageManagerForUpdate(args);
+  if (manager === "npm") return { manager, command: "npm", args: ["install", "-g", packageSpec] };
+  if (manager === "pnpm") return { manager, command: "pnpm", args: ["add", "-g", packageSpec] };
+  if (manager === "yarn") return { manager, command: "yarn", args: ["global", "add", packageSpec] };
+  if (manager === "bun") return { manager, command: "bun", args: ["add", "-g", packageSpec] };
+  throw new CliError(`Unsupported package manager: ${manager}`, "Use --package-manager npm, pnpm, yarn, or bun.");
+}
+
+function hostedUpdateCommand(args: Args) {
+  const { apiUrl } = apiConfig(args, false);
+  const scriptUrl = `${apiUrl}/cli/install.sh`;
+  return {
+    manager: "hosted-installer",
+    command: "bash",
+    args: ["-lc", `curl -fsSL ${shellQuote(scriptUrl)} | bash`],
+    installCommand: `curl -fsSL ${shellQuote(scriptUrl)} | bash`,
+    installer_url: scriptUrl
+  };
+}
+
+function installCommandForUpdate(args: Args) {
+  if (!usePackageManagerUpdate(args)) return hostedUpdateCommand(args);
+  const install = updateCommand(args, "latest");
+  return {
+    ...install,
+    installCommand: [install.command, ...install.args].map(shellQuote).join(" "),
+    installer_url: null
+  };
+}
+
+async function latestVersionForUpdate(args: Args) {
+  const override = cleanString(stringArg(args, "latest-version"));
+  if (override) return { latestVersion: override, registryUrl: null as string | null, source: "override" };
+
+  if (!usePackageManagerUpdate(args)) {
+    const { apiUrl } = apiConfig(args, false);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal
+      });
+      const result = await response.json().catch(() => ({})) as { version?: unknown };
+      if (!response.ok) throw new CliError(`Could not check hosted CLI version: ${response.status} ${response.statusText}`);
+      const latestVersion = typeof result.version === "string" ? result.version : "";
+      if (!latestVersion) throw new CliError("Hosted AgentContract response did not include a version");
+      return { latestVersion, registryUrl: null as string | null, source: "hosted" };
+    } catch (error) {
+      if (error instanceof CliError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliError(`Could not check hosted CLI version: ${message}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const registry = cleanString(stringArg(args, "registry")) ?? cleanString(process.env.NPM_CONFIG_REGISTRY) ?? "https://registry.npmjs.org";
+  const registryUrl = npmPackageUrl(registry);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(registryUrl, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    const result = await response.json().catch(() => ({})) as { version?: unknown };
+    if (!response.ok) throw new CliError(`Could not check npm for updates: ${response.status} ${response.statusText}`);
+    const latestVersion = typeof result.version === "string" ? result.version : "";
+    if (!latestVersion) throw new CliError("npm registry response did not include a version");
+    return { latestVersion, registryUrl, source: "npm" };
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`Could not check npm for updates: ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function updateCheck(args: Args) {
+  const { latestVersion, registryUrl, source } = await latestVersionForUpdate(args);
+  const updateAvailable = compareVersions(latestVersion, cliVersion) > 0;
+  const install = installCommandForUpdate(args);
+  return {
+    update_check: true,
+    package: packageName,
+    current_version: cliVersion,
+    latest_version: latestVersion,
+    update_available: updateAvailable,
+    update_source: source,
+    registry_url: registryUrl,
+    installer_url: install.installer_url,
+    install_command: install.installCommand
+  };
+}
+
+async function confirmUpdateInstall(args: Args, commandText: string) {
+  if (args.yes || args.force) return true;
+  if (!process.stdin.isTTY || jsonOutput(args)) {
+    throw new CliError("Use --yes to run the updater non-interactively.", `Run agentcontract update --yes or run ${commandText}`);
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(`Run ${commandText}? [y/N] `)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
+}
+
+async function updateCli(args: Args) {
+  const check = await updateCheck(args);
+  if (args.check) return check;
+  if (!check.update_available && !args.force) {
+    return { ...check, updated: false, already_latest: true };
+  }
+
+  const install = installCommandForUpdate(args);
+  const installCommand = install.installCommand;
+  if (dryRun(args)) return { ...check, dry_run: true, updated: false, command: installCommand };
+
+  const confirmed = await confirmUpdateInstall(args, installCommand);
+  if (!confirmed) return { ...check, updated: false, cancelled: true };
+
+  const result = spawnSync(install.command, install.args, {
+    stdio: jsonOutput(args) ? "pipe" : "inherit",
+    encoding: "utf8"
+  });
+  if (result.error) throw new CliError(`Update failed: ${result.error.message}`, installCommand);
+  if (result.status !== 0) {
+    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
+    throw new CliError(`Update failed with exit code ${result.status}${stderr ? `: ${stderr}` : ""}`, installCommand);
+  }
+  return { ...check, updated: true, command: installCommand };
 }
 
 function senderEmail(args: Args) {
@@ -1287,6 +1479,36 @@ function printResult(result: unknown, json: boolean) {
       const command = item.command ? ` command="${item.command}"` : "";
       console.log(`${item.id} [${item.status}/${item.severity}/${item.category}] ${item.created_at}${command}`);
       console.log(`  ${item.message}`);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "update_check" in result) {
+    const update = result as {
+      package?: string;
+      current_version?: string;
+      latest_version?: string;
+      update_available?: boolean;
+      updated?: boolean;
+      cancelled?: boolean;
+      dry_run?: boolean;
+      already_latest?: boolean;
+      command?: string;
+      install_command?: string;
+    };
+    console.log(`${update.package ?? packageName} ${update.current_version ?? cliVersion}`);
+    console.log(`Latest: ${update.latest_version ?? "unknown"}`);
+    if (update.updated) {
+      console.log("Updated.");
+    } else if (update.cancelled) {
+      console.log("Update cancelled.");
+    } else if (update.dry_run && update.command) {
+      console.log(`Dry run: ${update.command}`);
+    } else if (update.already_latest || !update.update_available) {
+      console.log("Already up to date.");
+    } else {
+      console.log("Update available.");
+      if (update.install_command) console.log(`Run: ${update.install_command}`);
     }
     return;
   }
@@ -2005,6 +2227,72 @@ async function productFeedbackCommand(args: Args, positional: string[]) {
   return submitProductFeedback(args, positional);
 }
 
+function sessionMetadata(args: Args) {
+  const metadata: Record<string, unknown> = {
+    cli_version: cliVersion,
+    package: packageName
+  };
+  if (args["no-auto-update"]) metadata.no_auto_update = true;
+  const contextFile = stringArg(args, "chat-context-file", "context-file");
+  if (contextFile) metadata.chat_context = parseJsonFile(contextFile, "--chat-context-file");
+  const chatSummary = cleanString(stringArg(args, "chat-summary"));
+  if (chatSummary) metadata.chat_summary = chatSummary;
+  const reasonSent = cleanString(stringArg(args, "reason-sent"));
+  if (reasonSent) metadata.reason_sent = reasonSent;
+  const approvalMessage = cleanString(stringArg(args, "approval-message"));
+  if (approvalMessage) metadata.approval_message = approvalMessage;
+  return metadata;
+}
+
+async function startSession(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const goal = (stringArg(args, "goal", "initial-goal") ?? positional.join(" ").trim()) || undefined;
+  const payload = {
+    agent: stringArg(args, "agent") ?? "unknown",
+    goal,
+    source: "agentcontract-cli",
+    privacy_mode: stringArg(args, "privacy-mode") ?? "full",
+    metadata: sessionMetadata(args)
+  };
+  if (dryRun(args)) return dryRunResult("session start", apiUrl, "/v1/sessions", payload);
+  return postJson(apiUrl, apiKey, "/v1/sessions", payload);
+}
+
+async function listSessions(args: Args) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const query = new URLSearchParams();
+  const limit = stringArg(args, "limit");
+  if (limit) query.set("limit", limit);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJson(apiUrl, apiKey, `/v1/sessions${suffix}`);
+}
+
+async function showSession(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0] ?? stringArg(args, "id", "session-id");
+  if (!id) throw new CliError("session_id is required", "Example: agentcontract session show sess_123");
+  return getJson(apiUrl, apiKey, `/v1/sessions/${id}`);
+}
+
+async function endSession(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args);
+  const id = positional[0] ?? stringArg(args, "id", "session-id");
+  if (!id) throw new CliError("session_id is required", "Example: agentcontract session end sess_123");
+  return postJson(apiUrl, apiKey, `/v1/sessions/${id}/end`, {
+    outcome: stringArg(args, "outcome")
+  });
+}
+
+async function sessionCommand(args: Args, positional: string[]) {
+  const action = positional[0] ?? "start";
+  const rest = positional.slice(1);
+  if (action === "start" || action === "new") return startSession(args, rest);
+  if (action === "list" || action === "ls") return listSessions(args);
+  if (action === "show" || action === "status") return showSession(args, rest);
+  if (action === "end" || action === "close" || action === "finish") return endSession(args, rest);
+  return startSession(args, positional);
+}
+
 async function listApiKeys(args: Args) {
   const { apiUrl, apiKey } = apiConfig(args);
   return getJson(apiUrl, apiKey, "/v1/api-keys");
@@ -2630,7 +2918,8 @@ async function main() {
   }
 
   if (command === "version" || command === "--version" || command === "-v") {
-    printResult(versionResult(), argv.includes("--json") || argv.includes("-j"));
+    const { args } = parseArgs(rest);
+    printResult(args.check ? await updateCheck(args) : versionResult(), jsonOutput(args));
     return;
   }
 
@@ -2644,8 +2933,12 @@ async function main() {
   let result: unknown;
   if (command === "login") {
     result = await login(args);
+  } else if (command === "update" || command === "upgrade" || command === "self-update") {
+    result = await updateCli(args);
   } else if (command === "skill") {
     result = await installSkill(args);
+  } else if (command === "session" || command === "sessions") {
+    result = await sessionCommand(args, positional);
   } else if (command === "feedback" || command === "bug" || command === "report") {
     result = await productFeedbackCommand(args, positional);
   } else if (command === "init") {
