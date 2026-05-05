@@ -202,6 +202,21 @@ agentcontract template read privacy --out ./privacy.md
 agentcontract template send nda --to jane@example.com --name "Jane Doe"
 ```
 
+Public standard templates are available without dashboard access:
+
+- `/templates/mutual-nda` - two-way confidentiality template for collaborations where both parties disclose sensitive information.
+- `/templates/one-way-nda` - unilateral confidentiality template for sales demos, contractor interviews, invention reviews, and diligence.
+- `/templates/privacy-policy` - website/app privacy policy acknowledgement covering collection, use, sharing, retention, rights, security, and contact details.
+
+They can also be read or sent through the CLI:
+
+```bash
+agentcontract template read mutual-nda --out ./mutual-nda.md
+agentcontract template read one-way-nda --out ./one-way-nda.md
+agentcontract template read privacy-policy --out ./privacy-policy.md
+agentcontract template send privacy-policy --to jane@example.com --name "Jane Doe"
+```
+
 ## CLI contract library
 
 The CLI has a local contract workspace for reusable contracts. It stores editable markdown and metadata under `~/.agentcontract/contracts` by default. Override that with `AGENTCONTRACT_CONTRACTS_DIR` or `--contract-dir`.

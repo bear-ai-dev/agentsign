@@ -8,6 +8,7 @@ import { requireAdminSession } from "../lib/workos.js";
 
 export const cli = new Hono();
 
+const primaryOrigin = "https://agentcontract.to";
 const cliTarballName = "agentcontract-0.1.1.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
@@ -129,7 +130,7 @@ cli.get(`/cli/${cliTarballName}`, cliTarball);
 
 cli.get("/cli", (c) => {
   const origin = new URL(c.req.url).origin;
-  const canonical = canonicalUrl(origin, "/cli");
+  const canonical = canonicalUrl(primaryOrigin, "/cli");
   return c.html(`<!doctype html>
 <html lang="en">
 <head>

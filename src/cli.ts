@@ -443,7 +443,7 @@ Options:
   --code <123456>                    Login code for email-code login. Omit to type it interactively
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
-  --template <name>                  Template for send-contract/preview: nda, privacy, contractor
+  --template <name>                  Template for send-contract/preview: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
   --var <key=value>                  Template variable. Repeatable
   --vars-json <json>                 Template variables as JSON
   --vars-file <path>                 Template variables JSON file
@@ -464,7 +464,7 @@ Options:
   --reporter-name <name>             Reporter name for feedback
   --with-feedback                    Include feedback when reading/showing a contract
   --author <name>                    Human or agent name for contract feedback
-  --from-template <name>             Seed contract add from built-in: nda, privacy, contractor
+  --from-template <name>             Seed contract add from built-in: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
   --contract-dir <path>              Override local contract library directory for this command
   --directory <path>                 Install skill into this skills directory
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
@@ -679,7 +679,9 @@ function contractorFields() {
 }
 
 function defaultFieldsFor(template: string | undefined) {
-  if (template === "privacy") return privacyFields();
+  const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
+  if (definition) return definition.fields;
+  if (template === "privacy" || template === "privacy-policy") return privacyFields();
   if (template === "contractor") return contractorFields();
   return mndaFields();
 }
