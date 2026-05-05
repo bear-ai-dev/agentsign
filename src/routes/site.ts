@@ -1794,12 +1794,12 @@ function homePage(origin: string) {
       <div>
         <div class="yc"><b>A</b> For agent-run onboarding</div>
         <h1>Agents send contracts. <span>People sign.</span></h1>
-        <p>AgentContract lets an AI agent send an approved NDA, privacy acknowledgement, or contractor agreement. The recipient signs in the browser. Your app gets the signed PDF, hash, webhook, and audit trail.</p>
+        <p>Let agents send NDAs, contracts, and PDFs. Humans sign in their browser. You get the signed PDF and a webhook.</p>
         <div class="actions">
           <a class="button primary" href="/cli">Start with CLI</a>
           <a class="button secondary" href="/templates">View templates</a>
         </div>
-        <div class="fine-print">Agents do not sign. Agents do not write legal terms. They only send approved packets.</div>
+        <div class="fine-print">Free during beta. Agents do not sign. Agents only send what you approved.</div>
       </div>
 
       <div class="hero-product" aria-label="AgentContract product preview">
@@ -1833,15 +1833,15 @@ function homePage(origin: string) {
           <div class="proof">
             <div class="proof-row">
               <code>Send</code>
-              <div><strong>Agent sent approved packet</strong><small>Template and required fields locked.</small></div>
+              <div><strong>Agent sent approved document</strong><small>Template and fields are locked.</small></div>
             </div>
             <div class="proof-row">
               <code>Sign</code>
-              <div><strong>Recipient signs in browser</strong><small>ESIGN consent and timestamp captured.</small></div>
+              <div><strong>Recipient signs in browser</strong><small>Consent and time are recorded.</small></div>
             </div>
             <div class="proof-row">
               <code>Store</code>
-              <div><strong>Signed PDF archived</strong><small>PDF bytes and SHA-256 hash saved.</small></div>
+              <div><strong>Signed PDF saved</strong><small>PDF and hash are saved.</small></div>
             </div>
           </div>
         </div>
@@ -1862,19 +1862,19 @@ function homePage(origin: string) {
     <section class="shell section" id="offer">
       <div class="section-head">
         <h2>What AgentContract does.</h2>
-        <p>It gives agents a controlled way to send approved contracts. Humans stay responsible for signing, and your system keeps the record.</p>
+        <p>Agents send templates or PDFs. People sign. Your app gets the result.</p>
       </div>
       <div class="offer">
         <div class="offer-nav">
-          <div class="offer-item active">Approved template API</div>
-          <div class="offer-item">Recipient signing pages</div>
-          <div class="offer-item">Signed PDF storage</div>
-          <div class="offer-item">Webhooks and audit</div>
+          <div class="offer-item active">Use a locked template</div>
+          <div class="offer-item">Send an existing PDF</div>
+          <div class="offer-item">Let people sign</div>
+          <div class="offer-item">Get PDFs and webhooks</div>
         </div>
         <div class="offer-body">
           <div class="offer-copy">
-            <h3>Approved packets in. Signed records out.</h3>
-            <p>Agents fill known variables, send signing links, track status, and report outcomes without drafting or changing legal language.</p>
+            <h3>Approved templates in. Signed PDFs out.</h3>
+            <p>Agents fill in template variables or send a PDF you give them. They cannot change the terms; a human signs.</p>
           </div>
           <div class="contract-card">
             <h4>Acme Marketplace Privacy Acknowledgement</h4>
@@ -1889,21 +1889,21 @@ function homePage(origin: string) {
 
     <section class="shell section" id="scale">
       <div class="section-head">
-        <h2>Built for repeatable contract sends.</h2>
-        <p>Start with one agent sending one agreement. Use the same API and audit trail when the workflow repeats across contributors, contractors, and customers.</p>
+        <h2>What you get back.</h2>
+        <p>After someone signs, your app can fetch:</p>
       </div>
       <div class="numbers">
         <div class="metric">
-          <b>1</b>
-          <span>command to send a real contract from a local agent workflow.</span>
+          <b>PDF</b>
+          <span>Download the final signed document.</span>
         </div>
         <div class="metric">
-          <b>SHA-256</b>
-          <span>hashes stored with signed PDFs for later verification.</span>
+          <b>Hash</b>
+          <span>Verify the PDF did not change.</span>
         </div>
         <div class="metric">
-          <b>API</b>
-          <span>for creating agreements, checking status, fetching PDFs, and receiving webhooks.</span>
+          <b>Webhook</b>
+          <span>Know when it is signed, cancelled, or waiting.</span>
         </div>
       </div>
     </section>
@@ -1912,7 +1912,7 @@ function homePage(origin: string) {
       <section class="shell section">
         <div class="section-head">
           <h2>Give your agent a send command.</h2>
-          <p>The dashboard is for humans. The CLI and API are for agents, scripts, and backend workflows that need to send approved contracts.</p>
+          <p>Humans use the dashboard. Agents use the CLI or API.</p>
         </div>
         <div class="cli-grid">
           <div class="dark-code">
@@ -1928,15 +1928,15 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
           <div class="use-cases">
             <div class="use-case">
               <b>Read before sending</b>
-              <span>Agents can inspect exact contract text and dry-run sends before an email goes out.</span>
+              <span>Agents can preview the document first.</span>
             </div>
             <div class="use-case">
               <b>Track without the dashboard</b>
-              <span>List agreements, read audit events, remind signers, cancel stale packets, and download PDFs.</span>
+              <span>Check status, send reminders, cancel sends, and download PDFs.</span>
             </div>
             <div class="use-case">
               <b>Report failures immediately</b>
-              <span>Feedback works before login, so install and auth issues still get captured.</span>
+              <span>Capture install and login issues before they block a send.</span>
             </div>
           </div>
         </div>
@@ -1945,25 +1945,61 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
 
     <section class="shell section">
       <div class="section-head">
-        <h2>Questions people ask first.</h2>
-        <p>The most important distinction is simple: AgentContract lets agents send contracts. It does not make agents legal signers.</p>
+        <h2>FAQ.</h2>
+        <p>AgentContract lets agents send contracts. It does not make agents legal signers.</p>
       </div>
       <div class="faq-grid">
         <div class="faq">
           <h3>Do agents sign contracts?</h3>
-          <p>No. Agents prepare approved packets and send signing links. Recipients and required human parties sign in the browser.</p>
+          <p>No. Agents send approved documents. People sign in the browser.</p>
         </div>
         <div class="faq">
           <h3>Can I use custom templates?</h3>
-          <p>Yes. The API supports approved markdown templates, variables, required fields, metadata, and webhook URLs.</p>
+          <p>Yes. You can use templates, variables, required fields, metadata, and webhooks.</p>
         </div>
         <div class="faq">
           <h3>What gets stored?</h3>
-          <p>Status, structured signer fields, audit events, signed PDF bytes, PDF hashes, and completion timestamps.</p>
+          <p>Status, signer fields, events, signed PDFs, hashes, and completion time.</p>
         </div>
         <div class="faq">
           <h3>Is this only a dashboard?</h3>
-          <p>No. AgentContract is CLI/API-first, with a dashboard for inspection, sender workflows, and API key management.</p>
+          <p>No. Agents can use the CLI or API. Humans can inspect sends and manage keys.</p>
+        </div>
+        <div class="faq">
+          <h3>Why not just use DocuSign or Dropbox Sign?</h3>
+          <p>You probably can. AgentContract is shaped for agent workflows. Each key has rate limits. There is a dry-run mode. There is a kill switch that revokes a key and cancels its in-flight sends. If your sending is human-driven, DocuSign is fine.</p>
+        </div>
+        <div class="faq">
+          <h3>What happens if my agent goes haywire and sends 500 NDAs?</h3>
+          <p>Every key has daily and per-minute send caps. Revoke a key from the CLI or dashboard. That also cancels every in-flight agreement that key created.</p>
+        </div>
+        <div class="faq">
+          <h3>Can the agent change the terms of the contract?</h3>
+          <p>No. Agents fill in template variables or send a PDF as-is. They cannot edit the language.</p>
+        </div>
+        <div class="faq">
+          <h3>How does the recipient know this is real and not a phishing email?</h3>
+          <p>They open a browser signing page on agentcontract.to. It shows the document, sender, and fields. It feels like any other e-signature flow.</p>
+        </div>
+        <div class="faq">
+          <h3>Is this legally binding?</h3>
+          <p>A signed PDF from AgentContract is like one from any e-signature tool. Enforcement depends on the contract and your jurisdiction.</p>
+        </div>
+        <div class="faq">
+          <h3>What happens if the recipient never signs?</h3>
+          <p>It stays in waiting status until you cancel it or send a reminder. You can do both from the CLI.</p>
+        </div>
+        <div class="faq">
+          <h3>Do you train on documents sent through this?</h3>
+          <p>No.</p>
+        </div>
+        <div class="faq">
+          <h3>Is there a free tier?</h3>
+          <p>Free during beta.</p>
+        </div>
+        <div class="faq">
+          <h3>Can I self-host?</h3>
+          <p>Not yet.</p>
         </div>
       </div>
     </section>
@@ -1971,7 +2007,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
     <section class="shell final">
       <div>
         <h2>Let an agent send the next contract.</h2>
-        <p>Install the CLI, log in with an email code, and give your local agent a simple contract-sending workflow.</p>
+        <p>Install the CLI. Log in with an email code. Let your agent send the document.</p>
       </div>
       <div class="cta">
         <code>${escapeHtml(installCommand)}</code>
@@ -1979,6 +2015,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
           <a class="button primary" href="/cli">Set up CLI</a>
           <a class="button secondary" href="/templates">Open templates</a>
         </div>
+        <div class="fine-print">Free during beta.</div>
       </div>
     </section>
   </main>
