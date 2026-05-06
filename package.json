@@ -43,6 +43,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "migrate:status": "tsx scripts/migrate.ts --status",
     "migrate:dry-run": "tsx scripts/migrate.ts --dry-run",
+    "feedback:autopilot": "tsx scripts/feedback-autopilot.ts",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
