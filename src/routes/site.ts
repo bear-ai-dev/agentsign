@@ -1012,18 +1012,25 @@ function homePage(origin: string) {
   const safeOrigin = escapeHtml(origin);
   const safeCanonical = escapeHtml(publicUrl());
   const installCommand = `curl -fsSL ${origin}/cli/install.sh | bash`;
-  const agentPrompt = `Use AgentContract to send contracts.
+  const agentPrompt = `Set up AgentContract for this machine.
 
-First, run agentcontract skill.
-Read the available templates before sending.
-Use dry-run before any email goes out.
-Never edit the legal terms.
+Run:
+curl -fsSL ${primaryOrigin}/cli/install.sh | bash
+agentcontract login --email <my-email> --api-url ${primaryOrigin}
+agentcontract skill
 
-When you send an agreement, tell me:
-- the agreement id
-- the recipient
-- the status
-- the signing URL`;
+If you do not know my email, ask first.
+
+For any contract send:
+- ask for recipient email, recipient name, and template
+- run agentcontract templates --json
+- read the chosen template before sending
+- run the send with --dry-run --json
+- show me the dry-run JSON and wait for approval
+- only send after I approve
+- return the agreement id, signing URL, and status
+
+Never draft or edit legal terms.`;
   const structuredDataJson = jsonLd(structuredData(primaryOrigin));
 
   return `<!doctype html>
