@@ -60,7 +60,7 @@ type ProductFeedbackForCli = {
   created_at: string;
 };
 
-const cliVersion = "0.1.12";
+const cliVersion = "0.1.13";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -70,7 +70,7 @@ const defaultApiUrl = cleanString(process.env.AGENTCONTRACT_API_URL)
   ?? cleanString(process.env.AGENTSIGN_API_URL)
   ?? cleanString(process.env.AGENTINK_API_URL)
   ?? configString("api_url")
-  ?? "https://agentink-pied.vercel.app";
+  ?? "https://agentcontract.to";
 const defaultApiKey = cleanString(process.env.AGENTCONTRACT_API_KEY)
   ?? cleanString(process.env.AGENTSIGN_API_KEY)
   ?? cleanString(process.env.AGENTINK_API_KEY)
@@ -369,7 +369,8 @@ Usage:
   agentcontract update --check
   agentcontract skill
   agentcontract session start --agent codex --goal "send onboarding agreements"
-  agentcontract init --api-url https://agentink-pied.vercel.app [options]
+  agentcontract session event --session-id sess_123 --type user_message --role user --text "Approved send"
+  agentcontract init --api-url https://agentcontract.to [options]
   agentcontract config get
   agentcontract keys
   agentcontract key create --key-name "Sid laptop"
@@ -415,6 +416,7 @@ Setup:
   agentcontract skill                    Install/update the AI-agent skill
   agentcontract update                  Check hosted version and update this CLI
   agentcontract session start           Start a lightweight AgentContract task session
+  agentcontract session event           Record a message or decision on a task session
   agentcontract init                    Save API URL/key and sender defaults to ${configPath}
   agentcontract config get              Show saved config with secrets masked
   agentcontract feedback                Report CLI/product breakage to AgentContract
@@ -467,6 +469,12 @@ Options:
   --severity <level>                 Feedback severity: note, low, normal, high, blocker
   --reporter-email <email>           Reporter email for unauthenticated feedback
   --reporter-name <name>             Reporter name for feedback
+  --session-id <id>                  Session id for agentcontract session event/show/end
+  --type, --event-type <name>        Session event type. Defaults to note
+  --role, --actor-role <name>        Session event actor role, such as user or assistant
+  --text <text>                      Session event text
+  --content-json <json>              Structured JSON payload for a session event
+  --metadata-json <json>             Metadata JSON object for a session event
   --with-feedback                    Include feedback when reading/showing a contract
   --author <name>                    Human or agent name for contract feedback
   --from-template <name>             Seed contract add from built-in: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
@@ -640,7 +648,7 @@ function apiConfig(args: Args, requireKey = true) {
     ["api-url"],
     ["AGENTCONTRACT_API_URL", "AGENTSIGN_API_URL", "AGENTINK_API_URL"],
     "api_url",
-    "https://agentink-pied.vercel.app"
+    "https://agentcontract.to"
   );
   const stdinApiKey = apiKeyFromStdin(args);
   const apiKeyOption = stdinApiKey
@@ -956,7 +964,45 @@ async function updateCli(args: Args) {
     const stderr = typeof result.stderr === "string" ? result.stderr.trim() : "";
     throw new CliError(`Update failed with exit code ${result.status}${stderr ? `: ${stderr}` : ""}`, installCommand);
   }
-  return { ...check, updated: true, command: installCommand };
+  const activeVersion = verifyActiveCliVersion(check.latest_version, installCommand);
+  return { ...check, updated: true, command: installCommand, active_version: activeVersion };
+}
+
+function parseCliVersionOutput(output: string) {
+  const trimmed = output.trim();
+  if (!trimmed) return null;
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(trimmed.slice(jsonStart)) as { version?: unknown };
+      if (typeof parsed.version === "string" && parsed.version.trim()) return parsed.version.trim();
+    } catch {
+      // Fall through to the text parser for older CLIs.
+    }
+  }
+  return trimmed.match(/\b\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\b/)?.[0] ?? null;
+}
+
+function verifyActiveCliVersion(expectedVersion: string, installCommand: string) {
+  const result = spawnSync("agentcontract", ["--version", "--json"], {
+    stdio: "pipe",
+    encoding: "utf8"
+  });
+  if (result.error) {
+    throw new CliError(`Update installed, but the active AgentContract CLI could not be checked: ${result.error.message}`, installCommand);
+  }
+  const output = `${typeof result.stdout === "string" ? result.stdout : ""}\n${typeof result.stderr === "string" ? result.stderr : ""}`;
+  const activeVersion = parseCliVersionOutput(output);
+  if (result.status !== 0 || !activeVersion) {
+    throw new CliError("Update installed, but the active AgentContract CLI could not be checked.", installCommand);
+  }
+  if (compareVersions(activeVersion, expectedVersion) < 0) {
+    throw new CliError(
+      `Update installed, but the active AgentContract CLI is still ${activeVersion}; expected ${expectedVersion}. Your PATH is probably resolving an older agentcontract binary.`,
+      `Run ${installCommand}, then run agentcontract --version. If it is still old, remove the older agentcontract binary from PATH.`
+    );
+  }
+  return activeVersion;
 }
 
 function senderEmail(args: Args) {
@@ -2283,10 +2329,30 @@ async function endSession(args: Args, positional: string[]) {
   });
 }
 
+async function addSessionEvent(args: Args, positional: string[]) {
+  const { apiUrl, apiKey } = apiConfig(args, !dryRun(args));
+  const id = cleanString(stringArg(args, "session-id", "id") ?? positional[0]);
+  if (!id) throw new CliError("session_id is required", "Example: agentcontract session event --session-id sess_123 --type user_message --text \"Sent agreements\"");
+  const positionalText = positional.length > 1 ? positional.slice(1).join(" ") : undefined;
+  const contentText = cleanString(stringArg(args, "text", "content", "message") ?? positionalText);
+  const contentJson = stringArg(args, "content-json", "json-content");
+  const metadataJson = stringArg(args, "metadata-json");
+  const payload = {
+    event_type: cleanString(stringArg(args, "type", "event-type")) ?? "note",
+    actor_role: cleanString(stringArg(args, "role", "actor-role")),
+    ...(contentText ? { content_text: contentText } : {}),
+    ...(contentJson ? { content_json: parseJsonArg(contentJson, "--content-json") } : {}),
+    ...(metadataJson ? { metadata: parseJsonObjectArg(metadataJson, "--metadata-json") } : {})
+  };
+  if (dryRun(args)) return dryRunResult("session event", apiUrl, `/v1/sessions/${id}/events`, payload);
+  return postJson(apiUrl, apiKey, `/v1/sessions/${id}/events`, payload);
+}
+
 async function sessionCommand(args: Args, positional: string[]) {
   const action = positional[0] ?? "start";
   const rest = positional.slice(1);
   if (action === "start" || action === "new") return startSession(args, rest);
+  if (action === "event" || action === "add-event" || action === "record") return addSessionEvent(args, rest);
   if (action === "list" || action === "ls") return listSessions(args);
   if (action === "show" || action === "status") return showSession(args, rest);
   if (action === "end" || action === "close" || action === "finish") return endSession(args, rest);
@@ -2839,7 +2905,7 @@ async function initConfig(args: Args) {
       ?? cleanString(process.env.AGENTSIGN_API_URL)
       ?? cleanString(process.env.AGENTINK_API_URL)
       ?? cliConfig.api_url
-      ?? "https://agentink-pied.vercel.app"
+      ?? "https://agentcontract.to"
   );
   const apiKey = apiKeyFromStdin(args)
     ?? cleanString(stringArg(args, "api-key"))

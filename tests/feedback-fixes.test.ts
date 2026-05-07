@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after, before } from "node:test";
@@ -125,6 +125,45 @@ test("CLI session start dry run works before login", async () => {
   assert.equal(result.payload?.goal, "check agreements");
 });
 
+test("CLI session event dry run posts to the session events API", async () => {
+  const { stdout } = await execFileAsync("npm", [
+    "run",
+    "cli",
+    "--",
+    "session",
+    "event",
+    "--session-id",
+    "sess_feedback123",
+    "--type",
+    "user_message",
+    "--role",
+    "user",
+    "--text",
+    "Send the three agreements",
+    "--dry-run",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      AGENTCONTRACT_CONFIG: join(tmpdir(), `agentcontract-empty-${Date.now()}.json`),
+      AGENTCONTRACT_API_KEY: "",
+      AGENTSIGN_API_KEY: "",
+      AGENTINK_API_KEY: ""
+    }
+  });
+  const result = JSON.parse(stdout.slice(stdout.indexOf("{"))) as {
+    dry_run?: boolean;
+    url?: string;
+    payload?: { event_type?: string; actor_role?: string; content_text?: string };
+  };
+  assert.equal(result.dry_run, true);
+  assert.equal(result.url?.endsWith("/v1/sessions/sess_feedback123/events"), true);
+  assert.equal(result.payload?.event_type, "user_message");
+  assert.equal(result.payload?.actor_role, "user");
+  assert.equal(result.payload?.content_text, "Send the three agreements");
+});
+
 test("CLI specific privacy dry run posts to the agreements API", async () => {
   const { stdout } = await execFileAsync("npm", [
     "run",
@@ -154,6 +193,7 @@ test("CLI specific privacy dry run posts to the agreements API", async () => {
     payload?: { template?: string; metadata?: { workflow?: string } };
   };
   assert.equal(result.dry_run, true);
+  assert.equal(result.url?.startsWith("https://agentcontract.to/"), true);
   assert.equal(result.command, "specific-privacy");
   assert.equal(result.url?.endsWith("/v1/agreements"), true);
   assert.equal(result.payload?.template, "privacy");
@@ -164,14 +204,16 @@ test("install script uses the hosted tarball and writable npm prefix fallback", 
   const response = await appModule.app.request("https://agentcontract.test/cli/install.sh");
   assert.equal(response.status, 200);
   const script = await response.text();
-  const tarball = await readFile(join(process.cwd(), "public", "agentcontract-0.1.12.tgz"));
+  const tarball = await readFile(join(process.cwd(), "public", "agentcontract-0.1.13.tgz"));
   const tarballSha256 = createHash("sha256").update(tarball).digest("hex");
-  assert.match(script, /agentcontract-0\.1\.12\.tgz/);
-  assert.match(script, /package_url="https:\/\/agentcontract\.test\/cli\/agentcontract-0\.1\.12\.tgz"/);
+  assert.match(script, /agentcontract-0\.1\.13\.tgz/);
+  assert.match(script, /package_url="https:\/\/agentcontract\.test\/cli\/agentcontract-0\.1\.13\.tgz"/);
   assert.doesNotMatch(script, /package_url="https:\/\/agentcontract\.test\/agentcontract-/);
   assert.match(script, new RegExp(`package_sha256="${tarballSha256}"`));
   assert.match(script, /shasum -a 256 -c -/);
   assert.match(script, /AGENTCONTRACT_NPM_PREFIX/);
+  assert.match(script, /agentcontract_existing_prefix/);
+  assert.match(script, /\[ -n "\$existing_prefix" \]/);
   assert.match(script, /Global npm directory is not writable/);
 });
 
@@ -219,7 +261,7 @@ test("CLI update check reports hosted updates without using npm", async () => {
     "update",
     "--check",
     "--latest-version",
-    "0.1.13",
+    "0.1.14",
     "--json"
   ], {
     cwd: process.cwd(),
@@ -234,6 +276,44 @@ test("CLI update check reports hosted updates without using npm", async () => {
     update_available?: boolean;
   };
   assert.equal(result.update_check, true);
-  assert.equal(result.latest_version, "0.1.13");
+  assert.equal(result.latest_version, "0.1.14");
   assert.equal(result.update_available, true);
+});
+
+test("CLI update refuses to report success when the active command stays old", async () => {
+  const fakeBin = await mkdtemp(join(tmpdir(), "agentcontract-fake-bin-"));
+  await writeFile(join(fakeBin, "bash"), "#!/bin/sh\nexit 0\n");
+  await writeFile(
+    join(fakeBin, "agentcontract"),
+    "#!/bin/sh\nprintf '%s\\n' '{\"cli\":\"agentcontract\",\"package\":\"@bear-ai-dev/agentcontract\",\"version\":\"0.1.12\"}'\n"
+  );
+  await Promise.all([
+    chmod(join(fakeBin, "bash"), 0o755),
+    chmod(join(fakeBin, "agentcontract"), 0o755)
+  ]);
+
+  try {
+    await assert.rejects(
+      execFileAsync("npm", [
+        "run",
+        "cli",
+        "--",
+        "update",
+        "--yes",
+        "--latest-version",
+        "0.1.14",
+        "--json"
+      ], {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
+          AGENTCONTRACT_CONFIG: join(tmpdir(), `agentcontract-update-shell-${Date.now()}.json`)
+        }
+      }),
+      /active AgentContract CLI is still 0\.1\.12/
+    );
+  } finally {
+    await rm(fakeBin, { recursive: true, force: true });
+  }
 });

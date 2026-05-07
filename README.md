@@ -43,8 +43,8 @@ The npm package is prepared as `@bear-ai-dev/agentcontract` because the unscoped
 YC-style setup:
 
 ```bash
-curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+curl -fsSL https://agentcontract.to/cli/install.sh | bash
+agentcontract login --email you@example.com --api-url https://agentcontract.to
 agentcontract skill
 ```
 
@@ -53,7 +53,7 @@ Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract
 `agentcontract login --email` sends a six-digit AgentContract code, creates a user-owned API key after verification, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login is still available with `agentcontract login`, but the email-code flow is the reliable default for remote agents and first-time users:
 
 ```bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+agentcontract login --email you@example.com --api-url https://agentcontract.to
 ```
 
 `agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
@@ -61,7 +61,7 @@ agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.verce
 The browser onboarding page is:
 
 ```bash
-open https://agentink-pied.vercel.app/cli
+open https://agentcontract.to/cli
 ```
 
 After npm publishing, the install script uses:
@@ -101,8 +101,8 @@ Treat Sid as a remote, picky first user with no local context. Every shipped CLI
 Sid can test without Janak or Codex around:
 
 ```bash
-curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+curl -fsSL https://agentcontract.to/cli/install.sh | bash
+agentcontract login --email you@example.com --api-url https://agentcontract.to
 agentcontract doctor --json
 agentcontract feedback --message "Install/login worked" --category install --severity note --json
 agentcontract templates
@@ -113,7 +113,7 @@ agentcontract marketplace-onboard --to sid@usebear.ai --name "Sid Test" --dry-ru
 The login command emails a six-digit AgentContract code. Paste it into the terminal when prompted. Browser WorkOS login is also supported once the WorkOS redirect URI is registered:
 
 ```bash
-agentcontract login --api-url https://agentink-pied.vercel.app
+agentcontract login --api-url https://agentcontract.to
 ```
 
 After login, he can send a real test to himself:
@@ -189,6 +189,14 @@ agentcontract agreement audit agr_...
 agentcontract agreement remind agr_...
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./signed.pdf
+```
+
+Longer agent runs can attach a lightweight transcript to the work:
+
+```bash
+agentcontract session start --agent codex --goal "send onboarding agreements" --json
+agentcontract session event --session-id sess_... --type user_message --role user --text "Human approved the send." --json
+agentcontract session end sess_... --outcome "Sent the requested agreements." --json
 ```
 
 When an agreement is signed, AgentContract stores the structured field values and the final signed PDF in the database. The API also stores `signed_pdf_sha256` and `signed_pdf_bytes`, so the CLI can prove the downloadable PDF matches the saved document even on Vercel where local files are temporary.
@@ -306,14 +314,14 @@ Required production env vars:
 WORKOS_API_KEY=sk_...
 WORKOS_CLIENT_ID=client_...
 WORKOS_COOKIE_PASSWORD=<32+ character random secret>
-WORKOS_REDIRECT_URI=https://agentink-pied.vercel.app/auth/callback
+WORKOS_REDIRECT_URI=https://agentcontract.to/auth/callback
 ```
 
 In the WorkOS dashboard, configure:
 
-- Redirect URI: `https://agentink-pied.vercel.app/auth/callback`
-- Sign-in endpoint: `https://agentink-pied.vercel.app/login`
-- Sign-out redirect: `https://agentink-pied.vercel.app/`
+- Redirect URI: `https://agentcontract.to/auth/callback`
+- Sign-in endpoint: `https://agentcontract.to/login`
+- Sign-out redirect: `https://agentcontract.to/`
 - Google Workspace / Google OAuth connection for the allowed company domain
 
 Current production fallback: `/login` presents an email-code sign-in first and a WorkOS/Google button second. This is intentional so Sid can use the CLI and dashboard even if WorkOS SSO/social login still needs a dashboard-side provider toggle.
@@ -356,7 +364,7 @@ npm run cli -- specific-privacy --to jane@example.com --name "Jane Doe"
 Agents and scripts should use the CLI or `/v1/agreements` with Bearer auth. The lower-level CLI is available for custom templates without hand-writing JSON.
 
 ```bash
-export AGENTCONTRACT_API_URL=https://agentink-pied.vercel.app
+export AGENTCONTRACT_API_URL=https://agentcontract.to
 export AGENTCONTRACT_API_KEY=<your production API key>
 export AGENTCONTRACT_SENDER_EMAIL=janak@usebear.ai
 export AGENTCONTRACT_SENDER_NAME="Bear AI"

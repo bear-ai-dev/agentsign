@@ -12,14 +12,14 @@ Use this skill when a human asks an agent to send a contract, onboard a marketpl
 YC-style setup for a new machine:
 
 ```bash
-curl -fsSL https://agentink-pied.vercel.app/cli/install.sh | bash
-agentcontract login --email sid@usebear.ai --api-url https://agentink-pied.vercel.app
+curl -fsSL https://agentcontract.to/cli/install.sh | bash
+agentcontract login --email you@example.com --api-url https://agentcontract.to
 agentcontract skill
 ```
 
 Requires Node.js 20+ and npm. The install script uses the hosted prebuilt package, so a remote tester does not need the repo or local build setup.
 
-`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentink-pied.vercel.app` once the WorkOS provider is enabled. `agentcontract skill` installs or updates this skill for the selected AI agent.
+`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentcontract.to` once the WorkOS provider is enabled. `agentcontract skill` installs or updates this skill for the selected AI agent.
 
 Until the npm package is published, install directly:
 
@@ -37,7 +37,7 @@ Manual config is still available for CI or secret-manager flows. Never print or 
 
 ```bash
 agentcontract init \
-  --api-url https://agentink-pied.vercel.app \
+  --api-url https://agentcontract.to \
   --sender-email sid@usebear.ai \
   --sender-name "Sid from Specific" \
   --notify sid@usebear.ai
@@ -47,7 +47,7 @@ When pulling from a secret manager, pipe the key instead of putting it in argv:
 
 ```bash
 printf '%s' "$AGENTCONTRACT_API_KEY" | agentcontract init \
-  --api-url https://agentink-pied.vercel.app \
+  --api-url https://agentcontract.to \
   --api-key-stdin \
   --sender-email sid@usebear.ai
 ```
@@ -91,6 +91,14 @@ agentcontract agreement remind agr_...
 agentcontract agreement cancel agr_...
 agentcontract agreement pdf agr_... --out ./agreement.pdf
 agentcontract feedback --message "Login code never arrived" --command "agentcontract login --email sid@usebear.ai" --category login --severity high --json
+```
+
+Record agent context when you are doing a multi-step send:
+
+```bash
+agentcontract session start --agent codex --goal "send onboarding agreements" --json
+agentcontract session event --session-id sess_... --type user_message --role user --text "Human approved the recipient list." --json
+agentcontract session end sess_... --outcome "Sent all requested agreements." --json
 ```
 
 The sender dashboard is optional. Prefer CLI/API commands for all agent and sender workflows.
