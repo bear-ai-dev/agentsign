@@ -10,7 +10,7 @@ import { requireAdminSession } from "../lib/workos.js";
 export const cli = new Hono();
 
 const primaryOrigin = "https://agentcontract.to";
-const cliTarballName = "agentcontract-0.1.12.tgz";
+const cliTarballName = "agentcontract-0.1.13.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 
@@ -105,8 +105,23 @@ agentcontract_npm_install() {
   npm install -g "$@"
 }
 
+agentcontract_existing_prefix() {
+  existing_agentcontract="$(command -v agentcontract 2>/dev/null || true)"
+  if [ -z "$existing_agentcontract" ]; then
+    return 1
+  fi
+  existing_bin_dir="$(dirname "$existing_agentcontract")"
+  existing_prefix="$(dirname "$existing_bin_dir")"
+  if [ -d "$existing_prefix" ]; then
+    printf '%s\\n' "$existing_prefix"
+    return 0
+  fi
+  return 1
+}
+
 agentcontract_use_user_prefix() {
-  user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-\${npm_config_prefix:-$HOME/.npm-global}}"
+  existing_prefix="$(agentcontract_existing_prefix || true)"
+  user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-\${existing_prefix:-\${npm_config_prefix:-$HOME/.npm-global}}}"
   mkdir -p "$user_prefix/bin"
   npm_config_prefix="$user_prefix"
   export npm_config_prefix
@@ -126,7 +141,11 @@ agentcontract_verify_sha256() {
 
 global_root="$(npm root -g 2>/dev/null || true)"
 global_prefix="$(npm prefix -g 2>/dev/null || true)"
-if [ -z "$global_root" ] || { [ ! -w "$global_root" ] && [ ! -w "$(dirname "$global_root")" ]; }; then
+existing_prefix="$(agentcontract_existing_prefix || true)"
+if [ -n "\${AGENTCONTRACT_NPM_PREFIX:-}" ] || [ -n "$existing_prefix" ]; then
+  agentcontract_use_user_prefix
+  echo "Installing AgentContract under $user_prefix"
+elif [ -z "$global_root" ] || { [ ! -w "$global_root" ] && [ ! -w "$(dirname "$global_root")" ]; }; then
   agentcontract_use_user_prefix
   echo "Global npm directory is not writable; installing AgentContract under $user_prefix"
   echo "If agentcontract is not found later, add this to PATH: $user_prefix/bin"
