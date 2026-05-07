@@ -6,7 +6,7 @@ export const site = new Hono();
 
 const primaryOrigin = "https://agentcontract.to";
 const cliPackageName = "@bear-ai-dev/agentcontract";
-const currentCliVersion = "0.1.9";
+const currentCliVersion = "0.1.12";
 const pageTitle = "AgentContract | Contract signing API and CLI for AI agents";
 const pageDescription = "AgentContract is a contract signing API and CLI that lets AI agents send approved NDAs, privacy acknowledgements, and contractor agreements for human e-signature.";
 const publicTemplateIds = ["mutual-nda", "one-way-nda", "privacy-policy"] as const;

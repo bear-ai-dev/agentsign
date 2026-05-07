@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after, before } from "node:test";
@@ -163,7 +164,13 @@ test("install script uses the hosted tarball and writable npm prefix fallback", 
   const response = await appModule.app.request("https://agentcontract.test/cli/install.sh");
   assert.equal(response.status, 200);
   const script = await response.text();
-  assert.match(script, /agentcontract-0\.1\.9\.tgz/);
+  const tarball = await readFile(join(process.cwd(), "public", "agentcontract-0.1.12.tgz"));
+  const tarballSha256 = createHash("sha256").update(tarball).digest("hex");
+  assert.match(script, /agentcontract-0\.1\.12\.tgz/);
+  assert.match(script, /package_url="https:\/\/agentcontract\.test\/cli\/agentcontract-0\.1\.12\.tgz"/);
+  assert.doesNotMatch(script, /package_url="https:\/\/agentcontract\.test\/agentcontract-/);
+  assert.match(script, new RegExp(`package_sha256="${tarballSha256}"`));
+  assert.match(script, /shasum -a 256 -c -/);
   assert.match(script, /AGENTCONTRACT_NPM_PREFIX/);
   assert.match(script, /Global npm directory is not writable/);
 });
@@ -212,7 +219,7 @@ test("CLI update check reports hosted updates without using npm", async () => {
     "update",
     "--check",
     "--latest-version",
-    "0.1.10",
+    "0.1.13",
     "--json"
   ], {
     cwd: process.cwd(),
@@ -227,6 +234,6 @@ test("CLI update check reports hosted updates without using npm", async () => {
     update_available?: boolean;
   };
   assert.equal(result.update_check, true);
-  assert.equal(result.latest_version, "0.1.10");
+  assert.equal(result.latest_version, "0.1.13");
   assert.equal(result.update_available, true);
 });

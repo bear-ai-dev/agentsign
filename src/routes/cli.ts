@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
@@ -9,7 +10,7 @@ import { requireAdminSession } from "../lib/workos.js";
 export const cli = new Hono();
 
 const primaryOrigin = "https://agentcontract.to";
-const cliTarballName = "agentcontract-0.1.9.tgz";
+const cliTarballName = "agentcontract-0.1.12.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 
@@ -63,7 +64,22 @@ function clientIp(c: Context) {
   return (c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "").split(",")[0].trim() || null;
 }
 
-function installScript(origin: string) {
+function cliTarballInfo() {
+  const candidates = [
+    join(process.cwd(), "public", cliTarballName),
+    join(process.cwd(), cliTarballName)
+  ];
+  const path = candidates.find((candidate) => existsSync(candidate));
+  if (!path) return null;
+  const bytes = readFileSync(path);
+  return {
+    bytes,
+    sha256: createHash("sha256").update(bytes).digest("hex")
+  };
+}
+
+function installScript(origin: string, packageSha256: string) {
+  const packageUrl = `${origin}/cli/${cliTarballName}`;
   return `#!/usr/bin/env bash
 set -euo pipefail
 
@@ -89,49 +105,87 @@ agentcontract_npm_install() {
   npm install -g "$@"
 }
 
+agentcontract_use_user_prefix() {
+  user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-\${npm_config_prefix:-$HOME/.npm-global}}"
+  mkdir -p "$user_prefix/bin"
+  npm_config_prefix="$user_prefix"
+  export npm_config_prefix
+  export PATH="$user_prefix/bin:$PATH"
+}
+
+agentcontract_verify_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    printf '%s  %s\\n' "$package_sha256" "$package_file" | shasum -a 256 -c - >/dev/null
+  elif command -v sha256sum >/dev/null 2>&1; then
+    printf '%s  %s\\n' "$package_sha256" "$package_file" | sha256sum -c - >/dev/null
+  else
+    echo "shasum or sha256sum is required to verify the AgentContract package." >&2
+    exit 1
+  fi
+}
+
 global_root="$(npm root -g 2>/dev/null || true)"
 global_prefix="$(npm prefix -g 2>/dev/null || true)"
 if [ -z "$global_root" ] || { [ ! -w "$global_root" ] && [ ! -w "$(dirname "$global_root")" ]; }; then
-  user_prefix="\${AGENTCONTRACT_NPM_PREFIX:-\${npm_config_prefix:-$HOME/.npm-global}}"
-  mkdir -p "$user_prefix/bin"
-  export npm_config_prefix="$user_prefix"
-  export PATH="$user_prefix/bin:$PATH"
+  agentcontract_use_user_prefix
   echo "Global npm directory is not writable; installing AgentContract under $user_prefix"
   echo "If agentcontract is not found later, add this to PATH: $user_prefix/bin"
 elif [ -n "$global_prefix" ]; then
   export PATH="$global_prefix/bin:$PATH"
 fi
 
-if agentcontract_npm_install "${origin}/${cliTarballName}"; then
+package_url="${packageUrl}"
+package_sha256="${packageSha256}"
+package_dir="$(mktemp -d "\${TMPDIR:-/tmp}/agentcontract.XXXXXX")"
+package_file="$package_dir/${cliTarballName}"
+
+cleanup_agentcontract_installer() {
+  rm -rf "$package_dir"
+}
+trap cleanup_agentcontract_installer EXIT INT TERM
+
+echo "Downloading AgentContract package..."
+curl -fsSL "$package_url" -o "$package_file"
+agentcontract_verify_sha256
+
+if agentcontract_npm_install "$package_file"; then
   :
 else
-  echo "Packaged install failed; falling back to GitHub install..."
-  agentcontract_npm_install github:bear-ai-dev/agentsign
+  agentcontract_use_user_prefix
+  echo "Packaged install failed; retrying under $user_prefix..."
+  if agentcontract_npm_install "$package_file"; then
+    :
+  else
+    echo "Packaged install failed after retry." >&2
+    exit 1
+  fi
 fi
 
 echo
 echo "AgentContract CLI installed."
 echo "Next:"
-echo "  agentcontract login --email sid@usebear.ai --api-url ${origin}"
+if ! command -v agentcontract >/dev/null 2>&1; then
+  echo "  Add AgentContract to your PATH for future shells:"
+  printf '    export PATH="%s/bin:$PATH"\\n' "\${npm_config_prefix:-\${AGENTCONTRACT_NPM_PREFIX:-$HOME/.npm-global}}"
+fi
+echo "  agentcontract login --email you@example.com --api-url ${origin}"
 echo "  agentcontract skill"
 `;
 }
 
 cli.get("/cli/install.sh", (c) => {
-  return c.text(installScript(new URL(c.req.url).origin), 200, {
+  const packageInfo = cliTarballInfo();
+  if (!packageInfo) return c.text("AgentContract CLI package not found", 404);
+  return c.text(installScript(new URL(c.req.url).origin, packageInfo.sha256), 200, {
     "Content-Type": "text/x-shellscript; charset=utf-8",
     "Cache-Control": "no-store"
   });
 });
 
 function cliTarball(c: Context) {
-  const candidates = [
-    join(process.cwd(), "public", cliTarballName),
-    join(process.cwd(), cliTarballName)
-  ];
-  const path = candidates.find((candidate) => existsSync(candidate));
-  if (!path) return c.text("AgentContract CLI package not found", 404);
-  return new Response(readFileSync(path), {
+  const packageInfo = cliTarballInfo();
+  if (!packageInfo) return c.text("AgentContract CLI package not found", 404);
+  return new Response(packageInfo.bytes, {
     headers: {
       "Content-Type": "application/octet-stream",
       "Cache-Control": "no-store",

@@ -60,7 +60,7 @@ type ProductFeedbackForCli = {
   created_at: string;
 };
 
-const cliVersion = "0.1.9";
+const cliVersion = "0.1.12";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -836,7 +836,7 @@ function hostedUpdateCommand(args: Args) {
   return {
     manager: "hosted-installer",
     command: "bash",
-    args: ["-lc", `curl -fsSL ${shellQuote(scriptUrl)} | bash`],
+    args: ["-c", `curl -fsSL ${shellQuote(scriptUrl)} | bash`],
     installCommand: `curl -fsSL ${shellQuote(scriptUrl)} | bash`,
     installer_url: scriptUrl
   };
