@@ -218,6 +218,7 @@ function robotsTxt(_origin: string) {
 function sitemapXml(_origin: string) {
   const urls = [
     { loc: publicUrl(), priority: "1.0", changefreq: "weekly" },
+    { loc: publicUrl("/docs"), priority: "0.9", changefreq: "weekly" },
     { loc: publicUrl("/cli"), priority: "0.8", changefreq: "monthly" },
     ...publicSeoPages.map((page) => ({ loc: publicUrl(page.path), priority: "0.75", changefreq: "monthly" })),
     { loc: publicUrl("/templates"), priority: "0.7", changefreq: "monthly" },
@@ -245,6 +246,7 @@ AgentContract lets AI agent workflows send approved NDAs, privacy acknowledgemen
 ## Primary Links
 
 - [Homepage](${publicUrl()}): Product overview for agent-sent, human-signed contracts.
+- [Docs](${publicUrl("/docs")}): Complete AgentContract docs for CLI, API, templates, webhooks, deployment, and troubleshooting.
 - [AI agent contracts](${publicUrl("/ai-agent-contracts")}): Search-focused overview of controlled contracts for AI agents.
 - [Contract sending API](${publicUrl("/contract-sending-api")}): API page for sending approved contracts from agent workflows.
 - [Agent contract CLI](${publicUrl("/agent-contract-cli")}): CLI overview for local AI coding agents and scripts.
@@ -325,6 +327,10 @@ function publicTemplateCss() {
     }
     a { color: inherit; text-decoration: none; }
     code, pre { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .shell { width: min(100% - 2rem, 1120px); margin: 0 auto; }
     .topbar {
       display: flex;
@@ -916,7 +922,7 @@ function seoTopbar() {
       <a href="/contract-sending-api">API</a>
       <a href="/agent-contract-cli">CLI</a>
       <a href="/esignature-for-ai-agents">E-sign</a>
-      <a class="primary" href="/cli">Docs</a>
+      <a class="primary" href="/docs">Docs</a>
     </nav>
   </header>`;
 }
@@ -979,6 +985,631 @@ function renderSeoPage(page: PublicSeoPage) {
   <footer class="footer">
     <div class="shell">
       Related: <a href="/ai-agent-contracts">AI agent contracts</a> · <a href="/contract-sending-api">Contract sending API</a> · <a href="/agent-contract-cli">Agent contract CLI</a> · <a href="/esignature-for-ai-agents">E-signature for AI agents</a>
+    </div>
+  </footer>
+</body>
+</html>`;
+}
+
+function docsPageCss() {
+  return `
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --paper: #ffffff;
+      --ink: #080b12;
+      --text: #1b2433;
+      --muted: #647084;
+      --line: #d9dfeb;
+      --line-dark: #aeb7c8;
+      --blue: #194fe5;
+      --blue-soft: #eef3ff;
+      --green: #0d7659;
+      --green-soft: #e9f7f1;
+      --dark: #0c111d;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    html, body {
+      max-width: 100%;
+      overflow-x: clip;
+    }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(8, 11, 18, .042) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(8, 11, 18, .042) 1px, transparent 1px),
+        var(--bg);
+      background-size: 4.6rem 4.6rem;
+      color: var(--text);
+      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .shell {
+      width: min(100% - 2rem, 1180px);
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 4.5rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(247, 248, 251, .86);
+      backdrop-filter: blur(14px);
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: .7rem;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 2.05rem;
+      height: 2.05rem;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .nav a {
+      border: 1px solid transparent;
+      padding: .58rem .68rem;
+      white-space: nowrap;
+    }
+    .nav a:hover {
+      border-color: var(--line-dark);
+      background: rgba(255, 255, 255, .72);
+      color: var(--ink);
+    }
+    .nav .primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: white;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(24rem, 1.08fr);
+      gap: clamp(2rem, 5vw, 4.8rem);
+      align-items: start;
+      padding: clamp(3rem, 7vw, 5.1rem) 0 clamp(2rem, 5vw, 3.7rem);
+    }
+    .eyebrow {
+      display: inline-flex;
+      border: 1px solid var(--line-dark);
+      background: var(--paper);
+      color: var(--muted);
+      padding: .42rem .55rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 1rem 0 0;
+      color: var(--ink);
+      font-size: clamp(2.75rem, 4.8vw, 4.7rem);
+      line-height: 1;
+      font-weight: 620;
+      letter-spacing: 0;
+    }
+    .lede {
+      margin: 1.1rem 0 0;
+      max-width: 40rem;
+      color: var(--muted);
+      font-size: 1.08rem;
+      line-height: 1.64;
+    }
+    .hero-panel {
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      box-shadow: 0 30px 90px rgba(15, 23, 42, .12);
+    }
+    .hero-panel header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid var(--line-dark);
+      padding: .82rem .95rem;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .hero-panel pre {
+      margin: 0;
+      padding: 1rem;
+      color: #1f2937;
+      font-size: .84rem;
+      line-height: 1.68;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+    .hero-panel .code { color: #f8fafc; }
+    .jump-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      padding-bottom: clamp(2.1rem, 4vw, 3rem);
+    }
+    .jump-strip a {
+      border: 1px solid var(--line-dark);
+      background: var(--paper);
+      color: var(--ink);
+      padding: .62rem .76rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .section {
+      border-top: 1px solid var(--line);
+      padding: clamp(2.6rem, 6vw, 4.6rem) 0;
+      background: rgba(255, 255, 255, .38);
+    }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(12rem, .65fr) minmax(0, 1fr);
+      gap: clamp(1.4rem, 4vw, 3rem);
+      align-items: start;
+      margin-bottom: 1.35rem;
+    }
+    h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(1.8rem, 3.2vw, 2.75rem);
+      line-height: 1.06;
+      font-weight: 620;
+      letter-spacing: 0;
+    }
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.62;
+    }
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+    }
+    .doc-block {
+      background: var(--paper);
+      min-width: 0;
+      padding: 1.05rem;
+    }
+    .doc-block h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1.04rem;
+      line-height: 1.25;
+    }
+    .doc-block p,
+    .doc-block li {
+      color: var(--muted);
+      font-size: .92rem;
+      line-height: 1.55;
+    }
+    .doc-block p { margin: .58rem 0 0; }
+    .doc-block ul { margin: .7rem 0 0; padding-left: 1.1rem; }
+    .code {
+      margin: .8rem 0 0;
+      overflow-x: auto;
+      background: var(--dark);
+      color: #f8fafc;
+      padding: .88rem;
+      font-size: .78rem;
+      line-height: 1.62;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .table {
+      display: grid;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(10rem, .32fr) minmax(0, 1fr);
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row b,
+    .row span {
+      padding: .9rem;
+      line-height: 1.5;
+    }
+    .row b {
+      color: var(--ink);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .78rem;
+      overflow-wrap: anywhere;
+    }
+    .row span {
+      color: var(--muted);
+      border-left: 1px solid var(--line);
+      font-size: .92rem;
+    }
+    .callout {
+      border: 1px solid var(--line-dark);
+      background: var(--green-soft);
+      color: #174b3c;
+      padding: 1rem;
+      line-height: 1.58;
+    }
+    .footer {
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+      padding: 1.4rem 0;
+      font-size: .9rem;
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer a { color: var(--ink); font-weight: 700; }
+    @media (max-width: 920px) {
+      .hero,
+      .section-head,
+      .doc-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 1rem, 1180px); }
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: .85rem 0;
+      }
+      .nav { flex-wrap: wrap; }
+      h1 { font-size: 2.5rem; }
+      .hero { padding-top: 2rem; }
+      .row { grid-template-columns: 1fr; }
+      .row span { border-left: 0; border-top: 1px solid var(--line); }
+    }
+  `;
+}
+
+function docsCode(value: string) {
+  return `<pre class="code"><code>${escapeHtml(value)}</code></pre>`;
+}
+
+function docsTopbar() {
+  return `<header class="shell topbar">
+    <a class="brand" href="/" aria-label="AgentContract home">
+      <span class="mark" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M7 3.8h7.5L18 7.3v12.9H7V3.8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M14.2 4.1v3.4h3.4M9.8 11h4.8M9.8 14h4.2M9.8 17h3.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </span>
+      AgentContract
+    </a>
+    <nav class="nav" aria-label="Docs navigation">
+      <a href="#cli">CLI</a>
+      <a href="#api">API</a>
+      <a href="#webhooks">Webhooks</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a class="primary" href="/dashboard">Dashboard</a>
+    </nav>
+  </header>`;
+}
+
+function renderDocsPage(_origin: string) {
+  const title = "AgentContract Docs | CLI, API, templates, webhooks, and troubleshooting";
+  const description = "Complete AgentContract documentation for installing the CLI, authenticating, sending templates, using the API, handling webhooks, running migrations, and troubleshooting agent workflows.";
+  const canonical = publicUrl("/docs");
+  const installCommand = `curl -fsSL ${primaryOrigin}/cli/install.sh | bash
+agentcontract login --email you@example.com --api-url ${primaryOrigin}
+agentcontract doctor --json
+agentcontract skill`;
+  const sessionCommands = `agentcontract session start --tool codex --repo agentink --json
+agentcontract session event --session-id sess_123 --kind progress --message "Read template and prepared dry run" --json
+agentcontract session end --session-id sess_123 --status completed --json`;
+  const sendCommand = `agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor" --dry-run --json
+agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor" --json
+agentcontract agreement status agr_123 --json
+agentcontract agreement download agr_123 --out ./signed.pdf`;
+  const apiCommand = `POST /v1/agreements
+Authorization: Bearer ac_live_...
+Content-Type: application/json
+
+{
+  "template_id": "privacy-policy",
+  "recipient": {
+    "email": "jane@example.com",
+    "name": "Jane Contributor"
+  },
+  "variables": {
+    "company_name": "Acme"
+  },
+  "metadata": {
+    "source": "agent-workflow"
+  }
+}`;
+  const webhookCommand = `{
+  "type": "agreement.completed",
+  "agreement_id": "agr_123",
+  "status": "completed",
+  "signed_pdf_url": "https://agentcontract.to/v1/agreements/agr_123/pdf",
+  "signed_pdf_sha256": "..."
+}`;
+  const migrationCommand = `DATABASE_URL="postgres://..." npm run migrate -- --status
+DATABASE_URL="postgres://..." npm run migrate`;
+  const feedbackCommand = `agentcontract feedback --area sending --priority high --message "specific-privacy returned HTTP 404"
+agentcontract feedback --area install --message "update reports success but active CLI stayed old" --json`;
+  const structuredDataJson = jsonLd({
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    url: canonical,
+    inLanguage: "en-US",
+    articleSection: ["CLI", "API", "Templates", "Webhooks", "Troubleshooting"],
+    publisher: {
+      "@type": "Organization",
+      name: "AgentContract",
+      url: publicUrl()
+    }
+  });
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="${escapeHtml(canonical)}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${escapeHtml(canonical)}" />
+  <meta property="og:site_name" content="AgentContract" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <script type="application/ld+json">${structuredDataJson}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>${docsPageCss()}</style>
+</head>
+<body>
+  ${docsTopbar()}
+  <main>
+    <section class="shell hero">
+      <div>
+        <span class="eyebrow">Documentation</span>
+        <h1>AgentContract Docs</h1>
+        <p class="lede">Install the CLI, authenticate, inspect approved templates, send agreements, wire API calls, receive webhook events, and diagnose the common problems that show up in agent-run contract workflows.</p>
+      </div>
+      <aside class="hero-panel" aria-label="AgentContract install quickstart">
+        <header><span>Quickstart</span><span>CLI ${escapeHtml(currentCliVersion)}</span></header>
+        ${docsCode(installCommand)}
+      </aside>
+    </section>
+
+    <nav class="shell jump-strip" aria-label="Documentation sections">
+      <a href="#quickstart">Quickstart</a>
+      <a href="#cli">CLI</a>
+      <a href="#sessions">Sessions</a>
+      <a href="#api">API</a>
+      <a href="#templates">Templates</a>
+      <a href="#webhooks">Webhooks</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </nav>
+
+    <section class="section" id="quickstart">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Quickstart</h2>
+          <p>AgentContract is for approved, repeatable contract packets. Agents can read templates, run dry runs, send signing links, and report status. People still review and sign in the browser.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Install and log in</h3>
+            <p>Use the hosted installer for Node.js 20+ machines. The CLI keeps local auth config on the machine that is running the agent.</p>
+            ${docsCode(installCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Agent setup prompt</h3>
+            <p>Run <code>agentcontract skill</code> and paste the printed instructions into Codex, Claude Code, or another local agent. The skill tells the agent to preview templates, dry-run sends, and wait for approval before emailing a signer.</p>
+            ${docsCode(`agentcontract skill
+agentcontract templates --json
+agentcontract template read privacy-policy --json`)}
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="cli">
+      <div class="shell">
+        <div class="section-head">
+          <h2>CLI</h2>
+          <p>The CLI is the fastest path for local agents and scripts. It returns JSON for automation, supports dry runs, and exposes agreement lifecycle commands.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Send a packet</h3>
+            <p>Start with a dry run, inspect the JSON, then send only after the human operator approves the recipient, template, and variables.</p>
+            ${docsCode(sendCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Command map</h3>
+            <ul>
+              <li><code>agentcontract login</code> authenticates with an email code.</li>
+              <li><code>agentcontract templates</code> lists approved templates.</li>
+              <li><code>agentcontract template read</code> previews template language before sending.</li>
+              <li><code>agentcontract marketplace-onboard</code> sends the default onboarding packet.</li>
+              <li><code>agentcontract update</code> upgrades and verifies the active binary.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sessions">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Sessions</h2>
+          <p>Sessions let an agent log its contract workflow progress as durable events. Use them when you want feedback and support context tied to a single run.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Lifecycle commands</h3>
+            ${docsCode(sessionCommands)}
+          </article>
+          <article class="doc-block">
+            <h3>What to record</h3>
+            <p>Record template selection, dry-run review, user approval, send result, reminder attempts, and failure details. Keep secrets, raw keys, and private contract text out of session messages.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="api">
+      <div class="shell">
+        <div class="section-head">
+          <h2>API</h2>
+          <p>Use the API when the sending workflow lives in your backend instead of a local CLI process. Send approved templates and store the returned agreement id for status polling or webhook correlation.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>POST /v1/agreements</h3>
+            ${docsCode(apiCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Auth and status</h3>
+            <p>Use dashboard API keys or CLI-managed keys as bearer tokens. Store the agreement id, recipient email, template id, and metadata so later automation can reconcile completion events.</p>
+            ${docsCode(`GET /v1/agreements/agr_123
+GET /v1/agreements/agr_123/pdf
+POST /v1/agreements/agr_123/remind
+POST /v1/agreements/agr_123/cancel`)}
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="templates">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Templates</h2>
+          <p>Templates are approved packets with controlled variables. Public previews are available for the standard mutual NDA, one-way NDA, and privacy policy templates.</p>
+        </div>
+        <div class="table" role="table" aria-label="Template references">
+          <div class="row" role="row"><b role="cell">mutual-nda</b><span role="cell">Two-way confidentiality packet for counterparties that exchange confidential information.</span></div>
+          <div class="row" role="row"><b role="cell">one-way-nda</b><span role="cell">One-way confidentiality packet for vendors, reviewers, and external collaborators.</span></div>
+          <div class="row" role="row"><b role="cell">privacy-policy</b><span role="cell">Website and app privacy policy acknowledgement for controlled onboarding flows.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="webhooks">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Webhooks</h2>
+          <p>Webhooks let your app continue once a signer completes, cancels, or stalls on an agreement. Treat webhook handlers as idempotent and fetch agreement status before applying irreversible actions.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Completion event</h3>
+            ${docsCode(webhookCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Handler checklist</h3>
+            <ul>
+              <li>Verify the webhook signature before trusting the payload.</li>
+              <li>Deduplicate by event id or agreement id plus status.</li>
+              <li>Fetch the agreement record before unlocking the next workflow step.</li>
+              <li>Store the signed PDF SHA-256 hash with your own record.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="deployment">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Deployment</h2>
+          <p>Production uses Supabase/Postgres-backed storage. Keep secrets in the deployment environment, run migrations with the production database URL, and verify CLI metadata after deploy.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Migrations</h3>
+            ${docsCode(migrationCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Release checks</h3>
+            <ul>
+              <li><code>/healthz</code> exposes the current hosted CLI version.</li>
+              <li><code>/cli/install.sh</code> installs the hosted tarball.</li>
+              <li><code>/sitemap.xml</code> and <code>/llms.txt</code> list public docs pages only.</li>
+              <li>Private dashboards, signing URLs, auth routes, and <code>/v1/</code> stay out of crawlable docs.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="troubleshooting">
+      <div class="shell">
+        <div class="section-head">
+          <h2>Troubleshooting</h2>
+          <p>Most user-reported issues land in four places: install/update, login, send routes, or docs drift. Capture feedback from the CLI as soon as the user hits a blocker.</p>
+        </div>
+        <div class="doc-grid">
+          <article class="doc-block">
+            <h3>Report feedback</h3>
+            <p>Use <code>agentcontract feedback</code> when a user sees a failed install, stale version, missing command, 404, or confusing response.</p>
+            ${docsCode(feedbackCommand)}
+          </article>
+          <article class="doc-block">
+            <h3>Common fixes</h3>
+            <ul>
+              <li>If update reports success but the version stays old, check which <code>agentcontract</code> binary is first on <code>PATH</code>.</li>
+              <li>If a hosted update fails checksum validation, reinstall from <code>${primaryOrigin}/cli/install.sh</code>.</li>
+              <li>If a send route returns HTTP 404, run <code>agentcontract templates --json</code> and confirm the template id is approved.</li>
+              <li>If docs mention a missing command, run <code>agentcontract update</code> and then <code>agentcontract --version --json</code>.</li>
+            </ul>
+          </article>
+        </div>
+        <p class="callout">AgentContract does not let agents draft terms or sign contracts. The safe loop is: read approved template, dry run, show the human, get approval, send, then track the signed record.</p>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <span>AgentContract docs for agent-sent, human-signed contracts.</span>
+      <span><a href="/cli">CLI page</a> · <a href="/templates">Templates</a> · <a href="/healthz">Status</a></span>
     </div>
   </footer>
 </body>
@@ -1768,7 +2399,7 @@ Never draft or edit legal terms.`;
       <a href="#scale">Proof</a>
       <a href="#api">API</a>
       <a href="/templates">Templates</a>
-      <a class="docs" href="/cli">Docs</a>
+      <a class="docs" href="/docs">Docs</a>
       <a class="start" href="/dashboard">Dashboard</a>
     </nav>
   </header>
@@ -1996,7 +2627,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
     <div class="shell footer-inner">
       <span>AgentContract turns agent-sent paperwork into signed records.</span>
       <span>Contact: <a href="mailto:janak@withspecific.com">janak@withspecific.com</a></span>
-      <span><a href="/cli">CLI</a> · <a href="/dashboard">Dashboard</a> · <a href="/healthz">Status</a></span>
+      <span><a href="/docs">Docs</a> · <a href="/cli">CLI</a> · <a href="/dashboard">Dashboard</a> · <a href="/healthz">Status</a></span>
     </div>
   </footer>
 
@@ -2027,6 +2658,8 @@ site.get("/", (c) => {
 });
 
 site.get("/templates", (c) => c.html(renderPublicTemplatesPage(new URL(c.req.url).origin)));
+
+site.get("/docs", (c) => c.html(renderDocsPage(new URL(c.req.url).origin)));
 
 for (const id of publicTemplateIds) {
   site.get(`/templates/${id}`, (c) => c.html(renderPublicTemplatePage(new URL(c.req.url).origin, id)));

@@ -73,6 +73,7 @@ test("sitemap.xml lists public indexable pages with canonical URLs", async () =>
   assert.match(response.headers.get("content-type") ?? "", /application\/xml/);
   assert.match(body, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/docs<\/loc>/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/cli<\/loc>/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/templates<\/loc>/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/templates\/mutual-nda<\/loc>/);
@@ -146,12 +147,35 @@ test("llms.txt summarizes the public agent-facing documentation", async () => {
   assert.match(body, /^# AgentContract$/m);
   assert.match(body, /^> Contract signing API and CLI for AI agents\./m);
   assert.match(body, /- \[Homepage\]\(https:\/\/agentcontract\.to\/\):/);
+  assert.match(body, /- \[Docs\]\(https:\/\/agentcontract\.to\/docs\):/);
   assert.match(body, /- \[CLI docs\]\(https:\/\/agentcontract\.to\/cli\):/);
   assert.match(body, /- \[Template library\]\(https:\/\/agentcontract\.to\/templates\):/);
   assert.match(body, /- \[CLI installer\]\(https:\/\/agentcontract\.to\/cli\/install\.sh\):/);
   assert.match(body, /Agents send approved packets only; humans sign contracts in the browser\./);
   assert.doesNotMatch(body, /dashboard/);
   assert.doesNotMatch(body, /sign\//);
+});
+
+test("docs page centralizes AgentContract product, CLI, API, and troubleshooting docs", async () => {
+  const response = await site.request("https://agentcontract.to/docs");
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/html/);
+  assert.match(html, /<title>AgentContract Docs \| CLI, API, templates, webhooks, and troubleshooting<\/title>/);
+  assert.match(html, /<meta name="description" content="Complete AgentContract documentation for installing the CLI, authenticating, sending templates, using the API, handling webhooks, running migrations, and troubleshooting agent workflows\." \/>/);
+  assert.match(html, /<meta name="robots" content="index,follow,max-image-preview:large" \/>/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/agentcontract\.to\/docs" \/>/);
+  assert.match(html, /<h1>AgentContract Docs<\/h1>/);
+  assert.match(html, /curl -fsSL https:\/\/agentcontract\.to\/cli\/install\.sh \| bash/);
+  assert.match(html, /agentcontract session event --session-id sess_/);
+  assert.match(html, /POST \/v1\/agreements/);
+  assert.match(html, /agreement\.completed/);
+  assert.match(html, /DATABASE_URL/);
+  assert.match(html, /agentcontract feedback/);
+  assert.match(html, /href="#cli"/);
+  assert.match(html, /href="#api"/);
+  assert.match(html, /href="#troubleshooting"/);
 });
 
 test("public template library and previews are crawlable without dashboard auth", async () => {
