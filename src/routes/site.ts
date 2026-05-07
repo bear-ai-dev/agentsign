@@ -219,6 +219,7 @@ function sitemapXml(_origin: string) {
   const urls = [
     { loc: publicUrl(), priority: "1.0", changefreq: "weekly" },
     { loc: publicUrl("/docs"), priority: "0.9", changefreq: "weekly" },
+    { loc: publicUrl("/docs.md"), priority: "0.85", changefreq: "weekly" },
     { loc: publicUrl("/cli"), priority: "0.8", changefreq: "monthly" },
     ...publicSeoPages.map((page) => ({ loc: publicUrl(page.path), priority: "0.75", changefreq: "monthly" })),
     { loc: publicUrl("/templates"), priority: "0.7", changefreq: "monthly" },
@@ -247,6 +248,7 @@ AgentContract lets AI agent workflows send approved NDAs, privacy acknowledgemen
 
 - [Homepage](${publicUrl()}): Product overview for agent-sent, human-signed contracts.
 - [Docs](${publicUrl("/docs")}): Complete AgentContract docs for CLI, API, templates, webhooks, deployment, and troubleshooting.
+- [Agent-readable docs](${publicUrl("/docs.md")}): Plain Markdown docs for AI agents, crawlers, and retrieval systems.
 - [AI agent contracts](${publicUrl("/ai-agent-contracts")}): Search-focused overview of controlled contracts for AI agents.
 - [Contract sending API](${publicUrl("/contract-sending-api")}): API page for sending approved contracts from agent workflows.
 - [Agent contract CLI](${publicUrl("/agent-contract-cli")}): CLI overview for local AI coding agents and scripts.
@@ -1299,6 +1301,171 @@ function docsCode(value: string) {
   return `<pre class="code"><code>${escapeHtml(value)}</code></pre>`;
 }
 
+function docsMarkdown(_origin: string) {
+  return `# AgentContract Docs
+
+Canonical: ${publicUrl("/docs")}
+Machine-readable source: ${publicUrl("/docs.md")}
+Human HTML page: ${publicUrl("/docs")}
+Product: Contract signing API and CLI for AI agents.
+Current CLI version: ${currentCliVersion}
+
+AgentContract lets AI agent workflows send approved NDAs, privacy acknowledgements, contractor agreements, and onboarding packets. Agents send approved packets only. Humans review and sign in the browser. The system returns signed PDFs, SHA-256 hashes, status, webhooks, and audit trails.
+
+## Boundaries
+
+- Use AgentContract for sending approved contract templates from agent workflows.
+- Do not use AgentContract to let agents draft legal terms or sign contracts.
+- Do not send an agreement until a human operator has approved the recipient, template, and dry-run output.
+- Do not include secrets, API keys, raw private contract text, or unrelated personal data in session events or feedback messages.
+
+## Safe Agent Workflow
+
+1. Install the CLI.
+2. Authenticate with an email code.
+3. Run \`agentcontract skill\` and follow its instructions.
+4. List available templates.
+5. Read the selected template before sending.
+6. Run the send command with \`--dry-run --json\`.
+7. Show the dry-run JSON to the human operator.
+8. Wait for explicit approval.
+9. Send the agreement.
+10. Return the agreement id, signing URL, and status.
+11. Track status or wait for a webhook.
+
+## Commands
+
+\`\`\`sh
+curl -fsSL https://agentcontract.to/cli/install.sh | bash
+agentcontract login --email you@example.com --api-url https://agentcontract.to
+agentcontract doctor --json
+agentcontract skill
+\`\`\`
+
+\`\`\`sh
+agentcontract templates --json
+agentcontract template read privacy-policy --json
+agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor" --dry-run --json
+agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor" --json
+agentcontract agreement status agr_123 --json
+agentcontract agreement download agr_123 --out ./signed.pdf
+\`\`\`
+
+## Sessions
+
+Use sessions to record agent workflow progress without leaking secrets or private contract language.
+
+\`\`\`sh
+agentcontract session start --tool codex --repo agentink --json
+agentcontract session event --session-id sess_123 --kind progress --message "Read template and prepared dry run" --json
+agentcontract session end --session-id sess_123 --status completed --json
+\`\`\`
+
+Good session events include template selection, dry-run review, human approval, send result, reminder attempts, cancellation, and failure details.
+
+## API
+
+Use the API when the sending workflow lives in your backend instead of a local CLI process. Store the returned agreement id for status polling or webhook correlation.
+
+\`\`\`http
+POST /v1/agreements
+Authorization: Bearer ac_live_...
+Content-Type: application/json
+
+{
+  "template_id": "privacy-policy",
+  "recipient": {
+    "email": "jane@example.com",
+    "name": "Jane Contributor"
+  },
+  "variables": {
+    "company_name": "Acme"
+  },
+  "metadata": {
+    "source": "agent-workflow"
+  }
+}
+\`\`\`
+
+\`\`\`http
+GET /v1/agreements/agr_123
+GET /v1/agreements/agr_123/pdf
+POST /v1/agreements/agr_123/remind
+POST /v1/agreements/agr_123/cancel
+\`\`\`
+
+## Templates
+
+- \`mutual-nda\`: two-way confidentiality packet for counterparties that exchange confidential information.
+- \`one-way-nda\`: one-way confidentiality packet for vendors, reviewers, and external collaborators.
+- \`privacy-policy\`: website and app privacy policy acknowledgement for controlled onboarding flows.
+
+Public previews:
+
+- https://agentcontract.to/templates/mutual-nda
+- https://agentcontract.to/templates/one-way-nda
+- https://agentcontract.to/templates/privacy-policy
+
+## Webhooks
+
+Treat webhook handlers as idempotent. Verify signatures, deduplicate events, fetch the agreement record, and store the signed PDF hash with your own record.
+
+\`\`\`json
+{
+  "type": "agreement.completed",
+  "agreement_id": "agr_123",
+  "status": "completed",
+  "signed_pdf_url": "https://agentcontract.to/v1/agreements/agr_123/pdf",
+  "signed_pdf_sha256": "..."
+}
+\`\`\`
+
+## Deployment
+
+Production uses Supabase/Postgres-backed storage. Keep secrets in the deployment environment and run migrations with the production database URL.
+
+\`\`\`sh
+DATABASE_URL="postgres://..." npm run migrate -- --status
+DATABASE_URL="postgres://..." npm run migrate
+\`\`\`
+
+Release checks:
+
+- \`/healthz\` exposes current service and CLI version metadata.
+- \`/cli/install.sh\` installs the hosted tarball.
+- \`/sitemap.xml\`, \`/llms.txt\`, and \`/docs.md\` expose public docs only.
+- Private dashboards, signing URLs, auth routes, and \`/v1/\` remain non-indexed.
+
+## Troubleshooting
+
+Use \`agentcontract feedback\` when a user reports install failures, stale versions, missing commands, HTTP 404s, or confusing output.
+
+\`\`\`sh
+agentcontract feedback --area sending --priority high --message "specific-privacy returned HTTP 404"
+agentcontract feedback --area install --message "update reports success but active CLI stayed old" --json
+\`\`\`
+
+Common fixes:
+
+- If update reports success but the version stays old, check which \`agentcontract\` binary is first on \`PATH\`.
+- If a hosted update fails checksum validation, reinstall from https://agentcontract.to/cli/install.sh.
+- If a send route returns HTTP 404, run \`agentcontract templates --json\` and confirm the template id is approved.
+- If docs mention a missing command, run \`agentcontract update\` and then \`agentcontract --version --json\`.
+
+## Agent Response Contract
+
+When an agent sends or prepares an agreement, return:
+
+- Agreement id.
+- Template id.
+- Recipient email and name.
+- Whether the command was a dry run or real send.
+- Signing URL when available.
+- Current status.
+- Any next step that needs human approval.
+`;
+}
+
 function docsTopbar() {
   return `<header class="shell topbar">
     <a class="brand" href="/" aria-label="AgentContract home">
@@ -1387,6 +1554,7 @@ agentcontract feedback --area install --message "update reports success but acti
   <meta name="description" content="${escapeHtml(description)}" />
   <meta name="robots" content="index,follow,max-image-preview:large" />
   <link rel="canonical" href="${escapeHtml(canonical)}" />
+  <link rel="alternate" type="text/markdown" href="${escapeHtml(publicUrl("/docs.md"))}" title="AgentContract docs markdown" />
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${escapeHtml(canonical)}" />
   <meta property="og:site_name" content="AgentContract" />
@@ -1425,6 +1593,7 @@ agentcontract feedback --area install --message "update reports success but acti
       <a href="#webhooks">Webhooks</a>
       <a href="#deployment">Deployment</a>
       <a href="#troubleshooting">Troubleshooting</a>
+      <a href="/docs.md">Markdown</a>
     </nav>
 
     <section class="section" id="quickstart">
@@ -2660,6 +2829,14 @@ site.get("/", (c) => {
 site.get("/templates", (c) => c.html(renderPublicTemplatesPage(new URL(c.req.url).origin)));
 
 site.get("/docs", (c) => c.html(renderDocsPage(new URL(c.req.url).origin)));
+
+site.get("/docs.md", (c) => {
+  const origin = new URL(c.req.url).origin;
+  return c.text(docsMarkdown(origin), 200, {
+    "Content-Type": "text/markdown; charset=utf-8",
+    "Cache-Control": "public, max-age=3600"
+  });
+});
 
 for (const id of publicTemplateIds) {
   site.get(`/templates/${id}`, (c) => c.html(renderPublicTemplatePage(new URL(c.req.url).origin, id)));

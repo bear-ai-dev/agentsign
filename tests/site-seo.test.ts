@@ -148,6 +148,7 @@ test("llms.txt summarizes the public agent-facing documentation", async () => {
   assert.match(body, /^> Contract signing API and CLI for AI agents\./m);
   assert.match(body, /- \[Homepage\]\(https:\/\/agentcontract\.to\/\):/);
   assert.match(body, /- \[Docs\]\(https:\/\/agentcontract\.to\/docs\):/);
+  assert.match(body, /- \[Agent-readable docs\]\(https:\/\/agentcontract\.to\/docs\.md\):/);
   assert.match(body, /- \[CLI docs\]\(https:\/\/agentcontract\.to\/cli\):/);
   assert.match(body, /- \[Template library\]\(https:\/\/agentcontract\.to\/templates\):/);
   assert.match(body, /- \[CLI installer\]\(https:\/\/agentcontract\.to\/cli\/install\.sh\):/);
@@ -166,7 +167,9 @@ test("docs page centralizes AgentContract product, CLI, API, and troubleshooting
   assert.match(html, /<meta name="description" content="Complete AgentContract documentation for installing the CLI, authenticating, sending templates, using the API, handling webhooks, running migrations, and troubleshooting agent workflows\." \/>/);
   assert.match(html, /<meta name="robots" content="index,follow,max-image-preview:large" \/>/);
   assert.match(html, /<link rel="canonical" href="https:\/\/agentcontract\.to\/docs" \/>/);
+  assert.match(html, /<link rel="alternate" type="text\/markdown" href="https:\/\/agentcontract\.to\/docs\.md" title="AgentContract docs markdown" \/>/);
   assert.match(html, /<h1>AgentContract Docs<\/h1>/);
+  assert.match(html, /href="\/docs\.md"/);
   assert.match(html, /curl -fsSL https:\/\/agentcontract\.to\/cli\/install\.sh \| bash/);
   assert.match(html, /agentcontract session event --session-id sess_/);
   assert.match(html, /POST \/v1\/agreements/);
@@ -176,6 +179,28 @@ test("docs page centralizes AgentContract product, CLI, API, and troubleshooting
   assert.match(html, /href="#cli"/);
   assert.match(html, /href="#api"/);
   assert.match(html, /href="#troubleshooting"/);
+});
+
+test("docs markdown endpoint is optimized for AI agent ingestion", async () => {
+  const response = await site.request("https://agentcontract.to/docs.md");
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /text\/markdown/);
+  assert.match(body, /^# AgentContract Docs$/m);
+  assert.match(body, /^Canonical: https:\/\/agentcontract\.to\/docs$/m);
+  assert.match(body, /^Machine-readable source: https:\/\/agentcontract\.to\/docs\.md$/m);
+  assert.match(body, /^## Safe Agent Workflow$/m);
+  assert.match(body, /^## Commands$/m);
+  assert.match(body, /curl -fsSL https:\/\/agentcontract\.to\/cli\/install\.sh \| bash/);
+  assert.match(body, /agentcontract session event --session-id sess_/);
+  assert.match(body, /POST \/v1\/agreements/);
+  assert.match(body, /agreement\.completed/);
+  assert.match(body, /DATABASE_URL/);
+  assert.match(body, /agentcontract feedback/);
+  assert.match(body, /Do not use AgentContract to let agents draft legal terms or sign contracts\./);
+  assert.doesNotMatch(body, /<html/);
+  assert.doesNotMatch(body, /<section/);
 });
 
 test("public template library and previews are crawlable without dashboard auth", async () => {
