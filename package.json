@@ -1,6 +1,6 @@
 {
   "name": "@bear-ai-dev/agentcontract",
-  "version": "0.1.9",
+  "version": "0.1.12",
   "description": "Agent-native contract sending CLI and signing API for marketplace onboarding.",
   "private": false,
   "type": "module",
