@@ -1,0 +1,7912 @@
+{
+  "generated_at": "2026-06-05T08:57:47.464Z",
+  "product": "AgentContract",
+  "primary_domain": "https://agentcontract.to",
+  "location_code": 2840,
+  "language_name": "English",
+  "source": "DataForSEO keywords_data and serp live APIs",
+  "api_costs": {
+    "exact_search_volume": 0.075,
+    "keyword_ideas": 0.075,
+    "serp": 0.002,
+    "total": 0.152
+  },
+  "exact_keyword_rows": [
+    {
+      "keyword": "contract signing api",
+      "search_volume": null,
+      "competition": null,
+      "competition_index": null,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": null
+    },
+    {
+      "keyword": "esignature api",
+      "search_volume": 110,
+      "competition": "MEDIUM",
+      "competition_index": 46,
+      "cpc": 38.33,
+      "low_top_of_page_bid": 11.73,
+      "high_top_of_page_bid": 37,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 90
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 170
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 70
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 40
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 40
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 90
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 90
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 110
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 260
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 260
+        }
+      ]
+    },
+    {
+      "keyword": "electronic signature api",
+      "search_volume": 110,
+      "competition": "MEDIUM",
+      "competition_index": 46,
+      "cpc": 38.33,
+      "low_top_of_page_bid": 11.73,
+      "high_top_of_page_bid": 37,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 90
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 170
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 70
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 40
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 40
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 90
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 90
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 110
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 260
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 260
+        }
+      ]
+    },
+    {
+      "keyword": "document signing api",
+      "search_volume": 50,
+      "competition": "MEDIUM",
+      "competition_index": 34,
+      "cpc": 37.74,
+      "low_top_of_page_bid": 8,
+      "high_top_of_page_bid": 44.34,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 30
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 70
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 20
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 50
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 90
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 90
+        }
+      ]
+    },
+    {
+      "keyword": "contract management api",
+      "search_volume": 10,
+      "competition": "LOW",
+      "competition_index": 0,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 0
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 0
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 0
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 0
+        }
+      ]
+    },
+    {
+      "keyword": "api to send documents for signature",
+      "search_volume": null,
+      "competition": null,
+      "competition_index": null,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": null
+    },
+    {
+      "keyword": "docusign api alternative",
+      "search_volume": 10,
+      "competition": "HIGH",
+      "competition_index": 86,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 10
+        }
+      ]
+    },
+    {
+      "keyword": "contract automation software",
+      "search_volume": 140,
+      "competition": "LOW",
+      "competition_index": 17,
+      "cpc": 293.36,
+      "low_top_of_page_bid": 38.67,
+      "high_top_of_page_bid": 195.34,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 90
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 210
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 50
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 50
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 260
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 140
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 170
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 320
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 320
+        }
+      ]
+    },
+    {
+      "keyword": "agreement workflow automation",
+      "search_volume": null,
+      "competition": null,
+      "competition_index": null,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": null
+    },
+    {
+      "keyword": "vendor onboarding process",
+      "search_volume": 170,
+      "competition": "LOW",
+      "competition_index": 28,
+      "cpc": 15.82,
+      "low_top_of_page_bid": 6.49,
+      "high_top_of_page_bid": 15.44,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 110
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 320
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 140
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 140
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 70
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 140
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 260
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 110
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 170
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 260
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 320
+        }
+      ]
+    },
+    {
+      "keyword": "marketplace onboarding",
+      "search_volume": 10,
+      "competition": "LOW",
+      "competition_index": 0,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 10
+        }
+      ]
+    },
+    {
+      "keyword": "contractor agreement template",
+      "search_volume": 1600,
+      "competition": "HIGH",
+      "competition_index": 99,
+      "cpc": 6.15,
+      "low_top_of_page_bid": 1.91,
+      "high_top_of_page_bid": 8.36,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 1900
+        }
+      ]
+    },
+    {
+      "keyword": "mutual nda template",
+      "search_volume": 390,
+      "competition": "MEDIUM",
+      "competition_index": 45,
+      "cpc": 8.44,
+      "low_top_of_page_bid": 1.8,
+      "high_top_of_page_bid": 7.49,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 390
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 480
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 480
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 390
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 390
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 320
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 390
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 480
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 390
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 480
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 480
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 390
+        }
+      ]
+    },
+    {
+      "keyword": "one way nda template",
+      "search_volume": 20,
+      "competition": "LOW",
+      "competition_index": 18,
+      "cpc": 9.08,
+      "low_top_of_page_bid": 3.56,
+      "high_top_of_page_bid": 7.95,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 40
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 20
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 20
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 20
+        }
+      ]
+    },
+    {
+      "keyword": "nda signing",
+      "search_volume": 1000,
+      "competition": "LOW",
+      "competition_index": 8,
+      "cpc": 5.21,
+      "low_top_of_page_bid": 1.48,
+      "high_top_of_page_bid": 5,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1000
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 880
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 720
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 720
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 1300
+        }
+      ]
+    },
+    {
+      "keyword": "privacy policy template",
+      "search_volume": 1600,
+      "competition": "LOW",
+      "competition_index": 25,
+      "cpc": 10.31,
+      "low_top_of_page_bid": 2.33,
+      "high_top_of_page_bid": 9.11,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 1900
+        }
+      ]
+    },
+    {
+      "keyword": "ai agent contracts",
+      "search_volume": null,
+      "competition": null,
+      "competition_index": null,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": null
+    },
+    {
+      "keyword": "ai contract automation",
+      "search_volume": 10,
+      "competition": "LOW",
+      "competition_index": 17,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 10
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 10
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 30
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 40
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 10
+        }
+      ]
+    },
+    {
+      "keyword": "human in the loop ai",
+      "search_volume": 1000,
+      "competition": "LOW",
+      "competition_index": 9,
+      "cpc": 11.93,
+      "low_top_of_page_bid": 2.85,
+      "high_top_of_page_bid": 14.69,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1000
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 720
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 1000
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 880
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 720
+        }
+      ]
+    },
+    {
+      "keyword": "ai agent workflows",
+      "search_volume": null,
+      "competition": null,
+      "competition_index": null,
+      "cpc": null,
+      "low_top_of_page_bid": null,
+      "high_top_of_page_bid": null,
+      "monthly_searches": null
+    }
+  ],
+  "keyword_ideas_top": [
+    {
+      "keyword": "contractor template",
+      "search_volume": 301000,
+      "competition": "MEDIUM",
+      "competition_index": 49,
+      "cpc": 6.77,
+      "low_top_of_page_bid": 1.67,
+      "high_top_of_page_bid": 7.44,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 6600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 6600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 9900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 74000
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 1830000
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 1500000
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 301000
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 8100
+        }
+      ]
+    },
+    {
+      "keyword": "free contract templates",
+      "search_volume": 27100,
+      "competition": "MEDIUM",
+      "competition_index": 60,
+      "cpc": 6.07,
+      "low_top_of_page_bid": 1.9,
+      "high_top_of_page_bid": 7.05,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 9900
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 301000
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 2900
+        }
+      ]
+    },
+    {
+      "keyword": "free contract template word",
+      "search_volume": 27100,
+      "competition": "MEDIUM",
+      "competition_index": 60,
+      "cpc": 6.07,
+      "low_top_of_page_bid": 1.9,
+      "high_top_of_page_bid": 7.05,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1300
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1300
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 9900
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 301000
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 2900
+        }
+      ]
+    },
+    {
+      "keyword": "nda agreement",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure and confidentiality agreement",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure confidentiality agreement",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement contract",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement confidentiality agreement",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "non confidential agreement",
+      "search_volume": 18100,
+      "competition": "MEDIUM",
+      "competition_index": 41,
+      "cpc": 6.09,
+      "low_top_of_page_bid": 1.32,
+      "high_top_of_page_bid": 4.9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 18100
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 14800
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 14800
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 18100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 22200
+        }
+      ]
+    },
+    {
+      "keyword": "nda template",
+      "search_volume": 6600,
+      "competition": "MEDIUM",
+      "competition_index": 44,
+      "cpc": 6.5,
+      "low_top_of_page_bid": 1.75,
+      "high_top_of_page_bid": 6.45,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 8100
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement template",
+      "search_volume": 6600,
+      "competition": "MEDIUM",
+      "competition_index": 44,
+      "cpc": 6.5,
+      "low_top_of_page_bid": 1.75,
+      "high_top_of_page_bid": 6.45,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 8100
+        }
+      ]
+    },
+    {
+      "keyword": "nda confidentiality agreement template",
+      "search_volume": 6600,
+      "competition": "MEDIUM",
+      "competition_index": 44,
+      "cpc": 6.5,
+      "low_top_of_page_bid": 1.75,
+      "high_top_of_page_bid": 6.45,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 8100
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure contract template",
+      "search_volume": 6600,
+      "competition": "MEDIUM",
+      "competition_index": 44,
+      "cpc": 6.5,
+      "low_top_of_page_bid": 1.75,
+      "high_top_of_page_bid": 6.45,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 5400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 8100
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 8100
+        }
+      ]
+    },
+    {
+      "keyword": "independent contractor agreement template",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "sample independent contractor agreement",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "independent contractor contract template",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "work agreement contract",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 62,
+      "cpc": 6.69,
+      "low_top_of_page_bid": 2.06,
+      "high_top_of_page_bid": 8.29,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 6600
+        }
+      ]
+    },
+    {
+      "keyword": "sample contract for independent contractor",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "contractor employment agreement",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 62,
+      "cpc": 6.69,
+      "low_top_of_page_bid": 2.06,
+      "high_top_of_page_bid": 8.29,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 6600
+        }
+      ]
+    },
+    {
+      "keyword": "contractor contract agreement template",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "job agreement contract",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 62,
+      "cpc": 6.69,
+      "low_top_of_page_bid": 2.06,
+      "high_top_of_page_bid": 8.29,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 6600
+        }
+      ]
+    },
+    {
+      "keyword": "independent contractor agreement example",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "agreement template for contractors",
+      "search_volume": 4400,
+      "competition": "MEDIUM",
+      "competition_index": 43,
+      "cpc": 5.11,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 9,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 6600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "independent contractor agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "work contract template",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "sample nda",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "job contract template",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "sample non disclosure agreement",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda contract template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda example",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement example",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "sample nda form",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "confidential agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "disclosure agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda agreement form",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "sample work contract",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "contract work contract template",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure form template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "work agreement contract template",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "employment template contract",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "partner agreement contract",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 38,
+      "cpc": 7.25,
+      "low_top_of_page_bid": 1.59,
+      "high_top_of_page_bid": 7.27,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "contractor employment agreement template",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "nda non disclosure agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "independent contractor contract agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure document template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure statement sample",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "outside contractor agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda agreement format",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "private contractor agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "contractor to contractor agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure statement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "it non disclosure agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "sample disclosure agreement",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "contract agreement format for contract employee",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "contract employee sample",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "example of non disclosure agreement template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "format of employee contract agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 84,
+      "cpc": 6.28,
+      "low_top_of_page_bid": 1.92,
+      "high_top_of_page_bid": 7.48,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "it nda template",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "nda non disclosure agreement sample",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement nda sample",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "sample nda format",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "sample non disclosure form",
+      "search_volume": 3600,
+      "competition": "MEDIUM",
+      "competition_index": 55,
+      "cpc": 4.87,
+      "low_top_of_page_bid": 1.33,
+      "high_top_of_page_bid": 4.92,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 5400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "self contractor agreement",
+      "search_volume": 3600,
+      "competition": "HIGH",
+      "competition_index": 92,
+      "cpc": 6.57,
+      "low_top_of_page_bid": 1.81,
+      "high_top_of_page_bid": 9.21,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 4400
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 3600
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 5400
+        }
+      ]
+    },
+    {
+      "keyword": "construction contract agreement",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 8.2,
+      "low_top_of_page_bid": 2.72,
+      "high_top_of_page_bid": 12.26,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "construction contracts template",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "service agreement contract template",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 91,
+      "cpc": 6.23,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 8.12,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "construction agreement template",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "examples of construction contracts",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "construction agreement sample",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "sample service agreement contract",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 91,
+      "cpc": 6.23,
+      "low_top_of_page_bid": 1.88,
+      "high_top_of_page_bid": 8.12,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 4400
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 4400
+        }
+      ]
+    },
+    {
+      "keyword": "building contract example",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "example of construction contract agreement",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "contract sample for construction",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "sample building contract agreement",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "contract format for construction",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "construction agreement contract sample",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "sample contract construction agreement",
+      "search_volume": 2900,
+      "competition": "HIGH",
+      "competition_index": 100,
+      "cpc": 6.86,
+      "low_top_of_page_bid": 2.45,
+      "high_top_of_page_bid": 10,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 2900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 2400
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1600
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 2900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 3600
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 3600
+        }
+      ]
+    },
+    {
+      "keyword": "non disclosure agreement form",
+      "search_volume": 1900,
+      "competition": "MEDIUM",
+      "competition_index": 48,
+      "cpc": 4.86,
+      "low_top_of_page_bid": 1.12,
+      "high_top_of_page_bid": 3.95,
+      "monthly_searches": [
+        {
+          "year": 2026,
+          "month": 4,
+          "search_volume": 1900
+        },
+        {
+          "year": 2026,
+          "month": 3,
+          "search_volume": 1900
+        },
+        {
+          "year": 2026,
+          "month": 2,
+          "search_volume": 1900
+        },
+        {
+          "year": 2026,
+          "month": 1,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 12,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 11,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 10,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 9,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 8,
+          "search_volume": 2400
+        },
+        {
+          "year": 2025,
+          "month": 7,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 6,
+          "search_volume": 1900
+        },
+        {
+          "year": 2025,
+          "month": 5,
+          "search_volume": 2400
+        }
+      ]
+    }
+  ],
+  "selected_queue": [
+    {
+      "order": 1,
+      "keyword": "esignature api",
+      "slug": "esignature-api-for-ai-agent-workflows",
+      "angle": "how AI-agent workflows should send approved agreements through an e-signature API while humans sign",
+      "metrics": {
+        "keyword": "esignature api",
+        "search_volume": 110,
+        "competition": "MEDIUM",
+        "competition_index": 46,
+        "cpc": 38.33,
+        "low_top_of_page_bid": 11.73,
+        "high_top_of_page_bid": 37,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 90
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 170
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 70
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 40
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 40
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 90
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 90
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 110
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 260
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 260
+          }
+        ]
+      },
+      "serp": {
+        "keyword": "esignature api",
+        "check_url": "https://www.google.com/search?q=esignature%20api&hl=en&gl=US&ie=UTF-8&uule=w+CAIQIFISCQs2MuSEtepUEUK33kOSuTsc",
+        "item_types": [
+          "organic",
+          "people_also_ask",
+          "related_searches"
+        ],
+        "top_items": [
+          {
+            "type": "organic",
+            "rank_group": 1,
+            "rank_absolute": 1,
+            "title": "Request Signatures & Automate Forms | REST API",
+            "url": "https://developers.docusign.com/docs/esign-rest-api/",
+            "domain": "developers.docusign.com",
+            "description": "Get the flexibility and control you need to scale from simple eSignature integrations to complex enterprise applications with the Docusign eSignature REST API."
+          },
+          {
+            "type": "organic",
+            "rank_group": 2,
+            "rank_absolute": 2,
+            "title": "eSignature API | Secure & Reliable Electronic Signatures",
+            "url": "https://eversign.com/api",
+            "domain": "eversign.com",
+            "description": "Easily integrate electronic signatures into your apps and workflows with our secure, simple, and fast eSignature REST API. Create a free sandbox today."
+          },
+          {
+            "type": "organic",
+            "rank_group": 3,
+            "rank_absolute": 3,
+            "title": "Powerful eSignature API built for developers",
+            "url": "https://boldsign.com/esignature-api/",
+            "domain": "boldsign.com",
+            "description": "The eSignature API empowers developers to seamlessly integrate the entire electronic signature functionality into their own applications, and enables users to ... Read more"
+          },
+          {
+            "type": "organic",
+            "rank_group": 4,
+            "rank_absolute": 4,
+            "title": "Electronic Signature API — SignatureAPI",
+            "url": "https://signatureapi.com/",
+            "domain": "signatureapi.com",
+            "description": "Integrate legally binding e-signatures into your apps and workflows with our award-winning, developer-friendly API and integrations — starting at just $0.25 ..."
+          },
+          {
+            "type": "organic",
+            "rank_group": 5,
+            "rank_absolute": 5,
+            "title": "What is an eSignature API",
+            "url": "https://www.pandadoc.com/blog/what-is-esignature-api/",
+            "domain": "www.pandadoc.com",
+            "description": "May 19, 2025 — An E-signature API, also called a digital signature API or simply an E-signature API, is a set of tools that lets developers embed electronic signature ... Read more"
+          },
+          {
+            "type": "organic",
+            "rank_group": 6,
+            "rank_absolute": 6,
+            "title": "Best eSignature APIs - 2026",
+            "url": "https://www.docuseal.com/best-esignature-apis",
+            "domain": "www.docuseal.com",
+            "description": "The eSignature API is an essential tool for automating the document signing process. It allows you to integrate signing into your applications, create your own ... Read more"
+          },
+          {
+            "type": "organic",
+            "rank_group": 7,
+            "rank_absolute": 7,
+            "title": "Best eSignature APIs for Developers | Secure Signing",
+            "url": "https://www.blueink.com/blog/best-esignature-api",
+            "domain": "www.blueink.com",
+            "description": "Sep 1, 2025 — The Top 10 Best eSignature APIs for Developers · 1. Blueink eSignature API · 2. DocuSign API · 3. PandaDoc API · 4. Adobe Sign (Acrobat Sign) ... Read more"
+          },
+          {
+            "type": "organic",
+            "rank_group": 8,
+            "rank_absolute": 8,
+            "title": "Integrate eSignature API into your app with ease",
+            "url": "https://signeasy.com/api",
+            "domain": "signeasy.com",
+            "description": "Easily integrate eSignatures into your apps with our secure, simple, and fast eSignature REST API. Start building today with a free sandbox environment."
+          },
+          {
+            "type": "people_also_ask",
+            "rank_group": 1,
+            "rank_absolute": 9,
+            "items": [
+              {
+                "title": "What is eSignature API?"
+              },
+              {
+                "title": "What is the best signature API?"
+              },
+              {
+                "title": "Is Google eSignature free?"
+              },
+              {
+                "title": "What is the alternative to Docusign API?"
+              }
+            ]
+          },
+          {
+            "type": "organic",
+            "rank_group": 9,
+            "rank_absolute": 10,
+            "title": "Best E-Signature API Platforms Comparison (2026)",
+            "url": "https://www.turbodocx.com/best-esignature-api-comparison",
+            "domain": "www.turbodocx.com",
+            "description": "Compare the best eSignature API platforms and digital signature APIs for developers. Side-by-side features, pricing, SDKs, and developer experience for ..."
+          }
+        ]
+      }
+    },
+    {
+      "order": 2,
+      "keyword": "contract signing api",
+      "slug": "contract-signing-api-checklist",
+      "angle": "checklist for choosing a contract signing API for agent-triggered sends",
+      "metrics": {
+        "keyword": "contract signing api",
+        "search_volume": null,
+        "competition": null,
+        "competition_index": null,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": null
+      },
+      "serp": null
+    },
+    {
+      "order": 3,
+      "keyword": "document signing api",
+      "slug": "document-signing-api-vs-dashboard",
+      "angle": "why backend and agent workflows need a document signing API instead of only a dashboard",
+      "metrics": {
+        "keyword": "document signing api",
+        "search_volume": 50,
+        "competition": "MEDIUM",
+        "competition_index": 34,
+        "cpc": 37.74,
+        "low_top_of_page_bid": 8,
+        "high_top_of_page_bid": 44.34,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 30
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 70
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 20
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 50
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 90
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 90
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 4,
+      "keyword": "api to send documents for signature",
+      "slug": "api-to-send-documents-for-signature",
+      "angle": "practical API flow for sending documents for human signature from software agents",
+      "metrics": {
+        "keyword": "api to send documents for signature",
+        "search_volume": null,
+        "competition": null,
+        "competition_index": null,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": null
+      },
+      "serp": null
+    },
+    {
+      "order": 5,
+      "keyword": "docusign api alternative",
+      "slug": "docusign-api-alternative-for-agent-workflows",
+      "angle": "when a narrow, approved-template contract API is a better fit than a broad enterprise e-sign suite",
+      "metrics": {
+        "keyword": "docusign api alternative",
+        "search_volume": 10,
+        "competition": "HIGH",
+        "competition_index": 86,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 10
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 6,
+      "keyword": "contract automation software",
+      "slug": "contract-automation-software-for-repeatable-packets",
+      "angle": "what contract automation should and should not automate when legal documents are involved",
+      "metrics": {
+        "keyword": "contract automation software",
+        "search_volume": 140,
+        "competition": "LOW",
+        "competition_index": 17,
+        "cpc": 293.36,
+        "low_top_of_page_bid": 38.67,
+        "high_top_of_page_bid": 195.34,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 90
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 210
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 50
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 50
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 260
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 140
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 170
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 320
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 320
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 7,
+      "keyword": "contract management api",
+      "slug": "contract-management-api-for-small-teams",
+      "angle": "minimum useful API surface for small teams that need signed records and webhooks",
+      "metrics": {
+        "keyword": "contract management api",
+        "search_volume": 10,
+        "competition": "LOW",
+        "competition_index": 0,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 0
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 0
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 0
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 0
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 8,
+      "keyword": "vendor onboarding process",
+      "slug": "vendor-onboarding-process-contracts",
+      "angle": "turn vendor onboarding paperwork into approved packets with a clear audit trail",
+      "metrics": {
+        "keyword": "vendor onboarding process",
+        "search_volume": 170,
+        "competition": "LOW",
+        "competition_index": 28,
+        "cpc": 15.82,
+        "low_top_of_page_bid": 6.49,
+        "high_top_of_page_bid": 15.44,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 110
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 320
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 140
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 140
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 70
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 140
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 260
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 110
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 170
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 260
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 320
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 9,
+      "keyword": "marketplace onboarding",
+      "slug": "marketplace-onboarding-contract-workflow",
+      "angle": "how marketplaces can collect privacy acknowledgements, NDAs, and contractor agreements faster",
+      "metrics": {
+        "keyword": "marketplace onboarding",
+        "search_volume": 10,
+        "competition": "LOW",
+        "competition_index": 0,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 10
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 10
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 10,
+      "keyword": "contractor agreement template",
+      "slug": "contractor-agreement-template-agent-workflow",
+      "angle": "how to use contractor agreement templates safely in agent-assisted onboarding",
+      "metrics": {
+        "keyword": "contractor agreement template",
+        "search_volume": 1600,
+        "competition": "HIGH",
+        "competition_index": 99,
+        "cpc": 6.15,
+        "low_top_of_page_bid": 1.91,
+        "high_top_of_page_bid": 8.36,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 1300
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 1600
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 1300
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 1600
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 1300
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 1600
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 1600
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 2400
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 1900
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 2400
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 1900
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 1900
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 11,
+      "keyword": "mutual nda template",
+      "slug": "mutual-nda-template-before-you-send",
+      "angle": "what to inspect before sending a mutual NDA template through a signing workflow",
+      "metrics": {
+        "keyword": "mutual nda template",
+        "search_volume": 390,
+        "competition": "MEDIUM",
+        "competition_index": 45,
+        "cpc": 8.44,
+        "low_top_of_page_bid": 1.8,
+        "high_top_of_page_bid": 7.49,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 390
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 480
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 480
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 390
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 390
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 320
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 390
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 480
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 390
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 480
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 480
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 390
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 12,
+      "keyword": "one way nda template",
+      "slug": "one-way-nda-template-sales-demos-contractors",
+      "angle": "common use cases for one-way NDA templates and when to keep approval human",
+      "metrics": {
+        "keyword": "one way nda template",
+        "search_volume": 20,
+        "competition": "LOW",
+        "competition_index": 18,
+        "cpc": 9.08,
+        "low_top_of_page_bid": 3.56,
+        "high_top_of_page_bid": 7.95,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 40
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 10
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 20
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 20
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 30
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 20
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 13,
+      "keyword": "privacy policy template",
+      "slug": "privacy-policy-template-for-marketplace-onboarding",
+      "angle": "privacy acknowledgement and policy template workflow for marketplace contributors",
+      "metrics": {
+        "keyword": "privacy policy template",
+        "search_volume": 1600,
+        "competition": "LOW",
+        "competition_index": 25,
+        "cpc": 10.31,
+        "low_top_of_page_bid": 2.33,
+        "high_top_of_page_bid": 9.11,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 1300
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 1600
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 1300
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 1300
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 1300
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 1300
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 1900
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 1600
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 2400
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 2400
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 2400
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 1900
+          }
+        ]
+      },
+      "serp": null
+    },
+    {
+      "order": 14,
+      "keyword": "ai agent contracts",
+      "slug": "ai-agent-contracts-operating-model",
+      "angle": "operating model for AI agents that can send contracts but cannot draft or sign them",
+      "metrics": {
+        "keyword": "ai agent contracts",
+        "search_volume": null,
+        "competition": null,
+        "competition_index": null,
+        "cpc": null,
+        "low_top_of_page_bid": null,
+        "high_top_of_page_bid": null,
+        "monthly_searches": null
+      },
+      "serp": null
+    },
+    {
+      "order": 15,
+      "keyword": "human in the loop ai",
+      "slug": "human-in-the-loop-ai-contract-signing",
+      "angle": "why contract signing is a clean example of human-in-the-loop AI boundaries",
+      "metrics": {
+        "keyword": "human in the loop ai",
+        "search_volume": 1000,
+        "competition": "LOW",
+        "competition_index": 9,
+        "cpc": 11.93,
+        "low_top_of_page_bid": 2.85,
+        "high_top_of_page_bid": 14.69,
+        "monthly_searches": [
+          {
+            "year": 2026,
+            "month": 4,
+            "search_volume": 1300
+          },
+          {
+            "year": 2026,
+            "month": 3,
+            "search_volume": 1600
+          },
+          {
+            "year": 2026,
+            "month": 2,
+            "search_volume": 1000
+          },
+          {
+            "year": 2026,
+            "month": 1,
+            "search_volume": 1000
+          },
+          {
+            "year": 2025,
+            "month": 12,
+            "search_volume": 720
+          },
+          {
+            "year": 2025,
+            "month": 11,
+            "search_volume": 1000
+          },
+          {
+            "year": 2025,
+            "month": 10,
+            "search_volume": 1000
+          },
+          {
+            "year": 2025,
+            "month": 9,
+            "search_volume": 1000
+          },
+          {
+            "year": 2025,
+            "month": 8,
+            "search_volume": 1000
+          },
+          {
+            "year": 2025,
+            "month": 7,
+            "search_volume": 880
+          },
+          {
+            "year": 2025,
+            "month": 6,
+            "search_volume": 880
+          },
+          {
+            "year": 2025,
+            "month": 5,
+            "search_volume": 720
+          }
+        ]
+      },
+      "serp": null
+    }
+  ]
+}

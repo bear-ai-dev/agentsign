@@ -13,6 +13,10 @@ npm run dev
 
 The default local API key is `ak_local_dev_key_change_me`. Do not use that key in production. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
 
+## Analytics
+
+AgentContract uses PostHog server-side telemetry through `posthog-node`. Set `POSTHOG_PROJECT_API_KEY` and `POSTHOG_HOST` to capture request completion, errors, feedback, API key lifecycle, agent sessions, agreement lifecycle, and signing milestones. Set `POSTHOG_ENABLED=false` to disable analytics in an environment.
+
 ## Production migrations
 
 `npm run migrate` is production-aware. With no `DATABASE_URL`, it migrates local SQLite. When `DATABASE_URL` is set, it migrates the Supabase/Postgres database, records each SQL file in `schema_migrations`, stores a SHA-256 checksum, and uses a Postgres advisory lock so two deploys cannot migrate at the same time.

@@ -33,6 +33,14 @@ test("root footer includes the contact email", async () => {
   assert.match(html, /<footer class="footer">[\s\S]*href="mailto:janak@withspecific\.com"[\s\S]*janak@withspecific\.com[\s\S]*<\/footer>/);
 });
 
+test("root links to the public blog", async () => {
+  const response = await site.request("https://agentcontract.to/");
+  const html = await response.text();
+
+  assert.match(html, /<nav class="nav" aria-label="Primary navigation">[\s\S]*href="\/blog"[\s\S]*<\/nav>/);
+  assert.match(html, /<footer class="footer">[\s\S]*href="\/blog"[\s\S]*Blog[\s\S]*<\/footer>/);
+});
+
 test("root exposes brand and service structured data without unsupported FAQ markup", async () => {
   const response = await site.request("https://agentcontract.to/");
   const html = await response.text();
@@ -83,8 +91,80 @@ test("sitemap.xml lists public indexable pages with canonical URLs", async () =>
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/contract-sending-api<\/loc>/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/agent-contract-cli<\/loc>/);
   assert.match(body, /<loc>https:\/\/agentcontract\.to\/esignature-for-ai-agents<\/loc>/);
-  assert.doesNotMatch(body, /dashboard/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog\/ai-agents-send-contracts-humans-sign<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog\/contract-sending-api-for-agent-workflows<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog\/agent-contract-cli-playbook<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog\/esignature-api-for-ai-agent-workflows<\/loc>/);
+  assert.match(body, /<loc>https:\/\/agentcontract\.to\/blog\/human-in-the-loop-ai-contract-signing<\/loc>/);
+  assert.equal([...body.matchAll(/<loc>https:\/\/agentcontract\.to\/blog\/[^<]+<\/loc>/g)].length, 18);
+  assert.doesNotMatch(body, /https:\/\/agentcontract\.to\/dashboard/);
   assert.doesNotMatch(body, /sign\//);
+});
+
+test("blog index and posts are public, canonical, and agent-focused", async () => {
+  const indexResponse = await site.request("https://agentink-pied.vercel.app/blog");
+  const indexHtml = await indexResponse.text();
+
+  assert.equal(indexResponse.status, 200);
+  assert.match(indexHtml, /<title>AgentContract Blog \| AI agent contract workflows<\/title>/);
+  assert.match(indexHtml, /<link rel="canonical" href="https:\/\/agentcontract\.to\/blog" \/>/);
+  assert.match(indexHtml, /<h1>Field notes for agent-sent paperwork\.<\/h1>/);
+  assert.match(indexHtml, /href="\/blog\/ai-agents-send-contracts-humans-sign"/);
+  assert.match(indexHtml, /href="\/blog\/contract-sending-api-for-agent-workflows"/);
+  assert.match(indexHtml, /href="\/blog\/agent-contract-cli-playbook"/);
+  assert.match(indexHtml, /href="\/blog\/esignature-api-for-ai-agent-workflows"/);
+  assert.match(indexHtml, /href="\/blog\/contractor-agreement-template-agent-workflow"/);
+  assert.match(indexHtml, /href="\/blog\/human-in-the-loop-ai-contract-signing"/);
+
+  const posts = [
+    {
+      path: "/blog/ai-agents-send-contracts-humans-sign",
+      title: "AI agents can send contracts. Humans still need to sign. | AgentContract Blog",
+      h1: "AI agents can send contracts. Humans still need to sign.",
+      phrase: "The useful boundary is simple: agents prepare and send approved packets; people review and sign."
+    },
+    {
+      path: "/blog/contract-sending-api-for-agent-workflows",
+      title: "How to design a contract sending API for agent workflows | AgentContract Blog",
+      h1: "How to design a contract sending API for agent workflows.",
+      phrase: "A contract sending API for agents needs stricter rails than a human-first e-signature dashboard."
+    },
+    {
+      path: "/blog/agent-contract-cli-playbook",
+      title: "A CLI playbook for agent-native contract sending | AgentContract Blog",
+      h1: "A CLI playbook for agent-native contract sending.",
+      phrase: "The best agent contract workflow starts with a terminal command that is boring on purpose."
+    }
+  ];
+
+  for (const post of posts) {
+    const response = await site.request(`https://agentink-pied.vercel.app${post.path}`);
+    const html = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type") ?? "", /text\/html/);
+    assert.match(html, new RegExp(`<title>${post.title.replaceAll("|", "\\|")}<\\/title>`));
+    assert.match(html, /<meta name="robots" content="index,follow,max-image-preview:large" \/>/);
+    assert.match(html, new RegExp(`<link rel="canonical" href="https:\\/\\/agentcontract\\.to${post.path}" \\/>`));
+    assert.match(html, new RegExp(`<h1>${post.h1.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<\\/h1>`));
+    assert.match(html, new RegExp(post.phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(html, /href="\/blog"/);
+    assert.match(html, /href="\/cli"/);
+  }
+
+  const researchedPostResponse = await site.request("https://agentink-pied.vercel.app/blog/esignature-api-for-ai-agent-workflows");
+  const researchedPostHtml = await researchedPostResponse.text();
+
+  assert.equal(researchedPostResponse.status, 200);
+  assert.match(researchedPostHtml, /<title>What should an eSignature API do for AI agent workflows\? \| AgentContract Blog<\/title>/);
+  assert.match(researchedPostHtml, /<link rel="canonical" href="https:\/\/agentcontract\.to\/blog\/esignature-api-for-ai-agent-workflows" \/>/);
+  assert.match(researchedPostHtml, /Target: esignature api/);
+  assert.match(researchedPostHtml, /110 monthly searches/);
+  assert.match(researchedPostHtml, /<h2>FAQ<\/h2>/);
+  assert.match(researchedPostHtml, /DocuSign eSignature REST API/);
+  assert.match(researchedPostHtml, /"@type":"BlogPosting"/);
+  assert.match(researchedPostHtml, /href="\/contract-sending-api"/);
 });
 
 test("public SEO pages target AI-agent contract search intents", async () => {

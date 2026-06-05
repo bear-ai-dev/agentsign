@@ -6,6 +6,7 @@ import { addAuditEvent, getAgreementByToken, getAuditEvents, nowIso, parseJson, 
 import { sendCompletionEmail } from "../lib/email.js";
 import { renderPDFResult } from "../lib/pdf.js";
 import { pdfBufferForAgreement, pdfSha256 } from "../lib/pdfStorage.js";
+import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
 import type { Agreement, AuditEvent, FieldDefinition, SignedFields } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
 
@@ -238,6 +239,8 @@ sign.get("/sign/:token", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.html("<h1>Signing link not found</h1>", 404);
+  const distinctId = signerDistinctId(agreement.id);
+  setPosthogDistinctId(c, distinctId);
   if (agreement.status === "cancelled") return c.html("<h1>This agreement has been cancelled.</h1>", 410);
 
   const viewedCookie = `agentink_viewed_${agreement.id}`;
@@ -246,6 +249,11 @@ sign.get("/sign/:token", async (c) => {
     await run("UPDATE agreements SET status = 'viewed', viewed_at = ? WHERE id = ? AND status = 'sent'", viewedAt, agreement.id);
     await addAuditEvent({ agreementId: agreement.id, eventType: "viewed", ipAddress: clientIp(c), userAgent: c.req.header("user-agent") ?? null });
     setCookie(c, viewedCookie, "1", { httpOnly: true, sameSite: "Lax", maxAge: 60 * 60 * 24 * 365 });
+    posthog.captureEvent("agreement viewed", {
+      agreement_id: agreement.id,
+      previous_status: agreement.status,
+      field_count: parseJson<FieldDefinition[]>(agreement.fields_json, []).length
+    }, distinctId);
   }
 
   if (agreement.status === "completed") {
@@ -265,6 +273,12 @@ sign.get("/preview/:token", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.html("<h1>Preview not found</h1>", 404);
+  const distinctId = signerDistinctId(agreement.id);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("agreement preview viewed", {
+    agreement_id: agreement.id,
+    status: agreement.status
+  }, distinctId);
 
   const documentHtml = marked.parse(agreement.document_markdown, { async: false }) as string;
   return c.html(PREVIEW_HTML
@@ -277,6 +291,8 @@ sign.post("/sign/:token/submit", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
+  const distinctId = signerDistinctId(agreement.id);
+  setPosthogDistinctId(c, distinctId);
   if (agreement.status === "completed") return c.json({ error: "Agreement is already completed" }, 409);
   if (agreement.status === "cancelled") return c.json({ error: "Agreement is cancelled" }, 410);
 
@@ -376,6 +392,10 @@ sign.post("/sign/:token/submit", async (c) => {
     ]);
   } catch (error) {
     console.error("[AgentContract signing failed before completion]", error);
+    await posthog.captureException(error, c, {
+      agreement_id: agreement.id,
+      event_stage: "signing_completion"
+    });
     try {
       await addAuditEvent({
         agreementId: agreement.id,
@@ -387,12 +407,26 @@ sign.post("/sign/:token/submit", async (c) => {
     } catch (auditError) {
       console.error("[AgentContract signing failure audit failed]", auditError);
     }
+    posthog.captureEvent("agreement signing failed", {
+      agreement_id: agreement.id,
+      status: agreement.status,
+      field_count: fields.length
+    }, distinctId);
     return c.json({ error: "Signing failed before completion. Please try again." }, 500);
   }
 
   const completed = (await getAgreementByToken(token))!;
   if (completed.webhook_url) enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
   const notificationEmails = notificationEmailsFor(completed);
+  posthog.captureEvent("agreement completed", {
+    agreement_id: completed.id,
+    previous_status: agreement.status,
+    field_count: fields.length,
+    signed_field_count: Object.keys(signedFields).length,
+    has_webhook: Boolean(completed.webhook_url),
+    has_notifications: notificationEmails.length > 0,
+    signed_pdf_bytes: completed.signed_pdf_bytes
+  }, distinctId);
   if (notificationEmails.length) {
     try {
       await sendCompletionEmail({
@@ -404,8 +438,16 @@ sign.post("/sign/:token/submit", async (c) => {
         signedPdfUrl: `${new URL(c.req.url).origin}/sign/${token}/pdf`
       });
       await addAuditEvent({ agreementId: completed.id, eventType: "notification_sent", data: { to: notificationEmails } });
+      posthog.captureEvent("completion notification sent", {
+        agreement_id: completed.id,
+        notification_count: notificationEmails.length
+      }, distinctId);
     } catch (error) {
       console.error("[AgentContract completion notification failed]", error);
+      await posthog.captureException(error, c, {
+        agreement_id: completed.id,
+        event_stage: "completion_notification"
+      });
       await addAuditEvent({
         agreementId: completed.id,
         eventType: "notification_failed",
@@ -421,9 +463,15 @@ sign.get("/sign/:token/pdf", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
+  const distinctId = signerDistinctId(agreement.id);
+  setPosthogDistinctId(c, distinctId);
   if (agreement.status !== "completed") return c.json({ error: "Agreement is not completed" }, 400);
 
   const buffer = await pdfBufferForAgreement(agreement);
+  posthog.captureEvent("signed pdf viewed", {
+    agreement_id: agreement.id,
+    signed_pdf_bytes: buffer.byteLength
+  }, distinctId);
 
   return new Response(buffer, {
     headers: {

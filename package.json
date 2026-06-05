@@ -58,6 +58,7 @@
     "marked": "^15.0.6",
     "nanoid": "^5.0.9",
     "pg": "^8.20.0",
+    "posthog-node": "^5.36.2",
     "puppeteer-core": "^24.42.0"
   },
   "devDependencies": {

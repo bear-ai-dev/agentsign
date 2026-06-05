@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { nanoid } from "nanoid";
 import { requireApiKey } from "../lib/auth.js";
 import { all, get, nowIso, parseJson, run } from "../lib/db.js";
+import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import type { AgentSession, AgentSessionEvent, ApiKeyRecord } from "../lib/types.js";
 
 export const sessions = new Hono();
@@ -73,6 +74,11 @@ sessions.post("/v1/sessions", async (c) => {
   const startedAt = nowIso();
   const ownerEmail = apiKeyRecord(c)?.owner_email ?? null;
   const metadata = cleanObject(body.metadata);
+  const agent = cleanString(body.agent, 80) ?? "unknown";
+  const source = cleanString(body.source, 80) ?? "agentcontract-cli";
+  const initialGoal = cleanString(body.initial_goal ?? body.goal, 4_000);
+  const privacyMode = cleanString(body.privacy_mode, 40) ?? "full";
+  const distinctId = ownerDistinctId(ownerEmail, id);
 
   await run(
     `INSERT INTO agent_sessions (
@@ -80,15 +86,24 @@ sessions.post("/v1/sessions", async (c) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     ownerEmail,
-    cleanString(body.agent, 80) ?? "unknown",
-    cleanString(body.source, 80) ?? "agentcontract-cli",
-    cleanString(body.initial_goal ?? body.goal, 4_000),
-    cleanString(body.privacy_mode, 40) ?? "full",
+    agent,
+    source,
+    initialGoal,
+    privacyMode,
     startedAt,
     Object.keys(metadata).length ? JSON.stringify(metadata) : null
   );
 
   const session = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", id);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("agent session started", {
+    session_id: id,
+    agent,
+    source,
+    privacy_mode: privacyMode,
+    has_initial_goal: Boolean(initialGoal),
+    metadata_keys: Object.keys(metadata)
+  }, distinctId);
   return c.json({ session: publicSession(session!), started: true }, 201);
 });
 
@@ -127,6 +142,7 @@ sessions.post("/v1/sessions/:id/events", async (c) => {
   const eventType = cleanString(body.event_type, 80) ?? "note";
   const contentText = cleanString(body.content_text ?? body.content, 10_000);
   const contentJson = body.content_json === undefined ? null : JSON.stringify(body.content_json);
+  const distinctId = ownerDistinctId(session.owner_email, session.id);
 
   await run(
     `INSERT INTO agent_session_events (
@@ -144,6 +160,17 @@ sessions.post("/v1/sessions/:id/events", async (c) => {
   );
 
   const event = await get<AgentSessionEvent>("SELECT * FROM agent_session_events WHERE id = ?", id);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("agent session event recorded", {
+    session_id: sessionId,
+    event_id: id,
+    event_type: eventType,
+    actor_role: cleanString(body.actor_role, 80),
+    sequence_number: sequenceNumber,
+    has_content_text: Boolean(contentText),
+    has_content_json: body.content_json !== undefined,
+    metadata_keys: Object.keys(metadata)
+  }, distinctId);
   return c.json({ event: publicEvent(event!), stored: true }, 201);
 });
 
@@ -152,6 +179,7 @@ sessions.post("/v1/sessions/:id/end", async (c) => {
   const body = await c.req.json<{ outcome?: string }>().catch(() => ({})) as { outcome?: string };
   const session = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId);
   if (!session) return c.json({ error: "Session not found" }, 404);
+  const distinctId = ownerDistinctId(session.owner_email, session.id);
 
   await run(
     "UPDATE agent_sessions SET ended_at = ?, outcome = ? WHERE id = ?",
@@ -160,5 +188,12 @@ sessions.post("/v1/sessions/:id/end", async (c) => {
     sessionId
   );
   const updated = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("agent session ended", {
+    session_id: sessionId,
+    agent: session.agent,
+    source: session.source,
+    had_outcome: Boolean(cleanString(body.outcome, 2_000))
+  }, distinctId);
   return c.json({ session: publicSession(updated!), ended: true });
 });

@@ -1,0 +1,340 @@
+{
+  "generated_at": "2026-06-05T09:10:37.740Z",
+  "urls": [
+    "https://agentcontract.to/blog/esignature-api-for-ai-agent-workflows",
+    "https://agentcontract.to/blog/contract-signing-api-checklist",
+    "https://agentcontract.to/blog/document-signing-api-vs-dashboard",
+    "https://agentcontract.to/blog/api-to-send-documents-for-signature",
+    "https://agentcontract.to/blog/docusign-api-alternative-for-agent-workflows",
+    "https://agentcontract.to/blog/contract-automation-software-for-repeatable-packets",
+    "https://agentcontract.to/blog/contract-management-api-for-small-teams",
+    "https://agentcontract.to/blog/vendor-onboarding-process-contracts",
+    "https://agentcontract.to/blog/marketplace-onboarding-contract-workflow",
+    "https://agentcontract.to/blog/contractor-agreement-template-agent-workflow",
+    "https://agentcontract.to/blog/mutual-nda-template-before-you-send",
+    "https://agentcontract.to/blog/one-way-nda-template-sales-demos-contractors",
+    "https://agentcontract.to/blog/privacy-policy-template-for-marketplace-onboarding",
+    "https://agentcontract.to/blog/ai-agent-contracts-operating-model",
+    "https://agentcontract.to/blog/human-in-the-loop-ai-contract-signing"
+  ],
+  "search_console": {
+    "oauth_sites": [
+      {
+        "siteUrl": "https://www.cherrypickindia.in/",
+        "permissionLevel": "siteFullUser"
+      },
+      {
+        "siteUrl": "sc-domain:meetingchai.com",
+        "permissionLevel": "siteOwner"
+      },
+      {
+        "siteUrl": "sc-domain:llmstxt.usebear.ai",
+        "permissionLevel": "siteOwner"
+      },
+      {
+        "siteUrl": "sc-domain:shopchord.com",
+        "permissionLevel": "siteUnverifiedUser"
+      },
+      {
+        "siteUrl": "sc-domain:usebear.ai",
+        "permissionLevel": "siteOwner"
+      },
+      {
+        "siteUrl": "sc-domain:agentcontract.to",
+        "permissionLevel": "siteOwner"
+      }
+    ],
+    "agentcontract_properties": [
+      {
+        "siteUrl": "sc-domain:agentcontract.to",
+        "permissionLevel": "siteOwner"
+      }
+    ],
+    "inspections": [
+      {
+        "url": "https://agentcontract.to/blog/esignature-api-for-ai-agent-workflows",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-signing-api-checklist",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/document-signing-api-vs-dashboard",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/api-to-send-documents-for-signature",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/docusign-api-alternative-for-agent-workflows",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-automation-software-for-repeatable-packets",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-management-api-for-small-teams",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/vendor-onboarding-process-contracts",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/marketplace-onboarding-contract-workflow",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/contractor-agreement-template-agent-workflow",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/mutual-nda-template-before-you-send",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/one-way-nda-template-sales-demos-contractors",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/privacy-policy-template-for-marketplace-onboarding",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/ai-agent-contracts-operating-model",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      },
+      {
+        "url": "https://agentcontract.to/blog/human-in-the-loop-ai-contract-signing",
+        "siteUrl": "sc-domain:agentcontract.to",
+        "status": "success",
+        "result": {
+          "verdict": "NEUTRAL",
+          "coverageState": "URL is unknown to Google",
+          "robotsTxtState": "ROBOTS_TXT_STATE_UNSPECIFIED",
+          "indexingState": "INDEXING_STATE_UNSPECIFIED",
+          "pageFetchState": "PAGE_FETCH_STATE_UNSPECIFIED"
+        }
+      }
+    ],
+    "sitemap_submission": {
+      "status": "error",
+      "code": 403,
+      "error": "Insufficient Permission"
+    }
+  },
+  "indexing_api": {
+    "attempted": true,
+    "results": [
+      {
+        "url": "https://agentcontract.to/blog/esignature-api-for-ai-agent-workflows",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-signing-api-checklist",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/document-signing-api-vs-dashboard",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/api-to-send-documents-for-signature",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/docusign-api-alternative-for-agent-workflows",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-automation-software-for-repeatable-packets",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/contract-management-api-for-small-teams",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/vendor-onboarding-process-contracts",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/marketplace-onboarding-contract-workflow",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/contractor-agreement-template-agent-workflow",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/mutual-nda-template-before-you-send",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/one-way-nda-template-sales-demos-contractors",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/privacy-policy-template-for-marketplace-onboarding",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/ai-agent-contracts-operating-model",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      },
+      {
+        "url": "https://agentcontract.to/blog/human-in-the-loop-ai-contract-signing",
+        "status": "error",
+        "error": "invalid_grant: Invalid JWT Signature."
+      }
+    ]
+  },
+  "updated_at": "2026-06-05T09:19:52.713Z",
+  "continuation_attempts": [
+    {
+      "at": "2026-06-05T09:17:17.218Z",
+      "production_check": "15/15 URLs returned 200 with canonical, indexable robots, BlogPosting JSON-LD, and sitemap inclusion.",
+      "browser_path": "Codex-in-Chrome MCP unavailable; Chrome account chooser still shows Janak account signed out. computer_use click and macOS/cliclick fallback could not interact because Accessibility permissions are not active.",
+      "service_account_check": "GOOGLE_SERVICE_ACCOUNT_JSON parses as a service_account key, but google auth token acquisition fails with invalid_grant: Invalid JWT Signature.",
+      "oauth_write_check": "Existing GSC OAuth can inspect URLs but cannot publish Indexing API notifications or submit sitemap; write calls return 403 Insufficient Permission.",
+      "sitemap_read_check": "Search Console can list existing https://agentcontract.to/sitemap.xml submission with 0 errors/warnings, but submitted count has not refreshed to include the expanded 15 new-post sitemap yet."
+    },
+    {
+      "at": "2026-06-05T09:19:52.713Z",
+      "production_check": "15/15 live post URLs reverified with 200 status, canonical URL, indexable robots tag, BlogPosting JSON-LD, and sitemap inclusion.",
+      "oauth_scope_check": "Existing GSC OAuth access token scope is https://www.googleapis.com/auth/webmasters.readonly, proving write calls cannot succeed with this refresh token.",
+      "alternate_credential_check": "Local credential search found no alternate Search Console write credential. Bear/Blogs token.pickle is spreadsheets-only. Bear/Blogs credentials.json is an OAuth client, not a service account.",
+      "service_account_check": "Existing GOOGLE_SERVICE_ACCOUNT_JSON is structurally a service account, but google auth token acquisition still fails with invalid_grant: Invalid JWT Signature.",
+      "ui_control_check": "Codex-in-Chrome MCP unavailable. Chrome previously showed Google account chooser signed out. computer_use click failed after state capture, macOS/cliclick lacked Accessibility permissions, and latest computer_use state failed with cgWindowNotFound."
+    }
+  ]
+}

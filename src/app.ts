@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { posthog } from "./lib/posthog.js";
 import { agreements } from "./routes/agreements.js";
 import { apiKeys } from "./routes/apiKeys.js";
 import { auth } from "./routes/auth.js";
@@ -14,8 +15,10 @@ import { startWebhookRetryWorker } from "./routes/webhooks.js";
 export const app = new Hono();
 
 app.use("*", logger());
-app.onError((error, c) => {
+app.use("*", posthog.middleware());
+app.onError(async (error, c) => {
   console.error("[AgentContract error]", error);
+  await posthog.captureException(error, c, { handled_by: "app.onError" });
   return c.text("Internal Server Error", 500);
 });
 app.get("/favicon.ico", (c) => new Response(null, { status: 204 }));

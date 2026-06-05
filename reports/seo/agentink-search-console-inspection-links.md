@@ -1,0 +1,19 @@
+# AgentContract Search Console URL Inspection Links
+
+Use these after signing into Chrome with the Search Console owner account. Open each link and click `Request indexing`.
+
+1. [https://agentcontract.to/blog/esignature-api-for-ai-agent-workflows](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fesignature-api-for-ai-agent-workflows)
+2. [https://agentcontract.to/blog/contract-signing-api-checklist](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fcontract-signing-api-checklist)
+3. [https://agentcontract.to/blog/document-signing-api-vs-dashboard](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fdocument-signing-api-vs-dashboard)
+4. [https://agentcontract.to/blog/api-to-send-documents-for-signature](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fapi-to-send-documents-for-signature)
+5. [https://agentcontract.to/blog/docusign-api-alternative-for-agent-workflows](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fdocusign-api-alternative-for-agent-workflows)
+6. [https://agentcontract.to/blog/contract-automation-software-for-repeatable-packets](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fcontract-automation-software-for-repeatable-packets)
+7. [https://agentcontract.to/blog/contract-management-api-for-small-teams](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fcontract-management-api-for-small-teams)
+8. [https://agentcontract.to/blog/vendor-onboarding-process-contracts](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fvendor-onboarding-process-contracts)
+9. [https://agentcontract.to/blog/marketplace-onboarding-contract-workflow](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fmarketplace-onboarding-contract-workflow)
+10. [https://agentcontract.to/blog/contractor-agreement-template-agent-workflow](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fcontractor-agreement-template-agent-workflow)
+11. [https://agentcontract.to/blog/mutual-nda-template-before-you-send](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fmutual-nda-template-before-you-send)
+12. [https://agentcontract.to/blog/one-way-nda-template-sales-demos-contractors](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fone-way-nda-template-sales-demos-contractors)
+13. [https://agentcontract.to/blog/privacy-policy-template-for-marketplace-onboarding](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fprivacy-policy-template-for-marketplace-onboarding)
+14. [https://agentcontract.to/blog/ai-agent-contracts-operating-model](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fai-agent-contracts-operating-model)
+15. [https://agentcontract.to/blog/human-in-the-loop-ai-contract-signing](https://search.google.com/search-console/inspect?resource_id=sc-domain%3Aagentcontract.to&id=https%3A%2F%2Fagentcontract.to%2Fblog%2Fhuman-in-the-loop-ai-contract-signing)

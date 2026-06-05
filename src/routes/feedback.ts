@@ -4,6 +4,7 @@ import { verifyStoredApiKey } from "../lib/apiKeys.js";
 import { requireApiKey } from "../lib/auth.js";
 import { all, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
+import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import type { ApiKeyRecord, ProductFeedback } from "../lib/types.js";
 
 export const feedback = new Hono();
@@ -84,6 +85,10 @@ feedback.post("/v1/feedback", async (c) => {
 
   const category = cleanString(body.category, 40) ?? "general";
   const severity = cleanString(body.severity, 40) ?? "normal";
+  const source = cleanString(body.source, 80) ?? "agentcontract-cli";
+  const command = cleanString(body.command, 2_000);
+  const expected = cleanString(body.expected);
+  const actual = cleanString(body.actual);
   const createdAt = nowIso();
   const id = `fb_${nanoid(14)}`;
   const context = {
@@ -95,6 +100,8 @@ feedback.post("/v1/feedback", async (c) => {
     }
   };
   const ownerEmail = await optionalOwnerEmail(c);
+  const reporterEmail = validEmail(body.reporter_email) ?? ownerEmail;
+  const distinctId = ownerDistinctId(ownerEmail ?? reporterEmail, id);
 
   await run(
     `INSERT INTO product_feedback (
@@ -103,20 +110,31 @@ feedback.post("/v1/feedback", async (c) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
     id,
     ownerEmail,
-    validEmail(body.reporter_email) ?? ownerEmail,
+    reporterEmail,
     cleanString(body.reporter_name, 200),
-    cleanString(body.source, 80) ?? "agentcontract-cli",
+    source,
     categories.has(category) ? category : "other",
     severities.has(severity) ? severity : "normal",
-    cleanString(body.command, 2_000),
+    command,
     message,
-    cleanString(body.expected),
-    cleanString(body.actual),
+    expected,
+    actual,
     JSON.stringify(context),
     createdAt
   );
 
   const row = await all<ProductFeedback>("SELECT * FROM product_feedback WHERE id = ?", id);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("product feedback submitted", {
+    feedback_id: id,
+    source,
+    category: categories.has(category) ? category : "other",
+    severity: severities.has(severity) ? severity : "normal",
+    has_command: Boolean(command),
+    has_expected: Boolean(expected),
+    has_actual: Boolean(actual),
+    context_keys: Object.keys(context)
+  }, distinctId);
   return c.json({ feedback: publicFeedback(row[0]), stored: true }, 201);
 });
 

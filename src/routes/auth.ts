@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createEmailLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
+import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import { completeWorkosCallback, loginUrl, logout, readEmailAdminSession, setEmailAdminSession, workosConfigured } from "../lib/workos.js";
 
 export const auth = new Hono();
@@ -24,6 +25,10 @@ function validEmail(value: unknown) {
   const email = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   return email;
+}
+
+function emailDomain(email: string | null) {
+  return email?.split("@")[1] ?? null;
 }
 
 function loginPage(input: {
@@ -109,9 +114,20 @@ auth.post("/login/email/start", async (c) => {
       ownerEmail: email
     });
     await sendCliLoginCodeEmail({ to: email, code, expiresInMinutes: 5 });
+    const distinctId = ownerDistinctId(email);
+    setPosthogDistinctId(c, distinctId);
+    posthog.captureEvent("login code requested", {
+      surface: "dashboard",
+      email_domain: emailDomain(email),
+      delivery: "email"
+    }, distinctId);
     return c.html(loginPage({ returnTo, email, sent: true, workosUrl }));
   } catch (error) {
     console.error("[AgentContract admin email login start failed]", error);
+    await posthog.captureException(error, c, {
+      event_stage: "login_code_request",
+      email_domain: emailDomain(email)
+    });
     return c.html(loginPage({ returnTo, email, error: "Could not send a sign-in code. Try CLI login or retry in a minute.", workosUrl }), 400);
   }
 });
@@ -132,14 +148,27 @@ auth.post("/login/email/verify", async (c) => {
   }
 
   setEmailAdminSession(c, email);
+  const distinctId = ownerDistinctId(email);
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("login completed", {
+    surface: "dashboard",
+    email_domain: emailDomain(email),
+    method: "email_code"
+  }, distinctId);
   return c.redirect(returnTo);
 });
 
 auth.get("/auth/callback", async (c) => {
   try {
-    return await completeWorkosCallback(c);
+    const response = await completeWorkosCallback(c);
+    posthog.captureEvent("login completed", {
+      surface: "dashboard",
+      method: "workos"
+    });
+    return response;
   } catch (error) {
     console.error("[AgentContract WorkOS callback failed]", error);
+    await posthog.captureException(error, c, { event_stage: "workos_callback" });
     return c.redirect("/login");
   }
 });

@@ -5,6 +5,7 @@ import { env } from "../lib/env.js";
 import { requireApiKey } from "../lib/auth.js";
 import { sendSigningEmail } from "../lib/email.js";
 import { pdfBufferForAgreement } from "../lib/pdfStorage.js";
+import { posthog, signerDistinctId } from "../lib/posthog.js";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templates.js";
 import { auditEventsForApi } from "../lib/audit.js";
 import type { Agreement, FieldDefinition, SignedFields } from "../lib/types.js";
@@ -46,6 +47,11 @@ function normalizeEmailList(value: string | string[] | undefined) {
   if (!value) return [];
   const raw = Array.isArray(value) ? value : [value];
   return raw.map((email) => email.trim()).filter(Boolean);
+}
+
+function stringMetadata(value: Record<string, unknown>, key: string) {
+  const item = value[key];
+  return typeof item === "string" ? item : null;
 }
 
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
@@ -99,6 +105,19 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     documentTitle,
     signingUrl
   });
+
+  posthog.captureEvent("agreement created", {
+    agreement_id: id,
+    status: "sent",
+    source: body.template ? "template" : "raw_markdown",
+    template: body.template ?? null,
+    field_count: body.fields?.length ?? 0,
+    cc_count: cc.length,
+    notification_count: notificationEmails.length,
+    has_webhook: Boolean(body.webhook_url),
+    has_sender_email: Boolean(senderEmail),
+    workflow: stringMetadata(metadata, "workflow")
+  }, signerDistinctId(id));
 
   return {
     id,
@@ -244,6 +263,11 @@ agreements.post("/v1/agreements/:id/cancel", async (c) => {
   await addAuditEvent({ agreementId: agreement.id, eventType: "cancelled" });
   const updated = (await getAgreement(agreement.id))!;
   if (updated.webhook_url) enqueueWebhook(updated.id, updated.webhook_url, cancelledPayload(updated));
+  posthog.captureEvent("agreement cancelled", {
+    agreement_id: updated.id,
+    previous_status: agreement.status,
+    has_webhook: Boolean(updated.webhook_url)
+  }, signerDistinctId(updated.id));
   return c.json(agreementForApi(updated, { includeSignedFields: true }));
 });
 
@@ -264,6 +288,11 @@ agreements.post("/v1/agreements/:id/remind", async (c) => {
     signingUrl: `${env.baseUrl}/sign/${agreement.signing_token}`
   });
   await addAuditEvent({ agreementId: agreement.id, eventType: "sent", data: { reminder: true } });
+  posthog.captureEvent("agreement reminder sent", {
+    agreement_id: agreement.id,
+    status: agreement.status,
+    has_sender_email: Boolean(senderEmail)
+  }, signerDistinctId(agreement.id));
   return c.json({ ok: true });
 });
 

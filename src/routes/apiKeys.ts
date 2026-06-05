@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { createApiKey, listApiKeysForOwner, revokeApiKeyForOwner } from "../lib/apiKeys.js";
 import { requireApiKey } from "../lib/auth.js";
+import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import { requireAdminSession } from "../lib/workos.js";
 import type { ApiKeyRecord } from "../lib/types.js";
 
@@ -110,7 +111,16 @@ apiKeys.post("/v1/api-keys", async (c) => {
     ownerId: current.owner_id,
     ownerEmail: current.owner_email
   });
+  const distinctId = ownerDistinctId(current.owner_email, record.id);
 
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("api key created", {
+    key_id: record.id,
+    key_name: record.name,
+    key_prefix: record.key_prefix,
+    owner_has_email: Boolean(record.owner_email),
+    surface: "api"
+  }, distinctId);
   return c.json({
     api_key: key,
     record: publicApiKey(record)
@@ -126,7 +136,13 @@ apiKeys.post("/v1/api-keys/:id/revoke", async (c) => {
   const id = c.req.param("id");
   const revoked = await revokeApiKeyForOwner(id, current.owner_email);
   if (!revoked) return c.json({ error: "API key not found" }, 404);
+  const distinctId = ownerDistinctId(current.owner_email, id);
 
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("api key revoked", {
+    key_id: id,
+    surface: "api"
+  }, distinctId);
   return c.json({
     revoked: true,
     id
@@ -222,18 +238,36 @@ apiKeys.post("/dashboard/api-keys", async (c) => {
 
   const body = await c.req.parseBody();
   const name = typeof body.name === "string" ? body.name : "AgentContract CLI";
-  const { key } = await createApiKey({
+  const { key, record } = await createApiKey({
     name,
     ownerId: user.id ?? null,
     ownerEmail: user.email
   });
+  const distinctId = ownerDistinctId(user.email, "dashboard-api-key");
 
+  setPosthogDistinctId(c, distinctId);
+  posthog.captureEvent("api key created", {
+    key_id: record.id,
+    key_name: name,
+    owner_has_email: Boolean(user.email),
+    surface: "dashboard"
+  }, distinctId);
   return renderApiKeysPage(c, key);
 });
 
 apiKeys.post("/dashboard/api-keys/:id/revoke", async (c) => {
   const user = adminUser(c);
   const id = c.req.param("id");
-  if (id) await revokeApiKeyForOwner(id, user.email);
+  if (id) {
+    const revoked = await revokeApiKeyForOwner(id, user.email);
+    if (revoked) {
+      const distinctId = ownerDistinctId(user.email, id);
+      setPosthogDistinctId(c, distinctId);
+      posthog.captureEvent("api key revoked", {
+        key_id: id,
+        surface: "dashboard"
+      }, distinctId);
+    }
+  }
   return c.redirect("/dashboard/api-keys");
 });
