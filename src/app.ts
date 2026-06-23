@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { cookieConsentMiddleware } from "./lib/cookieConsent.js";
 import { posthog } from "./lib/posthog.js";
 import { agreements } from "./routes/agreements.js";
 import { apiKeys } from "./routes/apiKeys.js";
@@ -16,6 +17,7 @@ export const app = new Hono();
 
 app.use("*", logger());
 app.use("*", posthog.middleware());
+app.use("*", cookieConsentMiddleware);
 app.onError(async (error, c) => {
   console.error("[AgentContract error]", error);
   await posthog.captureException(error, c, { handled_by: "app.onError" });
