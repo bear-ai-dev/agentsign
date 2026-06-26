@@ -7,6 +7,14 @@ import { env } from "./env.js";
 import { documentHash } from "./audit.js";
 import type { AuditEvent, FieldDefinition, SignedFields } from "./types.js";
 
+export const signatureFontFaceCss = `
+@font-face {
+  font-family: "AgentContractSignature";
+  font-style: normal;
+  font-weight: 400;
+  src: url("https://fonts.gstatic.com/s/allura/v23/9oRPNYsQpS4zjuAPjA.ttf") format("truetype");
+}`;
+
 function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -33,12 +41,19 @@ function typedSignatureText(value: unknown) {
   return null;
 }
 
+function typedSignatureSvg(value: string) {
+  const text = value.trim().slice(0, 300);
+  const width = Math.min(520, Math.max(220, text.length * 22 + 96));
+  const safeText = escapeHtml(text);
+  return `<svg class="typed-signature" viewBox="0 0 ${width} 82" width="${width}" height="82" role="img" aria-label="Signature: ${safeText}" preserveAspectRatio="xMinYMid meet"><text class="typed-signature-text" x="12" y="52">${safeText}</text><path class="typed-signature-line" d="M8 68 H ${width - 8}" /></svg>`;
+}
+
 function signatureHtml(value: unknown) {
   const dataUrl = fieldDataUrl(value);
   if (dataUrl) return signatureImageHtml(dataUrl);
 
   const typed = typedSignatureText(value);
-  if (typed) return `<span class="typed-signature">${escapeHtml(typed)}</span>`;
+  if (typed) return typedSignatureSvg(typed);
 
   return "";
 }
@@ -141,6 +156,7 @@ export function renderDocumentHtml(input: {
 <head>
   <meta charset="utf-8" />
   <style>
+    ${signatureFontFaceCss}
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172026; line-height: 1.65; margin: 0; padding: 40px 24px; background: #fff; }
     main { max-width: 720px; margin: 0 auto; }
@@ -157,7 +173,9 @@ export function renderDocumentHtml(input: {
     .signed-inline.empty { min-height: 1.25em; }
     .signed-fields { margin-top: 40px; padding-top: 22px; border-top: 2px solid #111827; }
     .signature-image { max-width: 320px; max-height: 120px; border: 1px solid #d7dde5; background: #fff; display: block; }
-    .typed-signature { display: inline-block; min-width: 260px; max-width: 100%; padding: 10px 16px 8px; border-bottom: 1px solid #111827; font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 34px; line-height: 1.1; color: #0b1220; overflow-wrap: anywhere; vertical-align: baseline; }
+    .typed-signature { display: inline-block; max-width: 100%; vertical-align: middle; overflow: visible; }
+    .typed-signature-text { font-family: "AgentContractSignature", "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 52px; fill: #0b1220; }
+    .typed-signature-line { stroke: #111827; stroke-width: 1.4; stroke-linecap: round; }
     .page-break { break-before: page; page-break-before: always; }
   </style>
 </head>
@@ -203,6 +221,7 @@ export async function renderPDFResult(input: {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.evaluate(() => document.fonts.ready);
     const pdf = await page.pdf({ format: "Letter", printBackground: true, margin: { top: "0.45in", right: "0.35in", bottom: "0.45in", left: "0.35in" } });
     const buffer = Buffer.from(pdf);
     const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);
