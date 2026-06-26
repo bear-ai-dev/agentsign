@@ -23,13 +23,18 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+export type RunResult = {
+  changes: number;
+};
+
 export async function run(sql: string, ...params: unknown[]) {
   await dbReady;
   if (pool) {
-    await pool.query(toPg(sql), params);
-    return;
+    const result = await pool.query(toPg(sql), params);
+    return { changes: result.rowCount ?? 0 } satisfies RunResult;
   }
-  sqlite!.prepare(sql).run(...params);
+  const result = sqlite!.prepare(sql).run(...params);
+  return { changes: result.changes } satisfies RunResult;
 }
 
 export async function runTransaction(statements: Array<{ sql: string; params?: unknown[] }>) {
