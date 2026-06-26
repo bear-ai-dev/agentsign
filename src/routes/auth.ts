@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createEmailLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
+import { createEmailLoginCode, consumeEmailLoginCode } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
 import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import { completeWorkosCallback, loginUrl, logout, readEmailAdminSession, setEmailAdminSession, workosConfigured } from "../lib/workos.js";
@@ -142,8 +142,8 @@ auth.post("/login/email/verify", async (c) => {
     return c.html(loginPage({ returnTo, email: email ?? undefined, sent: Boolean(email), error: "Enter the six-digit code from your email.", workosUrl }), 400);
   }
 
-  const login = await consumeCliLoginCode(code);
-  if (!login || login.ownerEmail !== email) {
+  const login = await consumeEmailLoginCode(code, email);
+  if (!login) {
     return c.html(loginPage({ returnTo, email, sent: true, error: "That code is invalid or expired.", workosUrl }), 400);
   }
 

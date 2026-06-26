@@ -71,3 +71,20 @@ export async function consumeCliLoginCode(code: string) {
     ownerId: record.owner_id
   };
 }
+
+export async function consumeEmailLoginCode(code: string, ownerEmail: string) {
+  const record = await get<CliLoginCode>(
+    "SELECT * FROM cli_login_codes WHERE code_hash = ? AND owner_email = ? AND used_at IS NULL",
+    hashApiKey(code),
+    ownerEmail
+  );
+  if (!record) return null;
+  if (new Date(record.expires_at).getTime() < Date.now()) return null;
+
+  await run("UPDATE cli_login_codes SET used_at = ? WHERE id = ? AND used_at IS NULL", nowIso(), record.id);
+  return {
+    keyName: record.key_name,
+    ownerEmail: record.owner_email,
+    ownerId: record.owner_id
+  };
+}

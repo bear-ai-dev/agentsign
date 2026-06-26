@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
-import { createCliLoginCode, createEmailLoginCode, consumeCliLoginCode } from "../lib/cliLogin.js";
+import { createCliLoginCode, createEmailLoginCode, consumeCliLoginCode, consumeEmailLoginCode } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
 import { requireAdminSession } from "../lib/workos.js";
 
@@ -346,8 +346,8 @@ cli.post("/cli/magic/verify", async (c) => {
   if (!/^[0-9]{6}$/.test(code)) return c.json({ error: "A 6-digit login code is required" }, 400);
 
   try {
-    const login = await consumeCliLoginCode(code);
-    if (!login || login.ownerEmail !== email) return c.json({ error: "Invalid or expired login code" }, 400);
+    const login = await consumeEmailLoginCode(code, email);
+    if (!login) return c.json({ error: "Invalid or expired login code" }, 400);
     const { key } = await createApiKey({
       name: body.name || login.keyName || "AgentContract CLI",
       ownerId: login.ownerId ?? null,
