@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import pg from "pg";
 import { env } from "./env.js";
-import type { Agreement, AuditEvent, AgreementStatus } from "./types.js";
+import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
 
 mkdirSync(dirname(env.databasePath), { recursive: true });
 
@@ -123,6 +123,19 @@ export async function getAgreementByToken(token: string): Promise<Agreement | un
   return get<Agreement>("SELECT * FROM agreements WHERE signing_token = ?", token);
 }
 
+export async function getAgreementBySigningToken(token: string): Promise<{ agreement: Agreement; signerRole: SignerRole } | undefined> {
+  const agreement = await get<Agreement>(
+    "SELECT * FROM agreements WHERE signing_token = ? OR sender_signing_token = ? LIMIT 1",
+    token,
+    token
+  );
+  if (!agreement) return undefined;
+  return {
+    agreement,
+    signerRole: agreement.sender_signing_token === token ? "sender" : "recipient"
+  };
+}
+
 export async function getAuditEvents(agreementId: string): Promise<AuditEvent[]> {
   return all<AuditEvent>("SELECT * FROM audit_events WHERE agreement_id = ? ORDER BY created_at ASC", agreementId);
 }
@@ -157,6 +170,7 @@ async function ensureSchema() {
 
 async function ensureAgreementStorageSchema() {
   const columns = [
+    ["sender_signing_token", "TEXT"],
     ["signed_pdf_base64", "TEXT"],
     ["signed_pdf_sha256", "TEXT"],
     ["signed_pdf_bytes", "INTEGER"]
@@ -166,6 +180,7 @@ async function ensureAgreementStorageSchema() {
     for (const [name, type] of columns) {
       await pool.query(`ALTER TABLE agreements ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
     return;
   }
@@ -176,6 +191,7 @@ async function ensureAgreementStorageSchema() {
   for (const [name, type] of columns) {
     if (!existing.has(name)) sqlite!.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
   }
+  sqlite!.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL");
   sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
 }
 

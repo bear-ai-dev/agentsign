@@ -60,7 +60,7 @@ type ProductFeedbackForCli = {
   created_at: string;
 };
 
-const cliVersion = "0.1.13";
+const cliVersion = "0.1.14";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -450,6 +450,7 @@ Options:
   --code <123456>                    Login code for email-code login. Omit to type it interactively
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
+  --signing-order <order>            Counter-sign order: parallel, sender_first, or recipient_first
   --template <name>                  Template for send-contract/preview: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
   --var <key=value>                  Template variable. Repeatable
   --vars-json <json>                 Template variables as JSON
@@ -1047,16 +1048,26 @@ function notificationArgs(args: Args, defaultEmail?: string) {
   return validateEmailList(notify, "--notify");
 }
 
+function signingOrderArg(args: Args) {
+  const value = cleanString(stringArg(args, "signing-order", "order"));
+  if (!value) return undefined;
+  const normalized = value.toLowerCase().replace(/[\s-]+/g, "_");
+  if (normalized === "parallel" || normalized === "sender_first" || normalized === "recipient_first") return normalized;
+  throw new CliError("--signing-order must be parallel, sender_first, or recipient_first");
+}
+
 function sharedSendOptions(args: Args, fallbackSenderName?: string) {
   const sender_email = senderEmail(args);
   const cc = validateEmailList(listArg(args, "cc"), "--cc");
   const notify = notificationArgs(args, sender_email);
+  const signing_order = signingOrderArg(args);
   return {
     cc: cc.length ? cc : undefined,
     sender_email,
     sender_name: senderName(args, fallbackSenderName),
     notification_email: notify.length ? notify : undefined,
-    webhook_url: stringArg(args, "webhook-url")
+    webhook_url: stringArg(args, "webhook-url"),
+    signing_order
   };
 }
 
@@ -1178,6 +1189,9 @@ type AgreementPayload = {
   fields?: Array<Record<string, unknown>>;
   webhook_url?: string;
   metadata?: Record<string, unknown>;
+  sender_signature_required?: boolean;
+  sender_fields?: Array<Record<string, unknown>>;
+  signing_order?: string;
 };
 
 function withCustomContractArgs(args: Args, payload: AgreementPayload) {
@@ -1210,6 +1224,7 @@ function baseMndaPayload(args: Args) {
       term_years: Number(stringArg(args, "term-years") ?? 2)
     },
     fields: mndaFields(),
+    sender_signature_required: true,
     metadata: { source: "agentcontract-cli" }
   });
 }
@@ -1237,6 +1252,7 @@ function baseContractPayload(args: Args) {
   const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
   const defaultVars = definition ? defaultTemplateVars(definition) : {};
   const company = stringArg(args, "company") ?? String(vars.company_name ?? defaultVars.company_name ?? "Bear AI");
+  const senderSignatureRequired = template === "nda" || template === "mutual-nda";
   return withCustomContractArgs(args, {
     ...sharedSendOptions(args, company),
     template,
@@ -1247,6 +1263,7 @@ function baseContractPayload(args: Args) {
       ...vars
     },
     fields: defaultFieldsFor(template),
+    ...(senderSignatureRequired ? { sender_signature_required: true } : {}),
     metadata: { source: "agentcontract-cli", template_kind: template ?? "custom_markdown" }
   });
 }
@@ -1718,6 +1735,8 @@ function printResult(result: unknown, json: boolean) {
       id: string;
       status?: string;
       signing_url?: string;
+      sender_signing_url?: string | null;
+      signing_order?: string;
       preview_url?: string;
       signed_pdf_url?: string | null;
       signed_pdf_saved?: boolean;
@@ -1730,6 +1749,8 @@ function printResult(result: unknown, json: boolean) {
     if (agreement.status) console.log(`Status: ${agreement.status}`);
     if (agreement.preview_url) console.log(`Preview URL: ${agreement.preview_url}`);
     if (agreement.signing_url) console.log(`Signing URL: ${agreement.signing_url}`);
+    if (agreement.sender_signing_url) console.log(`Sender Signing URL: ${agreement.sender_signing_url}`);
+    if (agreement.signing_order) console.log(`Signing Order: ${agreement.signing_order}`);
     if (agreement.signed_pdf_url) console.log(`Signed PDF: ${agreement.signed_pdf_url}`);
     if (typeof agreement.signed_pdf_saved === "boolean") console.log(`Signed PDF saved: ${agreement.signed_pdf_saved ? "yes" : "no"}`);
     if (agreement.signed_pdf_bytes) console.log(`Signed PDF bytes: ${agreement.signed_pdf_bytes}`);

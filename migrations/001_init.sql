@@ -11,6 +11,7 @@ CREATE TABLE agreements (
   webhook_secret TEXT,
   metadata_json TEXT,
   signing_token TEXT NOT NULL UNIQUE,
+  sender_signing_token TEXT,
   created_at TEXT NOT NULL,
   sent_at TEXT,
   viewed_at TEXT,
@@ -46,5 +47,6 @@ CREATE TABLE webhook_deliveries (
 
 CREATE INDEX idx_agreements_status ON agreements(status);
 CREATE INDEX idx_agreements_signing_token ON agreements(signing_token);
+CREATE UNIQUE INDEX idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL;
 CREATE INDEX idx_audit_events_agreement ON audit_events(agreement_id);
 CREATE INDEX idx_webhook_deliveries_pending ON webhook_deliveries(next_retry_at) WHERE delivered_at IS NULL;

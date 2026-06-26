@@ -10,7 +10,7 @@ import { requireAdminSession } from "../lib/workos.js";
 export const cli = new Hono();
 
 const primaryOrigin = "https://agentcontract.to";
-const cliTarballName = "agentcontract-0.1.13.tgz";
+const cliTarballName = "agentcontract-0.1.14.tgz";
 const cliPageTitle = "AgentContract CLI | Send contracts from local AI agents";
 const cliPageDescription = "Install the AgentContract CLI to send approved contracts, inspect templates, track agreements, and report failures from local AI agent workflows.";
 

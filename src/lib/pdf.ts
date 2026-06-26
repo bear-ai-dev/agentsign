@@ -38,20 +38,58 @@ function signatureHtml(value: unknown) {
   if (dataUrl) return signatureImageHtml(dataUrl);
 
   const typed = typedSignatureText(value);
-  if (typed) return `<div class="typed-signature">${escapeHtml(typed)}</div>`;
+  if (typed) return `<span class="typed-signature">${escapeHtml(typed)}</span>`;
 
   return "";
 }
 
-function signedFieldsHtml(fields: FieldDefinition[], signedFields?: SignedFields) {
+function fieldValuePresent(value: unknown) {
+  return value !== undefined && value !== null && value !== "" && value !== false;
+}
+
+function isStoredSignatureValue(value: unknown) {
+  return Boolean(
+    fieldDataUrl(value)
+    || (value && typeof value === "object" && "typed_name" in value && typeof value.typed_name === "string")
+  );
+}
+
+function renderedFieldHtml(field: FieldDefinition | undefined, value: unknown) {
+  if (!fieldValuePresent(value)) return `<span class="signed-inline empty"></span>`;
+  if (field?.type === "signature" || field?.type === "initials" || isStoredSignatureValue(value)) {
+    return signatureHtml(value) || `<span class="signed-inline empty"></span>`;
+  }
+  return `<span class="signed-inline">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : value)}</span>`;
+}
+
+function renderSignedFieldPlaceholders(markdown: string, fields: FieldDefinition[], signedFields?: SignedFields) {
+  const renderedFieldIds = new Set<string>();
+  const htmlByToken = new Map<string, string>();
+
+  const fieldsById = new Map(fields.map((field) => [field.id, field]));
+  const renderedMarkdown = markdown.replace(
+    /\{\{\s*(?:signed|signed_field|field)\s*:\s*([A-Za-z][A-Za-z0-9_-]{0,79})\s*\}\}/g,
+    (_match, fieldId: string) => {
+      renderedFieldIds.add(fieldId);
+      const token = `AGENTCONTRACT_SIGNED_FIELD_${htmlByToken.size}_${fieldId}`;
+      htmlByToken.set(token, renderedFieldHtml(fieldsById.get(fieldId), signedFields?.[fieldId]));
+      return token;
+    }
+  );
+
+  return { markdown: renderedMarkdown, renderedFieldIds, htmlByToken };
+}
+
+function signedFieldsHtml(fields: FieldDefinition[], signedFields?: SignedFields, renderedFieldIds = new Set<string>()) {
   if (!signedFields) return "";
-  const rows = fields.map((field) => {
+  const rows = fields.filter((field) => !renderedFieldIds.has(field.id)).map((field) => {
     const value = signedFields[field.id];
     const rendered = field.type === "signature" || field.type === "initials"
       ? signatureHtml(value)
       : escapeHtml(typeof value === "object" ? JSON.stringify(value) : value);
     return `<tr><th>${escapeHtml(field.label)}</th><td>${rendered || "&mdash;"}</td></tr>`;
   }).join("");
+  if (!rows) return "";
 
   return `
     <section class="signed-fields">
@@ -92,7 +130,12 @@ export function renderDocumentHtml(input: {
   signedFields?: SignedFields;
   auditEvents?: AuditEvent[];
 }) {
-  const body = marked.parse(input.markdown, { async: false }) as string;
+  const fields = input.fields ?? [];
+  const { body, renderedFieldIds } = renderContractBodyHtml({
+    markdown: input.markdown,
+    fields,
+    signedFields: input.signedFields
+  });
   return `<!doctype html>
 <html>
 <head>
@@ -110,20 +153,36 @@ export function renderDocumentHtml(input: {
     th, td { border: 1px solid #d7dde5; padding: 8px; text-align: left; vertical-align: top; }
     th { width: 34%; background: #f6f8fb; }
     code { overflow-wrap: anywhere; }
+    .signed-inline { display: inline-block; min-width: 150px; padding: 0 8px 2px; border-bottom: 1px solid #111827; line-height: 1.25; color: #0b1220; overflow-wrap: anywhere; }
+    .signed-inline.empty { min-height: 1.25em; }
     .signed-fields { margin-top: 40px; padding-top: 22px; border-top: 2px solid #111827; }
     .signature-image { max-width: 320px; max-height: 120px; border: 1px solid #d7dde5; background: #fff; display: block; }
-    .typed-signature { display: inline-block; min-width: 260px; max-width: 100%; padding: 14px 16px 10px; border-bottom: 1px solid #111827; font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 34px; line-height: 1.1; color: #0b1220; overflow-wrap: anywhere; }
+    .typed-signature { display: inline-block; min-width: 260px; max-width: 100%; padding: 10px 16px 8px; border-bottom: 1px solid #111827; font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 34px; line-height: 1.1; color: #0b1220; overflow-wrap: anywhere; vertical-align: baseline; }
     .page-break { break-before: page; page-break-before: always; }
   </style>
 </head>
 <body>
   <main>
     ${body}
-    ${signedFieldsHtml(input.fields ?? [], input.signedFields)}
+    ${signedFieldsHtml(fields, input.signedFields, renderedFieldIds)}
     ${auditPageHtml(input.markdown, input.auditEvents ?? [], input.signedFields)}
   </main>
 </body>
 </html>`;
+}
+
+export function renderContractBodyHtml(input: {
+  markdown: string;
+  fields?: FieldDefinition[];
+  signedFields?: SignedFields;
+}) {
+  const fields = input.fields ?? [];
+  const rendered = renderSignedFieldPlaceholders(input.markdown, fields, input.signedFields);
+  let body = marked.parse(rendered.markdown, { async: false }) as string;
+  for (const [token, html] of rendered.htmlByToken) {
+    body = body.replaceAll(token, html);
+  }
+  return { body, renderedFieldIds: rendered.renderedFieldIds };
 }
 
 export async function renderPDFResult(input: {
