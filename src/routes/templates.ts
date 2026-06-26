@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import { marked } from "marked";
 import { requireApiKey } from "../lib/auth.js";
-import { all, getAgreement, getAuditEvents, parseJson, run } from "../lib/db.js";
+import { all, getAuditEvents, parseJson, run } from "../lib/db.js";
 import { auditEventsForApi } from "../lib/audit.js";
 import { renderPDF } from "../lib/pdf.js";
 import { applyTemplateVars, contractorTemplateDefinition, defaultTemplateVars, loadTemplate, privacyTemplateDefinition, templateDefinitions } from "../lib/templates.js";
@@ -19,6 +19,28 @@ function escapeHtml(value: unknown) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+type WorkosUser = {
+  id?: string;
+  email?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+};
+
+function adminUser(c: Context): WorkosUser {
+  return ((c as unknown as { get(key: string): unknown }).get("adminUser") ?? {}) as WorkosUser;
+}
+
+function userName(user: WorkosUser) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email || "AgentContract user";
+}
+
+async function getDashboardAgreement(c: Context, id: string) {
+  const ownerEmail = adminUser(c).email;
+  if (!ownerEmail) return undefined;
+  return all<Agreement>("SELECT * FROM agreements WHERE id = ? AND owner_email = ? LIMIT 1", id, ownerEmail)
+    .then((rows) => rows[0]);
 }
 
 templates.use("/v1/templates", requireApiKey);
@@ -69,7 +91,10 @@ templates.get("/v1/templates/:id", (c) => {
 
 templates.post("/templates/agreements", async (c) => {
   try {
-    const result = await createAgreement(await c.req.json(), new URL(c.req.url).origin);
+    const user = adminUser(c);
+    const result = await createAgreement(await c.req.json(), new URL(c.req.url).origin, {
+      ownerEmail: user.email ?? null
+    });
     return c.json(result, 201);
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, 400);
@@ -157,7 +182,9 @@ function templateCard(templateId: keyof typeof templateDefinitions, href: string
 }
 
 async function renderDashboard(c: Context) {
-  const rows = await all<Agreement>("SELECT * FROM agreements ORDER BY created_at DESC LIMIT 100");
+  const ownerEmail = adminUser(c).email;
+  if (!ownerEmail) return c.text("Signed-in user has no email address", 400);
+  const rows = await all<Agreement>("SELECT * FROM agreements WHERE owner_email = ? ORDER BY created_at DESC LIMIT 100", ownerEmail);
   const counts = rows.reduce<Record<string, number>>((acc, agreement) => {
     acc[agreement.status] = (acc[agreement.status] ?? 0) + 1;
     return acc;
@@ -222,7 +249,7 @@ async function renderDashboard(c: Context) {
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
         <div>
           <h2 class="font-semibold">Contracts</h2>
-          <p class="text-sm text-slate-500">Latest 100 agreements across CLI, API, and sender UI.</p>
+          <p class="text-sm text-slate-500">Latest 100 agreements for ${escapeHtml(ownerEmail)} across CLI, API, and sender UI.</p>
         </div>
         <code class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">agentcontract agreements --limit 100</code>
       </div>
@@ -266,7 +293,7 @@ agentcontract contract send custom-sow --to jane@example.com --name "Jane Doe" -
 async function renderDashboardDocument(c: Context) {
   const id = c.req.param("id");
   if (!id) return c.text("Agreement id is required", 400);
-  const agreement = await getAgreement(id);
+  const agreement = await getDashboardAgreement(c, id);
   if (!agreement) return c.text("Agreement not found", 404);
   return new Response(agreement.document_markdown, {
     headers: {
@@ -279,7 +306,7 @@ async function renderDashboardDocument(c: Context) {
 async function renderDashboardPdf(c: Context) {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "Agreement id is required" }, 400);
-  const agreement = await getAgreement(id);
+  const agreement = await getDashboardAgreement(c, id);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
 
   let path = agreement.signed_pdf_path;
@@ -307,13 +334,16 @@ async function renderDashboardPdf(c: Context) {
 async function renderDashboardAudit(c: Context) {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "Agreement id is required" }, 400);
-  const agreement = await getAgreement(id);
+  const agreement = await getDashboardAgreement(c, id);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({ agreement_id: agreement.id, audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 }
 
 function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateDefinitions) {
   const definition = templateDefinitions[templateId];
+  const user = adminUser(c);
+  const senderEmail = user.email || "";
+  const senderName = userName(user);
   const defaults = defaultTemplateVars(definition);
   const previewVars = {
     ...defaults,
@@ -362,8 +392,8 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
   <main class="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[27rem_1fr]">
     <form id="template-form" class="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p class="text-sm leading-6 text-slate-600">${escapeHtml(definition.description)}</p>
-      <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-      <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+      <label><span>Sender name</span><input name="sender_name" value="${escapeHtml(senderName)}" required /></label>
+      <label><span>Sender email</span><input name="sender_email" type="email" value="${escapeHtml(senderEmail)}" required /></label>
       <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Recipient" required /></label>
       <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
       <div class="grid gap-3">${variables}</div>
@@ -442,6 +472,9 @@ templates.get("/templates/bear-privacy", renderPrivacyTemplatePage);
 templates.get("/templates/privacy", renderPrivacyTemplatePage);
 
 function renderPrivacyTemplatePage(c: Context) {
+  const user = adminUser(c);
+  const senderEmail = user.email || "";
+  const senderName = userName(user);
   const defaults = defaultTemplateVars(privacyTemplateDefinition);
   const previewVars = {
     ...defaults,
@@ -498,8 +531,8 @@ function renderPrivacyTemplatePage(c: Context) {
           <p class="mt-1 text-sm text-slate-600">Creates the Specific Marketplace privacy-policy acknowledgement from the PDF with recipient name, acknowledgement date, typed signature, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-        <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+        <label><span>Sender name</span><input name="sender_name" value="${escapeHtml(senderName)}" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="${escapeHtml(senderEmail)}" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contributor" required /></label>
         <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
         <label><span>CC on request</span><input name="cc" type="email" placeholder="janak@usebear.ai" /></label>
@@ -620,6 +653,9 @@ templates.get("/templates/specific-contractor", renderContractorTemplatePage);
 templates.get("/templates/bear-contractor", renderContractorTemplatePage);
 
 function renderContractorTemplatePage(c: Context) {
+  const user = adminUser(c);
+  const senderEmail = user.email || "";
+  const senderName = userName(user);
   const defaults = defaultTemplateVars(contractorTemplateDefinition);
   const previewVars = {
     ...defaults,
@@ -675,8 +711,8 @@ function renderContractorTemplatePage(c: Context) {
           <p class="mt-1 text-sm text-slate-600">Creates the Specific Marketplace contributor/contractor terms from the PDF with typed signature, acknowledgement date, audit trail, and signed notification.</p>
         </div>
 
-        <label><span>Sender name</span><input name="sender_name" value="Sid from Specific" required /></label>
-        <label><span>Sender email</span><input name="sender_email" type="email" value="sid@usebear.ai" required /></label>
+        <label><span>Sender name</span><input name="sender_name" value="${escapeHtml(senderName)}" required /></label>
+        <label><span>Sender email</span><input name="sender_email" type="email" value="${escapeHtml(senderEmail)}" required /></label>
         <label><span>Receiver name</span><input name="recipient_name" placeholder="Jane Contractor" required /></label>
         <label><span>Receiver email</span><input name="recipient_email" type="email" placeholder="jane@example.com" required /></label>
         <div class="grid gap-3">
@@ -746,9 +782,9 @@ function renderContractorTemplatePage(c: Context) {
       return {
         recipient: { name: values.recipient_name || "", email: values.recipient_email || "" },
         cc: values.cc ? [values.cc] : undefined,
-        sender_email: values.sender_email || "sid@usebear.ai",
-        sender_name: values.sender_name || "Sid from Specific",
-        notification_email: values.sender_email ? [values.sender_email] : ["sid@usebear.ai"],
+        sender_email: values.sender_email || undefined,
+        sender_name: values.sender_name || undefined,
+        notification_email: values.sender_email ? [values.sender_email] : undefined,
         template: "contractor",
         template_vars: templateVars,
         fields,

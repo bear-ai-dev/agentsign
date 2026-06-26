@@ -60,7 +60,7 @@ Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract
 agentcontract login --email you@example.com --api-url https://agentcontract.to
 ```
 
-`agentcontract skill` installs an AI-agent skill so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI.
+`agentcontract skill` prints AI-agent setup instructions so Claude Code, Codex, or another local agent knows how to inspect, draft, revise, send, and track contracts from the CLI. Use `agentcontract skill --install` to install or update the local skill file explicitly.
 
 The browser onboarding page is:
 

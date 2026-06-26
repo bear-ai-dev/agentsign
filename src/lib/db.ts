@@ -171,6 +171,7 @@ async function ensureSchema() {
 async function ensureAgreementStorageSchema() {
   const columns = [
     ["sender_signing_token", "TEXT"],
+    ["owner_email", "TEXT"],
     ["signed_pdf_base64", "TEXT"],
     ["signed_pdf_sha256", "TEXT"],
     ["signed_pdf_bytes", "INTEGER"]
@@ -181,6 +182,7 @@ async function ensureAgreementStorageSchema() {
       await pool.query(`ALTER TABLE agreements ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
     await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email) WHERE owner_email IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
     return;
   }
@@ -192,6 +194,7 @@ async function ensureAgreementStorageSchema() {
     if (!existing.has(name)) sqlite!.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
   }
   sqlite!.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL");
+  sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email) WHERE owner_email IS NOT NULL");
   sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
 }
 

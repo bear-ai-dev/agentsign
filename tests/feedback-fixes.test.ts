@@ -200,6 +200,64 @@ test("CLI specific privacy dry run posts to the agreements API", async () => {
   assert.equal(result.payload?.metadata?.workflow, "specific_privacy_acknowledgement");
 });
 
+test("CLI marketplace onboarding uses logged-in sender defaults when configured", async () => {
+  const config = join(tmpdir(), `agentcontract-configured-sender-${Date.now()}.json`);
+  await writeFile(config, JSON.stringify({
+    api_url: "https://agentcontract.to",
+    api_key: "ak_test_configured_sender",
+    sender_email: "jake@agentmail.to",
+    sender_name: "Jake Agent"
+  }));
+
+  const { stdout } = await execFileAsync("npm", [
+    "run",
+    "cli",
+    "--",
+    "marketplace-onboard",
+    "--to",
+    "contributor@example.com",
+    "--name",
+    "Specific Contributor",
+    "--dry-run",
+    "--json"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      AGENTCONTRACT_CONFIG: config,
+      AGENTCONTRACT_SENDER_EMAIL: "",
+      AGENTSIGN_SENDER_EMAIL: ""
+    }
+  });
+  const result = JSON.parse(stdout.slice(stdout.indexOf("{"))) as {
+    payload?: { sender_email?: string; sender_name?: string; notification_email?: string[] };
+  };
+  assert.equal(result.payload?.sender_email, "jake@agentmail.to");
+  assert.equal(result.payload?.sender_name, "Jake Agent");
+  assert.deepEqual(result.payload?.notification_email, ["jake@agentmail.to"]);
+});
+
+test("CLI skill prints instructions by default without installing", async () => {
+  const home = await mkdtemp(join(tmpdir(), "agentcontract-skill-home-"));
+  const { stdout } = await execFileAsync("npm", [
+    "run",
+    "cli",
+    "--",
+    "skill"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      HOME: home,
+      AGENTCONTRACT_CONFIG: join(home, ".agentcontract", "config.json")
+    }
+  });
+
+  assert.match(stdout, /Use AgentContract when a user asks to send a contract/);
+  await assert.rejects(readFile(join(home, ".claude", "skills", "agentcontract-cli", "SKILL.md")));
+  await rm(home, { recursive: true, force: true });
+});
+
 test("install script uses the hosted tarball and writable npm prefix fallback", async () => {
   const response = await appModule.app.request("https://agentcontract.test/cli/install.sh");
   assert.equal(response.status, 200);

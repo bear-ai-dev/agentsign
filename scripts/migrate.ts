@@ -68,7 +68,8 @@ function ensureSqliteCompatibility(db: Database.Database) {
     for (const [name, type] of [
       ["signed_pdf_base64", "TEXT"],
       ["signed_pdf_sha256", "TEXT"],
-      ["signed_pdf_bytes", "INTEGER"]
+      ["signed_pdf_bytes", "INTEGER"],
+      ["owner_email", "TEXT"]
     ] as const) {
       if (!agreementColumns.has(name)) {
         db.exec(`ALTER TABLE agreements ADD COLUMN ${name} ${type}`);
@@ -76,6 +77,7 @@ function ensureSqliteCompatibility(db: Database.Database) {
       }
     }
     db.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email) WHERE owner_email IS NOT NULL");
   }
 
   db.exec(`CREATE TABLE IF NOT EXISTS agentcontract_api_keys (
@@ -102,6 +104,12 @@ function migrationStatus(current: { filename: string; checksum: string | null } 
   if (!current.checksum) return "applied-no-checksum";
   if (current.checksum !== migration.checksum) return "checksum-mismatch";
   return "applied";
+}
+
+function sqliteColumnExists(db: Database.Database, table: string, column: string) {
+  return db.prepare(`PRAGMA table_info(${table})`)
+    .all()
+    .some((item) => (item as { name: string }).name === column);
 }
 
 async function migrateSqlite(migrations: MigrationFile[]) {
@@ -138,6 +146,12 @@ async function migrateSqlite(migrations: MigrationFile[]) {
         console.log(`Pending ${migration.filename}`);
         continue;
       }
+      if (migration.filename === "015_agreement_owner_email.sql" && sqliteColumnExists(db, "agreements", "owner_email")) {
+        db.prepare("INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES (?, ?, ?)")
+          .run(migration.filename, migration.checksum, new Date().toISOString());
+        console.log(`Marked ${migration.filename} applied; agreements.owner_email already exists`);
+        continue;
+      }
 
       const apply = db.transaction(() => {
         db.exec(migration.sql);
@@ -163,7 +177,9 @@ async function ensurePostgresCompatibility(client: pg.PoolClient) {
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_base64 TEXT");
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_sha256 TEXT");
   await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS signed_pdf_bytes INTEGER");
+  await client.query("ALTER TABLE agreements ADD COLUMN IF NOT EXISTS owner_email TEXT");
   await client.query("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+  await client.query("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email) WHERE owner_email IS NOT NULL");
 
   await client.query(`CREATE TABLE IF NOT EXISTS agentcontract_api_keys (
     id TEXT PRIMARY KEY,
@@ -216,6 +232,19 @@ async function migratePostgres(migrations: MigrationFile[]) {
       if (dryRun) {
         console.log(`Pending ${migration.filename}`);
         continue;
+      }
+      if (migration.filename === "015_agreement_owner_email.sql") {
+        const column = await client.query(
+          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agreements' AND column_name = 'owner_email' LIMIT 1"
+        );
+        if (column.rows[0]) {
+          await client.query(
+            "INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES ($1, $2, $3)",
+            [migration.filename, migration.checksum, new Date().toISOString()]
+          );
+          console.log(`Marked ${migration.filename} applied; agreements.owner_email already exists`);
+          continue;
+        }
       }
 
       await client.query("BEGIN");

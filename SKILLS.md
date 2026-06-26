@@ -19,7 +19,7 @@ agentcontract skill
 
 Requires Node.js 20+ and npm. The install script uses the hosted prebuilt package, so a remote tester does not need the repo or local build setup.
 
-`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentcontract.to` once the WorkOS provider is enabled. `agentcontract skill` installs or updates this skill for the selected AI agent.
+`agentcontract login --email` sends a six-digit AgentContract email code and saves a local config after verification. This is the preferred remote-agent login path. Browser WorkOS login is also available with `agentcontract login --api-url https://agentcontract.to` once the WorkOS provider is enabled. `agentcontract skill` prints setup instructions for an AI agent. Use `agentcontract skill --install` to install or update this skill for the selected AI agent.
 
 Until the npm package is published, install directly:
 
