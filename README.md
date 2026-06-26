@@ -545,6 +545,7 @@ The built-in templates available to agents are:
 - `nda`: Bear AI mutual NDA
 - `privacy`: Specific Marketplace privacy acknowledgement
 - `contractor`: Specific Marketplace contributor terms
+- `filesystem-purchase-agreement`: Bear AI filesystem data purchase agreement with seller-first countersignature fields
 
 Bulk send MNDAs from a JSON file:
 

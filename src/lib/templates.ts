@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FieldDefinition } from "./types.js";
 
-const templateNames = new Set(["nda", "privacy", "contractor", "mutual-nda", "one-way-nda", "privacy-policy"]);
+const templateNames = new Set(["nda", "privacy", "contractor", "mutual-nda", "one-way-nda", "privacy-policy", "filesystem-purchase-agreement"]);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 export type TemplateVariable = {
@@ -138,13 +138,32 @@ export const privacyPolicyTemplateDefinition: TemplateDefinition = {
   ]
 };
 
+export const filesystemPurchaseAgreementTemplateDefinition: TemplateDefinition = {
+  id: "filesystem-purchase-agreement",
+  name: "Filesystem Purchase Agreement",
+  description: "Bear AI individual filesystem contributor data purchase agreement with seller-first countersignature fields.",
+  variables: [],
+  fields: [
+    { id: "seller_printed_name", label: "Seller printed legal name", type: "text", required: true, signerRole: "recipient" },
+    { id: "seller_email", label: "Seller email", type: "email", required: true, signerRole: "recipient" },
+    { id: "seller_country", label: "Country of residence", type: "text", required: true, signerRole: "recipient" },
+    { id: "seller_signature_date", label: "Seller signature date", type: "date", required: true, signerRole: "recipient" },
+    { id: "seller_signature", label: "Seller signature", type: "signature", required: true, signerRole: "recipient" },
+    { id: "buyer_printed_name", label: "Buyer printed legal name", type: "text", required: true, signerRole: "sender" },
+    { id: "buyer_title", label: "Buyer title", type: "text", required: true, signerRole: "sender" },
+    { id: "buyer_signature_date", label: "Buyer signature date", type: "date", required: true, signerRole: "sender" },
+    { id: "buyer_signature", label: "Buyer signature", type: "signature", required: true, signerRole: "sender" }
+  ]
+};
+
 export const templateDefinitions = {
   privacy: privacyTemplateDefinition,
   contractor: contractorTemplateDefinition,
   nda: ndaTemplateDefinition,
   "mutual-nda": mutualNdaTemplateDefinition,
   "one-way-nda": oneWayNdaTemplateDefinition,
-  "privacy-policy": privacyPolicyTemplateDefinition
+  "privacy-policy": privacyPolicyTemplateDefinition,
+  "filesystem-purchase-agreement": filesystemPurchaseAgreementTemplateDefinition
 };
 
 export function loadTemplate(name: string): string {
