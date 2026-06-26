@@ -30,10 +30,28 @@ test("signed field placeholders render values inline instead of duplicating them
     }
   });
 
-  assert.match(html, /Signature: <span class="typed-signature">Test Signer<\/span>/);
+  assert.match(html, /Signature: <svg class="typed-signature"[^>]+>/);
+  assert.match(html, /<text class="typed-signature-text"[^>]*>Test Signer<\/text>/);
+  assert.doesNotMatch(html, /<span class="typed-signature">Test Signer<\/span>/);
   assert.match(html, /Printed Name: <span class="signed-inline">Test Signer<\/span>/);
   assert.match(html, /Email: <span class="signed-inline">signer@example\.com<\/span>/);
   assert.doesNotMatch(html, /<h2>Signed Fields<\/h2>/);
+});
+
+test("typed signatures include an explicit signature font face", () => {
+  const html = renderDocumentHtml({
+    markdown: "Signature: {{signed:seller_signature}}",
+    fields: [
+      { id: "seller_signature", label: "Seller signature", type: "signature", required: true }
+    ],
+    signedFields: {
+      seller_signature: { signed: true, typed_name: "Test Signer" }
+    }
+  });
+
+  assert.match(html, /@font-face/);
+  assert.match(html, /font-family: "AgentContractSignature"/);
+  assert.match(html, /fonts\.gstatic\.com\/s\/allura/);
 });
 
 test("unsigned field placeholders render as empty inline slots", () => {

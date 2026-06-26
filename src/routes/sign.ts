@@ -3,7 +3,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { addAuditEvent, getAgreementBySigningToken, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
 import { sendCompletionEmail, sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
-import { renderContractBodyHtml, renderPDFResult } from "../lib/pdf.js";
+import { renderContractBodyHtml, renderPDFResult, signatureFontFaceCss } from "../lib/pdf.js";
 import { pdfBufferForAgreement, pdfSha256 } from "../lib/pdfStorage.js";
 import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
 import { fieldsForSigner as fieldsForSignerRole, requiredFieldsComplete } from "../lib/signers.js";
@@ -20,6 +20,7 @@ const SIGN_HTML = String.raw`<!doctype html>
   <title>{{document_title}} | AgentContract</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    ${signatureFontFaceCss}
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -38,7 +39,9 @@ const SIGN_HTML = String.raw`<!doctype html>
     .contract hr { margin: 1.45rem 0; border-top: 1px solid rgb(226 232 240); }
     .contract .signed-inline { display: inline-block; min-width: 9.5rem; padding: 0 .45rem .1rem; border-bottom: 1px solid rgb(15 23 42); line-height: 1.25; color: rgb(15 23 42); overflow-wrap: anywhere; }
     .contract .signed-inline.empty { min-height: 1.25em; }
-    .contract .typed-signature { display: inline-block; min-width: 13rem; max-width: 100%; padding: .25rem .5rem .1rem; border-bottom: 1px solid rgb(15 23 42); font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 1.8rem; line-height: 1.1; color: rgb(15 23 42); overflow-wrap: anywhere; vertical-align: baseline; }
+    .contract .typed-signature { display: inline-block; max-width: 100%; vertical-align: middle; overflow: visible; }
+    .contract .typed-signature-text { font-family: "AgentContractSignature", "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.75rem; fill: rgb(15 23 42); }
+    .contract .typed-signature-line { stroke: rgb(15 23 42); stroke-width: 1.4; stroke-linecap: round; }
     .sign-panel { position: sticky; top: 1rem; padding: 1.05rem; }
     .sign-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid rgb(226 232 240); }
     .sign-heading h2 { font-size: 1.05rem; line-height: 1.25; font-weight: 760; margin: 0; letter-spacing: 0; }
@@ -51,7 +54,7 @@ const SIGN_HTML = String.raw`<!doctype html>
     .check { display: grid; grid-template-columns: 1rem 1fr; gap: .65rem; align-items: start; margin: .9rem 0 1rem; color: rgb(30 41 59); font-size: .84rem; font-weight: 520; line-height: 1.45; }
     .check input { width: 1rem; height: 1rem; margin-top: .1rem; padding: 0; border-radius: .25rem; }
     .field-block { margin-bottom: .85rem; }
-    .typed-signature-preview { margin-top: .5rem; min-height: 4.9rem; display: flex; align-items: center; border: 1px dashed rgb(148 163 184); border-radius: .46rem; background: linear-gradient(180deg, rgb(248 250 252), white); padding: .75rem .9rem; font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.1rem; line-height: 1.05; color: rgb(15 23 42); overflow-wrap: anywhere; }
+    .typed-signature-preview { margin-top: .5rem; min-height: 4.9rem; display: flex; align-items: center; border: 1px dashed rgb(148 163 184); border-radius: .46rem; background: linear-gradient(180deg, rgb(248 250 252), white); padding: .75rem .9rem; font-family: "AgentContractSignature", "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.1rem; line-height: 1.05; color: rgb(15 23 42); overflow-wrap: anywhere; }
     .typed-signature-preview.initials { min-height: 3.9rem; max-width: 13rem; font-size: 1.85rem; }
     .typed-signature-preview.empty { font-family: inherit; font-size: .88rem; font-weight: 560; color: rgb(100 116 139); }
     .field-hint { margin-top: .35rem; font-size: .78rem; line-height: 1.35; font-weight: 450; color: rgb(71 85 105); }
@@ -166,6 +169,7 @@ const PREVIEW_HTML = String.raw`<!doctype html>
   <title>{{document_title}} | AgentContract Preview</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    ${signatureFontFaceCss}
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     .contract h1 { font-size: 1.75rem; line-height: 1.15; font-weight: 760; margin-bottom: 1.15rem; }
     .contract h2 { font-size: 1.08rem; font-weight: 720; margin-top: 1.45rem; margin-bottom: .45rem; }
@@ -174,7 +178,9 @@ const PREVIEW_HTML = String.raw`<!doctype html>
     .contract hr { margin: 1.45rem 0; border-top: 1px solid rgb(226 232 240); }
     .contract .signed-inline { display: inline-block; min-width: 9.5rem; padding: 0 .45rem .1rem; border-bottom: 1px solid rgb(15 23 42); line-height: 1.25; color: rgb(15 23 42); overflow-wrap: anywhere; }
     .contract .signed-inline.empty { min-height: 1.25em; }
-    .contract .typed-signature { display: inline-block; min-width: 13rem; max-width: 100%; padding: .25rem .5rem .1rem; border-bottom: 1px solid rgb(15 23 42); font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 1.8rem; line-height: 1.1; color: rgb(15 23 42); overflow-wrap: anywhere; vertical-align: baseline; }
+    .contract .typed-signature { display: inline-block; max-width: 100%; vertical-align: middle; overflow: visible; }
+    .contract .typed-signature-text { font-family: "AgentContractSignature", "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.75rem; fill: rgb(15 23 42); }
+    .contract .typed-signature-line { stroke: rgb(15 23 42); stroke-width: 1.4; stroke-linecap: round; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-950">
