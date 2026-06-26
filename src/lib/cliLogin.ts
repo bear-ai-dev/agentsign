@@ -56,20 +56,26 @@ export async function createEmailLoginCode(input: {
   return insertLoginCode(String(randomInt(100000, 1_000_000)), input);
 }
 
+async function claimLoginCode(record: CliLoginCode) {
+  if (new Date(record.expires_at).getTime() < Date.now()) return null;
+
+  const claimed = await run("UPDATE cli_login_codes SET used_at = ? WHERE id = ? AND used_at IS NULL", nowIso(), record.id);
+  if (claimed.changes !== 1) return null;
+
+  return {
+    keyName: record.key_name,
+    ownerEmail: record.owner_email,
+    ownerId: record.owner_id
+  };
+}
+
 export async function consumeCliLoginCode(code: string) {
   const record = await get<CliLoginCode>(
     "SELECT * FROM cli_login_codes WHERE code_hash = ? AND used_at IS NULL",
     hashApiKey(code)
   );
   if (!record) return null;
-  if (new Date(record.expires_at).getTime() < Date.now()) return null;
-
-  await run("UPDATE cli_login_codes SET used_at = ? WHERE id = ? AND used_at IS NULL", nowIso(), record.id);
-  return {
-    keyName: record.key_name,
-    ownerEmail: record.owner_email,
-    ownerId: record.owner_id
-  };
+  return claimLoginCode(record);
 }
 
 export async function consumeEmailLoginCode(code: string, ownerEmail: string) {
@@ -79,12 +85,5 @@ export async function consumeEmailLoginCode(code: string, ownerEmail: string) {
     ownerEmail
   );
   if (!record) return null;
-  if (new Date(record.expires_at).getTime() < Date.now()) return null;
-
-  await run("UPDATE cli_login_codes SET used_at = ? WHERE id = ? AND used_at IS NULL", nowIso(), record.id);
-  return {
-    keyName: record.key_name,
-    ownerEmail: record.owner_email,
-    ownerId: record.owner_id
-  };
+  return claimLoginCode(record);
 }

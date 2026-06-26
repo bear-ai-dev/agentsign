@@ -38,6 +38,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "cli": "tsx src/cli.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "check": "npm run test && npm run build",
     "build": "node scripts/clean-dist.mjs && tsc && node scripts/copy-assets.mjs",
     "start": "node dist/src/index.js",
     "migrate": "tsx scripts/migrate.ts",

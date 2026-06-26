@@ -171,6 +171,27 @@ test("email login verification with the wrong email does not consume the code", 
   assert.match(body.api_key ?? "", /^ak_/);
 });
 
+test("email login codes can only be claimed once under concurrent verification", async () => {
+  const { createEmailLoginCode } = await import("../src/lib/cliLogin.js");
+  const code = await createEmailLoginCode({
+    ownerEmail: "login-single-use@example.com",
+    keyName: "Single-use login"
+  });
+
+  const makeRequest = () => appModule.app.request("https://agentcontract.test/cli/magic/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: "login-single-use@example.com",
+      code
+    })
+  });
+
+  const responses = await Promise.all([makeRequest(), makeRequest()]);
+  const statuses = responses.map((response) => response.status).sort();
+  assert.deepEqual(statuses, [200, 400]);
+});
+
 test("CLI session start dry run works before login", async () => {
   const { stdout } = await execFileAsync("npm", [
     "run",
