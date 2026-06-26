@@ -453,7 +453,7 @@ Options:
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
   --signing-order <order>            Counter-sign order: parallel, sender_first, or recipient_first
-  --template <name>                  Template for send-contract/preview: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
+  --template <name>                  Template for send-contract/preview: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy, filesystem-purchase-agreement
   --var <key=value>                  Template variable. Repeatable
   --vars-json <json>                 Template variables as JSON
   --vars-file <path>                 Template variables JSON file
@@ -480,7 +480,7 @@ Options:
   --metadata-json <json>             Metadata JSON object for a session event
   --with-feedback                    Include feedback when reading/showing a contract
   --author <name>                    Human or agent name for contract feedback
-  --from-template <name>             Seed contract add from built-in: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy
+  --from-template <name>             Seed contract add from built-in: nda, privacy, contractor, mutual-nda, one-way-nda, privacy-policy, filesystem-purchase-agreement
   --contract-dir <path>              Override local contract library directory for this command
   --directory <path>                 Install skill into this skills directory
   --editor <command>                 Editor used by contract edit. Defaults to VISUAL or EDITOR
@@ -1254,9 +1254,12 @@ function baseContractPayload(args: Args) {
   const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
   const defaultVars = definition ? defaultTemplateVars(definition) : {};
   const company = stringArg(args, "company") ?? String(vars.company_name ?? defaultVars.company_name ?? "Bear AI");
-  const senderSignatureRequired = template === "nda" || template === "mutual-nda";
+  const senderSignatureRequired = template === "nda" || template === "mutual-nda" || template === "filesystem-purchase-agreement";
+  const sharedOptions = sharedSendOptions(args, company);
+  const signingOrder = sharedOptions.signing_order ?? (template === "filesystem-purchase-agreement" ? "recipient_first" : undefined);
   return withCustomContractArgs(args, {
-    ...sharedSendOptions(args, company),
+    ...sharedOptions,
+    ...(signingOrder ? { signing_order: signingOrder } : {}),
     template,
     template_vars: {
       ...defaultVars,
@@ -1938,7 +1941,7 @@ async function addContract(args: Args, positional: string[]) {
   const id = assertContractId(stringArg(args, "id", "contract") ?? positional[0]);
   const fromTemplate = stringArg(args, "from-template", "template");
   if (fromTemplate && !builtInContract(fromTemplate)) {
-    throw new CliError(`Unknown built-in template: ${fromTemplate}`, "Use nda, privacy, or contractor.");
+    throw new CliError(`Unknown built-in template: ${fromTemplate}`, `Use one of: ${Object.keys(templateDefinitions).join(", ")}.`);
   }
   const existingLocal = readLocalContract(id, args);
   const existingBuiltIn = builtInContract(id);
