@@ -204,10 +204,10 @@ test("install script uses the hosted tarball and writable npm prefix fallback", 
   const response = await appModule.app.request("https://agentcontract.test/cli/install.sh");
   assert.equal(response.status, 200);
   const script = await response.text();
-  const tarball = await readFile(join(process.cwd(), "public", "agentcontract-0.1.13.tgz"));
+  const tarball = await readFile(join(process.cwd(), "public", "agentcontract-0.1.14.tgz"));
   const tarballSha256 = createHash("sha256").update(tarball).digest("hex");
-  assert.match(script, /agentcontract-0\.1\.13\.tgz/);
-  assert.match(script, /package_url="https:\/\/agentcontract\.test\/cli\/agentcontract-0\.1\.13\.tgz"/);
+  assert.match(script, /agentcontract-0\.1\.14\.tgz/);
+  assert.match(script, /package_url="https:\/\/agentcontract\.test\/cli\/agentcontract-0\.1\.14\.tgz"/);
   assert.doesNotMatch(script, /package_url="https:\/\/agentcontract\.test\/agentcontract-/);
   assert.match(script, new RegExp(`package_sha256="${tarballSha256}"`));
   assert.match(script, /shasum -a 256 -c -/);
@@ -261,7 +261,7 @@ test("CLI update check reports hosted updates without using npm", async () => {
     "update",
     "--check",
     "--latest-version",
-    "0.1.14",
+    "0.1.15",
     "--json"
   ], {
     cwd: process.cwd(),
@@ -276,7 +276,7 @@ test("CLI update check reports hosted updates without using npm", async () => {
     update_available?: boolean;
   };
   assert.equal(result.update_check, true);
-  assert.equal(result.latest_version, "0.1.14");
+  assert.equal(result.latest_version, "0.1.15");
   assert.equal(result.update_available, true);
 });
 
@@ -301,7 +301,7 @@ test("CLI update refuses to report success when the active command stays old", a
         "update",
         "--yes",
         "--latest-version",
-        "0.1.14",
+        "0.1.15",
         "--json"
       ], {
         cwd: process.cwd(),

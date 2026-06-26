@@ -1,13 +1,13 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { marked } from "marked";
 import { nanoid } from "nanoid";
-import { addAuditEvent, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
-import { sendCompletionEmail } from "../lib/email.js";
-import { renderPDFResult } from "../lib/pdf.js";
+import { addAuditEvent, getAgreementBySigningToken, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
+import { sendCompletionEmail, sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
+import { renderContractBodyHtml, renderPDFResult } from "../lib/pdf.js";
 import { pdfBufferForAgreement, pdfSha256 } from "../lib/pdfStorage.js";
 import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
-import type { Agreement, AuditEvent, FieldDefinition, SignedFields } from "../lib/types.js";
+import { fieldsForSigner as fieldsForSignerRole, requiredFieldsComplete } from "../lib/signers.js";
+import type { Agreement, AuditEvent, FieldDefinition, SignedFields, SignerRole, SigningOrder } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
 
 export const sign = new Hono();
@@ -36,6 +36,9 @@ const SIGN_HTML = String.raw`<!doctype html>
     .contract p { margin-bottom: .72rem; line-height: 1.64; color: rgb(30 41 59); }
     .contract ul, .contract ol { margin: .45rem 0 .8rem 1.15rem; line-height: 1.6; color: rgb(30 41 59); }
     .contract hr { margin: 1.45rem 0; border-top: 1px solid rgb(226 232 240); }
+    .contract .signed-inline { display: inline-block; min-width: 9.5rem; padding: 0 .45rem .1rem; border-bottom: 1px solid rgb(15 23 42); line-height: 1.25; color: rgb(15 23 42); overflow-wrap: anywhere; }
+    .contract .signed-inline.empty { min-height: 1.25em; }
+    .contract .typed-signature { display: inline-block; min-width: 13rem; max-width: 100%; padding: .25rem .5rem .1rem; border-bottom: 1px solid rgb(15 23 42); font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 1.8rem; line-height: 1.1; color: rgb(15 23 42); overflow-wrap: anywhere; vertical-align: baseline; }
     .sign-panel { position: sticky; top: 1rem; padding: 1.05rem; }
     .sign-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid rgb(226 232 240); }
     .sign-heading h2 { font-size: 1.05rem; line-height: 1.25; font-weight: 760; margin: 0; letter-spacing: 0; }
@@ -144,6 +147,10 @@ const SIGN_HTML = String.raw`<!doctype html>
         validate();
         return;
       }
+      if (result.pending) {
+        form.innerHTML = '<div class="sign-heading"><h2>Signature Saved</h2></div><p class="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Your signature has been saved. This agreement will complete after the other required party signs.</p>';
+        return;
+      }
       window.location.href = result.signed_pdf_url;
     });
     validate();
@@ -165,6 +172,9 @@ const PREVIEW_HTML = String.raw`<!doctype html>
     .contract p { margin-bottom: .74rem; line-height: 1.65; color: rgb(30 41 59); }
     .contract ul, .contract ol { margin: .45rem 0 .8rem 1.15rem; line-height: 1.6; color: rgb(30 41 59); }
     .contract hr { margin: 1.45rem 0; border-top: 1px solid rgb(226 232 240); }
+    .contract .signed-inline { display: inline-block; min-width: 9.5rem; padding: 0 .45rem .1rem; border-bottom: 1px solid rgb(15 23 42); line-height: 1.25; color: rgb(15 23 42); overflow-wrap: anywhere; }
+    .contract .signed-inline.empty { min-height: 1.25em; }
+    .contract .typed-signature { display: inline-block; min-width: 13rem; max-width: 100%; padding: .25rem .5rem .1rem; border-bottom: 1px solid rgb(15 23 42); font-family: "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 1.8rem; line-height: 1.1; color: rgb(15 23 42); overflow-wrap: anywhere; vertical-align: baseline; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-950">
@@ -199,6 +209,58 @@ function notificationEmailsFor(agreement: Agreement) {
   const value = metadata.notification_email;
   const emails = Array.isArray(value) ? value : value ? [value] : [];
   return emails.map((email) => String(email).trim()).filter(Boolean);
+}
+
+function metadataFor(agreement: Agreement) {
+  return parseJson<Record<string, unknown>>(agreement.metadata_json, {});
+}
+
+function signingOrderForAgreement(agreement: Agreement): SigningOrder {
+  const order = metadataFor(agreement).signing_order;
+  return order === "sender_first" || order === "recipient_first" ? order : "parallel";
+}
+
+function allFieldsForAgreement(agreement: Agreement) {
+  return parseJson<FieldDefinition[]>(agreement.fields_json, []);
+}
+
+function fieldsForSigner(agreement: Agreement, role: SignerRole) {
+  return fieldsForSignerRole(allFieldsForAgreement(agreement), role);
+}
+
+function recipientFieldsForAgreement(agreement: Agreement) {
+  return fieldsForSigner(agreement, "recipient");
+}
+
+function senderFieldsForAgreement(agreement: Agreement) {
+  return fieldsForSigner(agreement, "sender");
+}
+
+function completionReady(agreement: Agreement, signedFields: SignedFields) {
+  return requiredFieldsComplete(allFieldsForAgreement(agreement), signedFields);
+}
+
+function signerReadyForTurn(agreement: Agreement, signerRole: SignerRole, signedFields: SignedFields) {
+  const order = signingOrderForAgreement(agreement);
+  if (order === "parallel") return true;
+  if (order === "sender_first" && signerRole === "recipient") {
+    return requiredFieldsComplete(senderFieldsForAgreement(agreement), signedFields);
+  }
+  if (order === "recipient_first" && signerRole === "sender") {
+    return requiredFieldsComplete(recipientFieldsForAgreement(agreement), signedFields);
+  }
+  return true;
+}
+
+function waitingSignerLabel(agreement: Agreement, signerRole: SignerRole) {
+  const order = signingOrderForAgreement(agreement);
+  if (order === "sender_first" && signerRole === "recipient") return "sender";
+  if (order === "recipient_first" && signerRole === "sender") return "recipient";
+  return "other signer";
+}
+
+function signerLabel(role: SignerRole) {
+  return role === "sender" ? "Sender" : "Recipient";
 }
 
 function renderField(field: FieldDefinition) {
@@ -237,8 +299,10 @@ function renderField(field: FieldDefinition) {
 
 sign.get("/sign/:token", async (c) => {
   const token = c.req.param("token");
-  const agreement = await getAgreementByToken(token);
+  const lookup = await getAgreementBySigningToken(token);
+  const agreement = lookup?.agreement;
   if (!agreement) return c.html("<h1>Signing link not found</h1>", 404);
+  const signerRole = lookup!.signerRole;
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
   if (agreement.status === "cancelled") return c.html("<h1>This agreement has been cancelled.</h1>", 410);
@@ -260,8 +324,21 @@ sign.get("/sign/:token", async (c) => {
     return c.html(successHtml(token));
   }
 
-  const fields = parseJson<FieldDefinition[]>(agreement.fields_json, []);
-  const documentHtml = marked.parse(agreement.document_markdown, { async: false }) as string;
+  const signedFields = parseJson<SignedFields>(agreement.signed_fields_json, {});
+  if (!signerReadyForTurn(agreement, signerRole, signedFields)) {
+    return c.html(waitingHtml(waitingSignerLabel(agreement, signerRole)), 409);
+  }
+
+  const fields = fieldsForSigner(agreement, signerRole);
+  if (requiredFieldsComplete(fields, signedFields)) {
+    return c.html(pendingHtml(token));
+  }
+
+  const documentHtml = renderContractBodyHtml({
+    markdown: agreement.document_markdown,
+    fields: allFieldsForAgreement(agreement),
+    signedFields
+  }).body;
   return c.html(SIGN_HTML
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
@@ -280,7 +357,11 @@ sign.get("/preview/:token", async (c) => {
     status: agreement.status
   }, distinctId);
 
-  const documentHtml = marked.parse(agreement.document_markdown, { async: false }) as string;
+  const documentHtml = renderContractBodyHtml({
+    markdown: agreement.document_markdown,
+    fields: allFieldsForAgreement(agreement),
+    signedFields: parseJson<SignedFields>(agreement.signed_fields_json, {})
+  }).body;
   return c.html(PREVIEW_HTML
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
@@ -289,8 +370,10 @@ sign.get("/preview/:token", async (c) => {
 
 sign.post("/sign/:token/submit", async (c) => {
   const token = c.req.param("token");
-  const agreement = await getAgreementByToken(token);
+  const lookup = await getAgreementBySigningToken(token);
+  const agreement = lookup?.agreement;
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
+  const signerRole = lookup!.signerRole;
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
   if (agreement.status === "completed") return c.json({ error: "Agreement is already completed" }, 409);
@@ -303,13 +386,21 @@ sign.post("/sign/:token/submit", async (c) => {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
   const submitted = body.fields ?? {};
-  const fields = parseJson<FieldDefinition[]>(agreement.fields_json, []);
+  const allFields = allFieldsForAgreement(agreement);
+  const fields = fieldsForSigner(agreement, signerRole);
   const ip = clientIp(c);
   const userAgent = c.req.header("user-agent") ?? null;
   const signedAt = nowIso();
-  const signedFields: SignedFields = {};
+  const existingSignedFields = parseJson<SignedFields>(agreement.signed_fields_json, {});
+  const signedFields: SignedFields = { ...existingSignedFields };
 
   if (!body.consent_timestamp) return c.json({ error: "Consent is required" }, 400);
+  if (requiredFieldsComplete(fields, existingSignedFields)) {
+    return c.json({ error: `${signerLabel(signerRole)} signature is already saved` }, 409);
+  }
+  if (!signerReadyForTurn(agreement, signerRole, existingSignedFields)) {
+    return c.json({ error: `Waiting for ${waitingSignerLabel(agreement, signerRole)} signature before ${signerRole} can sign` }, 409);
+  }
 
   for (const field of fields) {
     const value = submitted[field.id];
@@ -325,18 +416,19 @@ sign.post("/sign/:token/submit", async (c) => {
     } else {
       const missing = value === undefined || value === null || value === "" || value === false;
       if (field.required && missing) return c.json({ error: `${field.label} is required` }, 400);
-      signedFields[field.id] = value;
+      if (!missing) signedFields[field.id] = value;
     }
   }
 
   const completedAt = nowIso();
+  const isComplete = completionReady(agreement, signedFields);
   const signedEvent: AuditEvent = {
     id: `evt_${nanoid(16)}`,
     agreement_id: agreement.id,
     event_type: "signed",
     ip_address: ip,
     user_agent: userAgent,
-    data_json: JSON.stringify({ consent_timestamp: body.consent_timestamp }),
+    data_json: JSON.stringify({ consent_timestamp: body.consent_timestamp, signer_role: signerRole }),
     created_at: signedAt
   };
   const completedEvent: AuditEvent = {
@@ -350,11 +442,36 @@ sign.post("/sign/:token/submit", async (c) => {
   };
 
   try {
+    if (!isComplete) {
+      await runTransaction([
+        {
+          sql: `INSERT INTO audit_events (id, agreement_id, event_type, ip_address, user_agent, data_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          params: [signedEvent.id, signedEvent.agreement_id, signedEvent.event_type, signedEvent.ip_address, signedEvent.user_agent, signedEvent.data_json, signedEvent.created_at]
+        },
+        {
+          sql: `UPDATE agreements
+                SET signed_fields_json = ?,
+                    status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END
+                WHERE id = ?`,
+          params: [JSON.stringify(signedFields), agreement.id]
+        }
+      ]);
+      await sendNextSignerEmail(c, agreement, signerRole, signedFields);
+      posthog.captureEvent("agreement signer completed", {
+        agreement_id: agreement.id,
+        signer_role: signerRole,
+        signing_order: signingOrderForAgreement(agreement),
+        completed: false
+      }, distinctId);
+      return c.json({ ok: true, agreement_id: agreement.id, pending: true, completed: false, pending_url: `/sign/${token}` });
+    }
+
     const auditEvents = await getAuditEvents(agreement.id);
     const pdf = await renderPDFResult({
       agreementId: agreement.id,
       markdown: agreement.document_markdown,
-      fields,
+      fields: allFields,
       signedFields,
       auditEvents: [...auditEvents, signedEvent, completedEvent]
     });
@@ -415,13 +532,15 @@ sign.post("/sign/:token/submit", async (c) => {
     return c.json({ error: "Signing failed before completion. Please try again." }, 500);
   }
 
-  const completed = (await getAgreementByToken(token))!;
+  const completed = (await getAgreementBySigningToken(token))!.agreement;
   if (completed.webhook_url) enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
   const notificationEmails = notificationEmailsFor(completed);
   posthog.captureEvent("agreement completed", {
     agreement_id: completed.id,
     previous_status: agreement.status,
-    field_count: fields.length,
+    signer_role: signerRole,
+    signing_order: signingOrderForAgreement(completed),
+    field_count: allFields.length,
     signed_field_count: Object.keys(signedFields).length,
     has_webhook: Boolean(completed.webhook_url),
     has_notifications: notificationEmails.length > 0,
@@ -435,7 +554,7 @@ sign.post("/sign/:token/submit", async (c) => {
         recipientEmail: completed.recipient_email,
         documentTitle: completed.document_title,
         agreementId: completed.id,
-        signedPdfUrl: `${new URL(c.req.url).origin}/sign/${token}/pdf`
+        signedPdfUrl: `${new URL(c.req.url).origin}/sign/${completed.signing_token}/pdf`
       });
       await addAuditEvent({ agreementId: completed.id, eventType: "notification_sent", data: { to: notificationEmails } });
       posthog.captureEvent("completion notification sent", {
@@ -456,12 +575,64 @@ sign.post("/sign/:token/submit", async (c) => {
     }
   }
 
-  return c.json({ ok: true, agreement_id: agreement.id, signed_pdf_url: `/sign/${token}/pdf` });
+  return c.json({ ok: true, agreement_id: agreement.id, completed: true, signed_pdf_url: `/sign/${token}/pdf` });
 });
+
+async function sendNextSignerEmail(c: Context, agreement: Agreement, signerRole: SignerRole, signedFields: SignedFields) {
+  const order = signingOrderForAgreement(agreement);
+  const origin = new URL(c.req.url).origin;
+  const metadata = metadataFor(agreement);
+  const senderEmail = typeof metadata.sender_email === "string" ? metadata.sender_email.trim() : "";
+  const senderName = typeof metadata.sender_name === "string" ? metadata.sender_name.trim() : "";
+
+  if (order === "sender_first" && signerRole === "sender" && !requiredFieldsComplete(recipientFieldsForAgreement(agreement), signedFields)) {
+    try {
+      await sendSigningEmail({
+        to: agreement.recipient_email,
+        replyTo: senderEmail ? [senderEmail] : undefined,
+        senderName,
+        recipientName: agreement.recipient_name,
+        documentTitle: agreement.document_title,
+        signingUrl: `${origin}/sign/${agreement.signing_token}`
+      });
+      await addAuditEvent({ agreementId: agreement.id, eventType: "recipient_signing_email_sent", data: { signing_order: order } });
+    } catch (error) {
+      console.error("[AgentContract next recipient signing email failed]", error);
+      await addAuditEvent({
+        agreementId: agreement.id,
+        eventType: "recipient_signing_email_failed",
+        data: { signing_order: order, error: error instanceof Error ? error.message : String(error) }
+      });
+    }
+  }
+
+  if (order === "recipient_first" && signerRole === "recipient" && agreement.sender_signing_token && senderEmail && !requiredFieldsComplete(senderFieldsForAgreement(agreement), signedFields)) {
+    try {
+      await sendSenderSigningEmail({
+        to: senderEmail,
+        senderName,
+        recipientName: agreement.recipient_name,
+        recipientEmail: agreement.recipient_email,
+        documentTitle: agreement.document_title,
+        agreementId: agreement.id,
+        signingUrl: `${origin}/sign/${agreement.sender_signing_token}`
+      });
+      await addAuditEvent({ agreementId: agreement.id, eventType: "sender_signing_email_sent", data: { signing_order: order } });
+    } catch (error) {
+      console.error("[AgentContract next sender signing email failed]", error);
+      await addAuditEvent({
+        agreementId: agreement.id,
+        eventType: "sender_signing_email_failed",
+        data: { signing_order: order, error: error instanceof Error ? error.message : String(error) }
+      });
+    }
+  }
+}
 
 sign.get("/sign/:token/pdf", async (c) => {
   const token = c.req.param("token");
-  const agreement = await getAgreementByToken(token);
+  const lookup = await getAgreementBySigningToken(token);
+  const agreement = lookup?.agreement;
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
@@ -489,6 +660,29 @@ function successHtml(token: string) {
     <h1 class="text-3xl font-semibold">Agreement signed</h1>
     <p class="mt-4 text-slate-700">Thank you. The completed PDF has been generated.</p>
     <a class="mt-8 inline-flex rounded bg-slate-950 px-4 py-2 text-white" href="/sign/${token}/pdf">Download PDF</a>
+  </main>
+</body></html>`;
+}
+
+function waitingHtml(label: string) {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" /><script src="https://cdn.tailwindcss.com"></script><title>Waiting for signature</title></head>
+<body class="bg-slate-50 text-slate-950">
+  <main class="mx-auto max-w-xl px-6 py-20">
+    <h1 class="text-3xl font-semibold">Waiting for ${escapeHtml(label)} signature</h1>
+    <p class="mt-4 text-slate-700">This agreement has a signing order. You can sign after the ${escapeHtml(label)} has completed their part.</p>
+  </main>
+</body></html>`;
+}
+
+function pendingHtml(token: string) {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" /><script src="https://cdn.tailwindcss.com"></script><title>Signature saved</title></head>
+<body class="bg-slate-50 text-slate-950">
+  <main class="mx-auto max-w-xl px-6 py-20">
+    <h1 class="text-3xl font-semibold">Signature saved</h1>
+    <p class="mt-4 text-slate-700">This agreement will complete after the other required party signs.</p>
+    <a class="mt-8 inline-flex rounded border border-slate-300 bg-white px-4 py-2 text-slate-800" href="/sign/${escapeHtml(token)}">Check status</a>
   </main>
 </body></html>`;
 }

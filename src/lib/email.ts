@@ -103,6 +103,39 @@ export async function sendSigningEmail(input: {
   await deliverEmail({ to: [input.to], cc: input.cc, replyTo: input.replyTo, subject, html, text, logLabel: "signing" });
 }
 
+export async function sendSenderSigningEmail(input: {
+  to: string;
+  senderName?: string;
+  recipientName: string;
+  recipientEmail: string;
+  documentTitle: string;
+  agreementId: string;
+  signingUrl: string;
+  recipientSigned?: boolean;
+}) {
+  const subject = `Your signature is requested: ${input.documentTitle}`;
+  const greeting = input.senderName ? `Hi ${input.senderName},` : "Hi,";
+  const requestLine = input.recipientSigned === false
+    ? `Please review and sign ${input.documentTitle} for ${input.recipientName} (${input.recipientEmail}).`
+    : `${input.recipientName} (${input.recipientEmail}) has signed ${input.documentTitle}.`;
+  const text = [
+    greeting,
+    "",
+    requestLine,
+    `Agreement: ${input.agreementId}`,
+    "",
+    `Your signing link: ${input.signingUrl}`
+  ].join("\n");
+  const html = [
+    `<p>${escapeHtml(greeting)}</p>`,
+    `<p>${escapeHtml(requestLine)}</p>`,
+    `<p>Agreement: <code>${escapeHtml(input.agreementId)}</code></p>`,
+    `<p><a href="${escapeHtml(input.signingUrl)}">Open your signing link</a></p>`
+  ].join("");
+
+  await deliverEmail({ to: [input.to], subject, html, text, logLabel: "sender-signing" });
+}
+
 export async function sendCompletionEmail(input: {
   to: string[];
   recipientName: string;

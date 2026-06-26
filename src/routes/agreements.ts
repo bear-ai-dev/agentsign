@@ -3,12 +3,13 @@ import { nanoid } from "nanoid";
 import { addAuditEvent, all, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import { requireApiKey } from "../lib/auth.js";
-import { sendSigningEmail } from "../lib/email.js";
+import { sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
 import { pdfBufferForAgreement } from "../lib/pdfStorage.js";
 import { posthog, signerDistinctId } from "../lib/posthog.js";
+import { fieldsForSigner, requiresSenderSignature as fieldsRequireSenderSignature } from "../lib/signers.js";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templates.js";
 import { auditEventsForApi } from "../lib/audit.js";
-import type { Agreement, FieldDefinition, SignedFields } from "../lib/types.js";
+import type { Agreement, FieldDefinition, SignedFields, SigningOrder } from "../lib/types.js";
 import { cancelledPayload, enqueueWebhook } from "./webhooks.js";
 
 export const agreements = new Hono();
@@ -26,6 +27,9 @@ type CreateBody = {
   fields?: FieldDefinition[];
   webhook_url?: string;
   metadata?: Record<string, unknown>;
+  sender_signature_required?: boolean;
+  sender_fields?: FieldDefinition[];
+  signing_order?: string;
 };
 
 function assertCreateBody(body: CreateBody) {
@@ -54,6 +58,61 @@ function stringMetadata(value: Record<string, unknown>, key: string) {
   return typeof item === "string" ? item : null;
 }
 
+function metadataBoolean(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  return value === true || value === "true";
+}
+
+function signingOrderFrom(value: unknown): SigningOrder | null {
+  if (value === undefined || value === null || value === "") return null;
+  const normalized = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (normalized === "parallel" || normalized === "any" || normalized === "any_order") return "parallel";
+  if (normalized === "sender_first" || normalized === "sender") return "sender_first";
+  if (normalized === "recipient_first" || normalized === "recipient") return "recipient_first";
+  throw new Error("signing_order must be parallel, sender_first, or recipient_first");
+}
+
+function signingOrderFor(body: CreateBody, requiresSenderSignature: boolean): SigningOrder {
+  const requested = signingOrderFrom(body.signing_order ?? body.metadata?.signing_order);
+  if (!requiresSenderSignature) {
+    if (requested && requested !== "parallel") {
+      throw new Error("signing_order requires sender signature fields");
+    }
+    return "parallel";
+  }
+  return requested ?? "parallel";
+}
+
+function senderSignatureRequired(body: CreateBody) {
+  return Boolean(
+    fieldsRequireSenderSignature(body.fields ?? [])
+    || body.sender_signature_required
+    || metadataBoolean(body.metadata, "sender_signature_required")
+    || (Array.isArray(body.sender_fields) && body.sender_fields.length > 0)
+  );
+}
+
+function senderFieldsFor(body: CreateBody): FieldDefinition[] {
+  const existing = fieldsForSigner(body.fields ?? [], "sender");
+  if (existing.length > 0) return existing;
+  if (Array.isArray(body.sender_fields) && body.sender_fields.length > 0) return body.sender_fields;
+  return [
+    { id: "sender_full_name", label: "Sender full legal name", type: "text", required: true, signerRole: "sender" },
+    { id: "sender_title", label: "Sender title", type: "text", required: false, signerRole: "sender" },
+    { id: "sender_signature_date", label: "Sender signature date", type: "date", required: true, signerRole: "sender" },
+    { id: "sender_signature", label: "Sender signature", type: "signature", required: true, signerRole: "sender" }
+  ];
+}
+
+function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) {
+  const fields = body.fields ?? [];
+  if (!requiresSenderSignature || fieldsRequireSenderSignature(fields)) return fields;
+  return [
+    ...fields.map((field) => ({ ...field, signerRole: field.signerRole ?? "recipient" as const })),
+    ...senderFieldsFor(body).map((field) => ({ ...field, signerRole: "sender" as const }))
+  ];
+}
+
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   assertCreateBody(body);
   const markdown = markdownForBody(body);
@@ -65,45 +124,80 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   const senderEmail = normalizeEmailList(body.sender_email)[0] ?? null;
   const senderName = typeof body.sender_name === "string" ? body.sender_name.trim() : "";
   const notificationEmails = normalizeEmailList(body.notification_email ?? body.sender_email);
+  const requiresSenderSignature = senderSignatureRequired(body);
+  if (requiresSenderSignature && !senderEmail) {
+    throw new Error("sender_email is required when sender signature is required");
+  }
+  const signingOrder = signingOrderFor(body, requiresSenderSignature);
+  const senderToken = requiresSenderSignature ? nanoid(32) : null;
+  const fields = agreementFieldsFor(body, requiresSenderSignature);
   const metadata = {
     ...(body.metadata ?? {}),
     ...(notificationEmails.length ? { notification_email: notificationEmails } : {}),
     ...(senderEmail ? { sender_email: senderEmail } : {}),
-    ...(senderName ? { sender_name: senderName } : {})
+    ...(senderName ? { sender_name: senderName } : {}),
+    ...(requiresSenderSignature ? { sender_signature_required: true, signing_order: signingOrder } : {})
   };
 
   await run(
     `INSERT INTO agreements (
       id, status, recipient_name, recipient_email, document_markdown, document_title, fields_json,
-      webhook_url, webhook_secret, metadata_json, signing_token, created_at, sent_at
-    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      webhook_url, webhook_secret, metadata_json, signing_token, sender_signing_token, created_at, sent_at
+    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     body.recipient!.name,
     body.recipient!.email,
     markdown,
     documentTitle,
-    JSON.stringify(body.fields),
+    JSON.stringify(fields),
     body.webhook_url ?? null,
     webhookSecret,
     Object.keys(metadata).length ? JSON.stringify(metadata) : null,
     token,
+    senderToken,
     createdAt,
     createdAt
   );
 
   await addAuditEvent({ agreementId: id, eventType: "created", data: { source: body.template ? "template" : "raw_markdown" } });
   const cc = normalizeEmailList(body.cc ?? body.recipient?.cc);
-  await addAuditEvent({ agreementId: id, eventType: "sent", data: { recipient_email: body.recipient!.email, cc, sender_email: senderEmail } });
 
   const signingUrl = `${baseUrl}/sign/${token}`;
-  await sendSigningEmail({
-    to: body.recipient!.email!,
-    cc,
-    replyTo: senderEmail ? [senderEmail] : undefined,
-    senderName,
-    recipientName: body.recipient!.name!,
-    documentTitle,
-    signingUrl
+  const senderSigningUrl = senderToken ? `${baseUrl}/sign/${senderToken}` : null;
+
+  if (!requiresSenderSignature || signingOrder !== "sender_first") {
+    await sendSigningEmail({
+      to: body.recipient!.email!,
+      cc,
+      replyTo: senderEmail ? [senderEmail] : undefined,
+      senderName,
+      recipientName: body.recipient!.name!,
+      documentTitle,
+      signingUrl
+    });
+  } else {
+    await addAuditEvent({ agreementId: id, eventType: "recipient_signing_email_deferred", data: { signing_order: signingOrder } });
+  }
+
+  if (senderEmail && senderSigningUrl && signingOrder !== "recipient_first") {
+    await sendSenderSigningEmail({
+      to: senderEmail,
+      senderName,
+      recipientName: body.recipient!.name!,
+      recipientEmail: body.recipient!.email!,
+      documentTitle,
+      agreementId: id,
+      signingUrl: senderSigningUrl,
+      recipientSigned: false
+    });
+  } else if (senderEmail && senderSigningUrl) {
+    await addAuditEvent({ agreementId: id, eventType: "sender_signing_email_deferred", data: { signing_order: signingOrder } });
+  }
+
+  await addAuditEvent({
+    agreementId: id,
+    eventType: "sent",
+    data: { recipient_email: body.recipient!.email, cc, sender_email: senderEmail, sender_signature_required: requiresSenderSignature, signing_order: signingOrder }
   });
 
   posthog.captureEvent("agreement created", {
@@ -111,11 +205,13 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     status: "sent",
     source: body.template ? "template" : "raw_markdown",
     template: body.template ?? null,
-    field_count: body.fields?.length ?? 0,
+    field_count: fields.length,
     cc_count: cc.length,
     notification_count: notificationEmails.length,
     has_webhook: Boolean(body.webhook_url),
     has_sender_email: Boolean(senderEmail),
+    sender_signature_required: requiresSenderSignature,
+    signing_order: signingOrder,
     workflow: stringMetadata(metadata, "workflow")
   }, signerDistinctId(id));
 
@@ -124,6 +220,8 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     status: "sent",
     preview_url: `${baseUrl}/preview/${token}`,
     signing_url: signingUrl,
+    sender_signing_url: senderSigningUrl,
+    signing_order: signingOrder,
     webhook_secret: webhookSecret,
     notification_email: notificationEmails,
     created_at: createdAt
@@ -144,6 +242,10 @@ function agreementForApi(agreement: Agreement, options: { includeSignedFields?: 
     metadata: parseJson<Record<string, unknown> | null>(agreement.metadata_json, null),
     preview_url: `${env.baseUrl}/preview/${agreement.signing_token}`,
     signing_url: `${env.baseUrl}/sign/${agreement.signing_token}`,
+    sender_signing_url: agreement.sender_signing_token ? `${env.baseUrl}/sign/${agreement.sender_signing_token}` : null,
+    signing_order: typeof parseJson<Record<string, unknown>>(agreement.metadata_json, {}).signing_order === "string"
+      ? parseJson<Record<string, unknown>>(agreement.metadata_json, {}).signing_order
+      : "parallel",
     created_at: agreement.created_at,
     sent_at: agreement.sent_at,
     viewed_at: agreement.viewed_at,
@@ -178,6 +280,9 @@ agreements.post("/v1/agreements/bulk", async (c) => {
       fields?: FieldDefinition[];
       webhook_url?: string;
       metadata?: Record<string, unknown>;
+      sender_signature_required?: boolean;
+      sender_fields?: FieldDefinition[];
+      signing_order?: string;
     }>();
     if (!Array.isArray(body.recipients) || body.recipients.length === 0) throw new Error("recipients array is required");
 
@@ -194,7 +299,10 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         sender_name: body.sender_name,
         fields: body.fields,
         webhook_url: body.webhook_url,
-        metadata: { ...(body.metadata ?? {}), ...(recipient.metadata ?? {}) }
+        metadata: { ...(body.metadata ?? {}), ...(recipient.metadata ?? {}) },
+        sender_signature_required: body.sender_signature_required,
+        sender_fields: body.sender_fields,
+        signing_order: body.signing_order
       }, new URL(c.req.url).origin));
     }
     return c.json({ agreements: results }, 201);

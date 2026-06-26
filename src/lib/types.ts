@@ -1,6 +1,8 @@
 export type AgreementStatus = "sent" | "viewed" | "completed" | "declined" | "expired" | "cancelled";
 
 export type FieldType = "text" | "email" | "date" | "currency" | "number" | "select" | "boolean" | "signature" | "initials";
+export type SignerRole = "recipient" | "sender";
+export type SigningOrder = "parallel" | "sender_first" | "recipient_first";
 
 export type FieldDefinition = {
   id: string;
@@ -8,6 +10,7 @@ export type FieldDefinition = {
   type: FieldType;
   required?: boolean;
   options?: string[];
+  signerRole?: SignerRole;
 };
 
 export type Agreement = {
@@ -23,6 +26,7 @@ export type Agreement = {
   webhook_secret: string | null;
   metadata_json: string | null;
   signing_token: string;
+  sender_signing_token: string | null;
   created_at: string;
   sent_at: string | null;
   viewed_at: string | null;
