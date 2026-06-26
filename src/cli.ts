@@ -413,7 +413,8 @@ The legacy "agentsign" command name is also supported when installed from npm.
 Setup:
   agentcontract login                    Browser login via WorkOS/Google Workspace, saves config automatically
   agentcontract login --email <email>    Email-code login. Use when browser redirect is blocked
-  agentcontract skill                    Install/update the AI-agent skill
+  agentcontract skill                    Print AI-agent setup instructions
+  agentcontract skill --install          Install/update the AI-agent skill
   agentcontract update                  Check hosted version and update this CLI
   agentcontract session start           Start a lightweight AgentContract task session
   agentcontract session event           Record a message or decision on a task session
@@ -448,6 +449,7 @@ Options:
   --key-name <name>                  Name for a key created by login. Defaults to AgentContract CLI
   --email <email>                    Use email-code login instead of browser login
   --code <123456>                    Login code for email-code login. Omit to type it interactively
+  --install                          Install the skill instead of printing it
   --timeout-ms <ms>                  Login callback timeout. Defaults to 300000
   --webhook-url <url>                Machine webhook for agreement.completed
   --signing-order <order>            Counter-sign order: parallel, sender_first, or recipient_first
@@ -1278,10 +1280,12 @@ function baseBearMndaPayload(args: Args) {
 }
 
 function baseBearPrivacyPayload(args: Args) {
+  const configuredSenderEmail = senderEmail(args);
+  const configuredSenderName = senderName(args);
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
-    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+    from: stringArg(args, "from", "from-email", "sender-email") ?? configuredSenderEmail ?? specificPrivacyDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? configuredSenderName ?? specificPrivacyDefaults.senderName
   };
   const payload = basePrivacyPayload(specificArgs);
   return {
@@ -1291,10 +1295,12 @@ function baseBearPrivacyPayload(args: Args) {
 }
 
 function baseBearContractorPayload(args: Args) {
+  const configuredSenderEmail = senderEmail(args);
+  const configuredSenderName = senderName(args);
   const specificArgs = {
     ...args,
-    from: stringArg(args, "from", "from-email", "sender-email") ?? specificPrivacyDefaults.senderEmail,
-    "sender-name": stringArg(args, "sender-name") ?? specificPrivacyDefaults.senderName
+    from: stringArg(args, "from", "from-email", "sender-email") ?? configuredSenderEmail ?? specificPrivacyDefaults.senderEmail,
+    "sender-name": stringArg(args, "sender-name") ?? configuredSenderName ?? specificPrivacyDefaults.senderName
   };
   const vars = templateVarsFromArgs(args);
   const defaults = defaultTemplateVars(templateDefinitions.contractor);
@@ -1401,6 +1407,11 @@ function dryRunResult(command: string, apiUrl: string, path: string, payload: un
 function printResult(result: unknown, json: boolean) {
   if (json) {
     console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (typeof result === "string") {
+    console.log(result);
     return;
   }
 
@@ -2426,7 +2437,7 @@ async function listServerTemplates(args: Args) {
 async function getServerTemplate(args: Args, id: string) {
   const { apiUrl, apiKey } = apiConfig(args);
   return getJson(apiUrl, apiKey, `/v1/templates/${id}`) as Promise<{
-    template?: { id?: string; name?: string };
+    template?: { id?: string; name?: string; description?: string };
     markdown?: string;
     default_template_vars?: Record<string, unknown>;
   }>;
@@ -2437,6 +2448,9 @@ async function showServerTemplate(args: Args, positional: string[]) {
   const result = await getServerTemplate(args, id);
   return {
     server_template: true,
+    id: result.template?.id ?? id,
+    name: result.template?.name,
+    description: result.template?.description,
     ...result,
     markdown: args.markdown || args.raw ? result.markdown : undefined
   };
@@ -2453,7 +2467,11 @@ async function readServerTemplate(args: Args, positional: string[]) {
   if (jsonOutput(args) && !stringArg(args, "out", "output-file", "output")) {
     return {
       server_template: true,
+      id: result.template?.id ?? id,
+      name: result.template?.name,
+      description: result.template?.description,
       ...result,
+      markdown: result.markdown,
       rendered_markdown: markdown
     };
   }
@@ -2898,6 +2916,10 @@ async function chooseSkillDirectory(args: Args) {
 }
 
 async function installSkill(args: Args) {
+  if (!args.install && !stringArg(args, "directory", "dir")) {
+    return agentContractSkillMarkdown();
+  }
+
   const directory = await chooseSkillDirectory(args);
   const skillDir = join(directory, "agentcontract-cli");
   const skillPath = join(skillDir, "SKILL.md");

@@ -1,6 +1,6 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { nanoid } from "nanoid";
-import { addAuditEvent, all, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
+import { addAuditEvent, all, get, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import { requireApiKey } from "../lib/auth.js";
 import { sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
@@ -9,7 +9,7 @@ import { posthog, signerDistinctId } from "../lib/posthog.js";
 import { fieldsForSigner, requiresSenderSignature as fieldsRequireSenderSignature } from "../lib/signers.js";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templates.js";
 import { auditEventsForApi } from "../lib/audit.js";
-import type { Agreement, FieldDefinition, SignedFields, SigningOrder } from "../lib/types.js";
+import type { Agreement, ApiKeyRecord, FieldDefinition, SignedFields, SigningOrder } from "../lib/types.js";
 import { cancelledPayload, enqueueWebhook } from "./webhooks.js";
 
 export const agreements = new Hono();
@@ -30,6 +30,10 @@ type CreateBody = {
   sender_signature_required?: boolean;
   sender_fields?: FieldDefinition[];
   signing_order?: string;
+};
+
+type CreateOptions = {
+  ownerEmail?: string | null;
 };
 
 function assertCreateBody(body: CreateBody) {
@@ -113,7 +117,7 @@ function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) 
   ];
 }
 
-export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
+export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, options: CreateOptions = {}) {
   assertCreateBody(body);
   const markdown = markdownForBody(body);
   const id = `agr_${nanoid(12)}`;
@@ -142,8 +146,8 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   await run(
     `INSERT INTO agreements (
       id, status, recipient_name, recipient_email, document_markdown, document_title, fields_json,
-      webhook_url, webhook_secret, metadata_json, signing_token, sender_signing_token, created_at, sent_at
-    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      webhook_url, webhook_secret, metadata_json, owner_email, signing_token, sender_signing_token, created_at, sent_at
+    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     body.recipient!.name,
     body.recipient!.email,
@@ -153,6 +157,7 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
     body.webhook_url ?? null,
     webhookSecret,
     Object.keys(metadata).length ? JSON.stringify(metadata) : null,
+    options.ownerEmail ?? null,
     token,
     senderToken,
     createdAt,
@@ -228,6 +233,19 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl) {
   };
 }
 
+function apiKeyRecord(c: Context): ApiKeyRecord | null {
+  return (((c as unknown as { get(key: string): unknown }).get("apiKeyRecord") ?? null) as ApiKeyRecord | null);
+}
+
+function currentOwnerEmail(c: Context) {
+  return apiKeyRecord(c)?.owner_email ?? null;
+}
+
+async function getAgreementForOwner(id: string, ownerEmail: string | null) {
+  if (!ownerEmail) return getAgreement(id);
+  return get<Agreement>("SELECT * FROM agreements WHERE id = ? AND owner_email = ?", id, ownerEmail);
+}
+
 function agreementForApi(agreement: Agreement, options: { includeSignedFields?: boolean } = {}) {
   const signedFields = parseJson<SignedFields | null>(agreement.signed_fields_json, null);
   return {
@@ -259,7 +277,9 @@ function agreementForApi(agreement: Agreement, options: { includeSignedFields?: 
 
 agreements.post("/v1/agreements", async (c) => {
   try {
-    const result = await createAgreement(await c.req.json<CreateBody>(), new URL(c.req.url).origin);
+    const result = await createAgreement(await c.req.json<CreateBody>(), new URL(c.req.url).origin, {
+      ownerEmail: currentOwnerEmail(c)
+    });
     return c.json(result, 201);
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, 400);
@@ -286,6 +306,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
     }>();
     if (!Array.isArray(body.recipients) || body.recipients.length === 0) throw new Error("recipients array is required");
 
+    const ownerEmail = currentOwnerEmail(c);
     const results = [];
     for (const recipient of body.recipients) {
       results.push(await createAgreement({
@@ -303,7 +324,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         sender_signature_required: body.sender_signature_required,
         sender_fields: body.sender_fields,
         signing_order: body.signing_order
-      }, new URL(c.req.url).origin));
+      }, new URL(c.req.url).origin, { ownerEmail }));
     }
     return c.json({ agreements: results }, 201);
   } catch (error) {
@@ -318,6 +339,11 @@ agreements.get("/v1/agreements", async (c) => {
   const includeSignedFields = c.req.query("include") === "signed_fields";
   const params: unknown[] = [];
   const where: string[] = [];
+  const ownerEmail = currentOwnerEmail(c);
+  if (ownerEmail) {
+    where.push("owner_email = ?");
+    params.push(ownerEmail);
+  }
   if (status) {
     where.push("status = ?");
     params.push(status);
@@ -340,13 +366,13 @@ agreements.get("/v1/agreements", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({ ...agreementForApi(agreement, { includeSignedFields: true }), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });
 
 agreements.get("/v1/agreements/:id/document", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({
     agreement_id: agreement.id,
@@ -363,7 +389,7 @@ agreements.get("/v1/agreements/:id/document", async (c) => {
 });
 
 agreements.post("/v1/agreements/:id/cancel", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   if (agreement.status === "completed") return c.json({ error: "Completed agreements cannot be cancelled" }, 400);
 
@@ -380,7 +406,7 @@ agreements.post("/v1/agreements/:id/cancel", async (c) => {
 });
 
 agreements.post("/v1/agreements/:id/remind", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   if (agreement.status === "completed" || agreement.status === "cancelled") return c.json({ error: `Cannot remind ${agreement.status} agreement` }, 400);
 
@@ -405,7 +431,7 @@ agreements.post("/v1/agreements/:id/remind", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id/pdf", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
 
   const buffer = await pdfBufferForAgreement(agreement);
@@ -419,7 +445,7 @@ agreements.get("/v1/agreements/:id/pdf", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id/audit", async (c) => {
-  const agreement = await getAgreement(c.req.param("id"));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({ agreement_id: agreement.id, audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });

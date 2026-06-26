@@ -63,7 +63,7 @@ function loginPage(input: {
       <form method="post" action="/login/email/start" class="mt-5 space-y-3">
         <input type="hidden" name="returnTo" value="${escapeHtml(input.returnTo)}" />
         <label class="block text-sm font-semibold">Email
-          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" type="email" name="email" value="${escapeHtml(input.email ?? "")}" placeholder="sid@usebear.ai" autocomplete="email" required />
+          <input class="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm" type="email" name="email" value="${escapeHtml(input.email ?? "")}" placeholder="you@example.com" autocomplete="email" required />
         </label>
         <button class="w-full rounded bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Send sign-in code</button>
       </form>

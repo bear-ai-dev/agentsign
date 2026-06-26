@@ -25,6 +25,7 @@ export type Agreement = {
   webhook_url: string | null;
   webhook_secret: string | null;
   metadata_json: string | null;
+  owner_email: string | null;
   signing_token: string;
   sender_signing_token: string | null;
   created_at: string;
