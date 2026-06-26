@@ -92,6 +92,85 @@ test("session start creates an agent session", async () => {
   assert.equal(body.session?.initial_goal, "send Specific Marketplace agreements");
 });
 
+test("user-owned API keys cannot read or mutate another owner's agent sessions", async () => {
+  const { createApiKey } = await import("../src/lib/apiKeys.js");
+  const keyA = (await createApiKey({ ownerEmail: "session-a@example.com", name: "Session A" })).key;
+  const keyB = (await createApiKey({ ownerEmail: "session-b@example.com", name: "Session B" })).key;
+
+  const createResponse = await appModule.app.request("https://agentcontract.test/v1/sessions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${keyA}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      agent: "codex",
+      goal: "private session goal",
+      metadata: { secret: "session-a-secret" }
+    })
+  });
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json() as { session: { id: string } };
+
+  const listResponse = await appModule.app.request("https://agentcontract.test/v1/sessions?limit=100", {
+    headers: { authorization: `Bearer ${keyB}` }
+  });
+  assert.equal(listResponse.status, 200);
+  const listed = await listResponse.json() as { sessions: Array<{ id: string }> };
+  assert.equal(listed.sessions.some((session) => session.id === created.session.id), false);
+
+  for (const path of [
+    `/v1/sessions/${created.session.id}`,
+    `/v1/sessions/${created.session.id}/events`,
+    `/v1/sessions/${created.session.id}/end`
+  ]) {
+    const response = await appModule.app.request(`https://agentcontract.test${path}`, {
+      method: path.endsWith("/events") || path.endsWith("/end") ? "POST" : "GET",
+      headers: {
+        authorization: `Bearer ${keyB}`,
+        "content-type": "application/json"
+      },
+      body: path.endsWith("/events")
+        ? JSON.stringify({ event_type: "tamper", content_text: "not allowed" })
+        : path.endsWith("/end")
+          ? JSON.stringify({ outcome: "not allowed" })
+          : undefined
+    });
+    assert.equal(response.status, 404, path);
+  }
+});
+
+test("email login verification with the wrong email does not consume the code", async () => {
+  const { createEmailLoginCode } = await import("../src/lib/cliLogin.js");
+  const code = await createEmailLoginCode({
+    ownerEmail: "login-victim@example.com",
+    keyName: "Victim login"
+  });
+
+  const wrongEmailResponse = await appModule.app.request("https://agentcontract.test/cli/magic/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: "login-attacker@example.com",
+      code
+    })
+  });
+  assert.equal(wrongEmailResponse.status, 400);
+
+  const victimResponse = await appModule.app.request("https://agentcontract.test/cli/magic/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: "login-victim@example.com",
+      code
+    })
+  });
+  assert.equal(victimResponse.status, 200);
+  const body = await victimResponse.json() as { owner_email?: string; api_key?: string };
+  assert.equal(body.owner_email, "login-victim@example.com");
+  assert.match(body.api_key ?? "", /^ak_/);
+});
+
 test("CLI session start dry run works before login", async () => {
   const { stdout } = await execFileAsync("npm", [
     "run",

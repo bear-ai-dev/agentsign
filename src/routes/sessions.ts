@@ -39,6 +39,21 @@ function apiKeyRecord(c: Context): ApiKeyRecord | null {
   return (((c as unknown as { get(key: string): unknown }).get("apiKeyRecord") ?? null) as ApiKeyRecord | null);
 }
 
+function isBootstrapKey(c: Context) {
+  return Boolean((c as unknown as { get(key: string): unknown }).get("apiKeyBootstrap"));
+}
+
+function currentOwnerEmail(c: Context) {
+  return apiKeyRecord(c)?.owner_email ?? null;
+}
+
+function requireOwnedKey(c: Context) {
+  if (isBootstrapKey(c)) return { bootstrap: true, ownerEmail: null };
+  const ownerEmail = currentOwnerEmail(c);
+  if (!ownerEmail) return null;
+  return { bootstrap: false, ownerEmail };
+}
+
 function publicSession(row: AgentSession) {
   return {
     id: row.id,
@@ -109,15 +124,20 @@ sessions.post("/v1/sessions", async (c) => {
 
 sessions.get("/v1/sessions", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
-  const rows = await all<AgentSession>(
-    "SELECT * FROM agent_sessions ORDER BY started_at DESC LIMIT ?",
-    limit
-  );
+  const scope = requireOwnedKey(c);
+  if (!scope) return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  const rows = scope.bootstrap
+    ? await all<AgentSession>("SELECT * FROM agent_sessions ORDER BY started_at DESC LIMIT ?", limit)
+    : await all<AgentSession>("SELECT * FROM agent_sessions WHERE owner_email = ? ORDER BY started_at DESC LIMIT ?", scope.ownerEmail, limit);
   return c.json({ sessions: rows.map(publicSession) });
 });
 
 sessions.get("/v1/sessions/:id", async (c) => {
-  const session = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", c.req.param("id"));
+  const scope = requireOwnedKey(c);
+  if (!scope) return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  const session = scope.bootstrap
+    ? await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", c.req.param("id"))
+    : await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ? AND owner_email = ?", c.req.param("id"), scope.ownerEmail);
   if (!session) return c.json({ error: "Session not found" }, 404);
   const events = await all<AgentSessionEvent>(
     "SELECT * FROM agent_session_events WHERE session_id = ? ORDER BY sequence_number ASC",
@@ -128,7 +148,11 @@ sessions.get("/v1/sessions/:id", async (c) => {
 
 sessions.post("/v1/sessions/:id/events", async (c) => {
   const sessionId = c.req.param("id");
-  const session = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId);
+  const scope = requireOwnedKey(c);
+  if (!scope) return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  const session = scope.bootstrap
+    ? await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId)
+    : await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ? AND owner_email = ?", sessionId, scope.ownerEmail);
   if (!session) return c.json({ error: "Session not found" }, 404);
 
   const body = await c.req.json<EventBody>().catch(() => ({})) as EventBody;
@@ -177,7 +201,11 @@ sessions.post("/v1/sessions/:id/events", async (c) => {
 sessions.post("/v1/sessions/:id/end", async (c) => {
   const sessionId = c.req.param("id");
   const body = await c.req.json<{ outcome?: string }>().catch(() => ({})) as { outcome?: string };
-  const session = await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId);
+  const scope = requireOwnedKey(c);
+  if (!scope) return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  const session = scope.bootstrap
+    ? await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ?", sessionId)
+    : await get<AgentSession>("SELECT * FROM agent_sessions WHERE id = ? AND owner_email = ?", sessionId, scope.ownerEmail);
   if (!session) return c.json({ error: "Session not found" }, 404);
   const distinctId = ownerDistinctId(session.owner_email, session.id);
 
