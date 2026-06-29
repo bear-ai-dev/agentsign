@@ -1535,31 +1535,6 @@ function printResult(result: unknown, json: boolean) {
     return;
   }
 
-  if (typeof result === "object" && result && "feedback" in result) {
-    const feedbackResult = result as { stored?: boolean; feedback?: ProductFeedbackForCli | ProductFeedbackForCli[] };
-    const feedbackItems = Array.isArray(feedbackResult.feedback)
-      ? feedbackResult.feedback
-      : feedbackResult.feedback
-        ? [feedbackResult.feedback]
-        : [];
-    if (feedbackResult.stored && feedbackItems[0]) {
-      const item = feedbackItems[0];
-      console.log(`Feedback stored: ${item.id}`);
-      console.log(`Severity: ${item.severity}`);
-      console.log(`Category: ${item.category}`);
-      if (item.command) console.log(`Command: ${item.command}`);
-      console.log(`Message: ${item.message}`);
-      return;
-    }
-    console.log(`Feedback: ${feedbackItems.length}`);
-    for (const item of feedbackItems) {
-      const command = item.command ? ` command="${item.command}"` : "";
-      console.log(`${item.id} [${item.status}/${item.severity}/${item.category}] ${item.created_at}${command}`);
-      console.log(`  ${item.message}`);
-    }
-    return;
-  }
-
   if (typeof result === "object" && result && "update_check" in result) {
     const update = result as {
       package?: string;
@@ -1726,6 +1701,31 @@ function printResult(result: unknown, json: boolean) {
     if (detail.markdown) {
       console.log("\n--- markdown ---\n");
       console.log(detail.markdown);
+    }
+    return;
+  }
+
+  if (typeof result === "object" && result && "feedback" in result) {
+    const feedbackResult = result as { stored?: boolean; feedback?: ProductFeedbackForCli | ProductFeedbackForCli[] };
+    const feedbackItems = Array.isArray(feedbackResult.feedback)
+      ? feedbackResult.feedback
+      : feedbackResult.feedback
+        ? [feedbackResult.feedback]
+        : [];
+    if (feedbackResult.stored && feedbackItems[0]) {
+      const item = feedbackItems[0];
+      console.log(`Feedback stored: ${item.id}`);
+      console.log(`Severity: ${item.severity}`);
+      console.log(`Category: ${item.category}`);
+      if (item.command) console.log(`Command: ${item.command}`);
+      console.log(`Message: ${item.message}`);
+      return;
+    }
+    console.log(`Feedback: ${feedbackItems.length}`);
+    for (const item of feedbackItems) {
+      const command = item.command ? ` command="${item.command}"` : "";
+      console.log(`${item.id} [${item.status}/${item.severity}/${item.category}] ${item.created_at}${command}`);
+      console.log(`  ${item.message}`);
     }
     return;
   }

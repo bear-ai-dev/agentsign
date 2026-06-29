@@ -264,6 +264,32 @@ test("CLI session event dry run posts to the session events API", async () => {
   assert.equal(result.payload?.content_text, "Send the three agreements");
 });
 
+test("CLI contract show markdown prints contract details instead of product feedback output", async () => {
+  const { stdout } = await execFileAsync("npm", [
+    "run",
+    "cli",
+    "--",
+    "contract",
+    "show",
+    "privacy",
+    "--markdown"
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      AGENTCONTRACT_CONFIG: join(tmpdir(), `agentcontract-contract-show-${Date.now()}.json`),
+      AGENTCONTRACT_API_KEY: "",
+      AGENTSIGN_API_KEY: "",
+      AGENTINK_API_KEY: ""
+    }
+  });
+
+  assert.match(stdout, /privacy \[built-in\] - Specific Marketplace Privacy Policy Acknowledgement/);
+  assert.match(stdout, /--- markdown ---/);
+  assert.match(stdout, /# Specific Marketplace Privacy Policy/);
+  assert.doesNotMatch(stdout, /^Feedback: 0/m);
+});
+
 test("CLI specific privacy dry run posts to the agreements API", async () => {
   const { stdout } = await execFileAsync("npm", [
     "run",
