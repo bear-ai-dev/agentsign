@@ -120,10 +120,11 @@ test("dashboard only renders agreements for the signed-in email session", async 
   assert.doesNotMatch(html, /bob@example\.com/);
   assert.match(html, new RegExp(ownerA));
   assert.doesNotMatch(html, new RegExp(ownerB));
+  assert.match(html, /href="\/templates\/filesystem-purchase-agreement"/);
 });
 
 test("specific dashboard templates default to the signed-in sender", async () => {
-  for (const path of ["/templates/bear-privacy", "/templates/specific-contractor"]) {
+  for (const path of ["/templates/bear-privacy", "/templates/specific-contractor", "/templates/filesystem-purchase-agreement"]) {
     const response = await appModule.app.request(`https://agentcontract.test${path}`, {
       headers: { cookie: adminEmailCookie(ownerA) }
     });
@@ -134,4 +135,19 @@ test("specific dashboard templates default to the signed-in sender", async () =>
     assert.doesNotMatch(html, /name="sender_email" type="email" value="sid@usebear\.ai"/, path);
     assert.doesNotMatch(html, /name="sender_name" value="Sid from Specific"/, path);
   }
+});
+
+test("filesystem dashboard template uses recipient-first countersignature payload", async () => {
+  const response = await appModule.app.request("https://agentcontract.test/templates/filesystem-purchase-agreement", {
+    headers: { cookie: adminEmailCookie(ownerA) }
+  });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+
+  assert.match(html, /Filesystem Purchase Agreement/);
+  assert.match(html, /const senderSignatureRequired = true;/);
+  assert.match(html, /const signingOrder = "recipient_first";/);
+  assert.match(html, /"buyer_signature"/);
+  assert.match(html, /sender_signature_required: senderSignatureRequired \|\| undefined/);
+  assert.match(html, /signing_order: signingOrder \|\| undefined/);
 });

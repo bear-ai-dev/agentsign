@@ -107,6 +107,7 @@ templates.get("/dashboard/agreements/:id/document", renderDashboardDocument);
 templates.get("/dashboard/agreements/:id/pdf", renderDashboardPdf);
 templates.get("/dashboard/agreements/:id/audit", renderDashboardAudit);
 templates.get("/templates/nda", (c) => renderSimpleTemplatePage(c, "nda"));
+templates.get("/templates/filesystem-purchase-agreement", (c) => renderSimpleTemplatePage(c, "filesystem-purchase-agreement"));
 
 function statusClass(status: string) {
   if (status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
@@ -219,6 +220,7 @@ async function renderDashboard(c: Context) {
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/bear-privacy">Privacy</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/nda">NDA</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/specific-contractor">Contractor</a>
+        <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/templates/filesystem-purchase-agreement">Filesystem</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/dashboard/api-keys">API Keys</a>
         <a class="rounded border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" href="/logout">Sign out</a>
       </nav>
@@ -272,10 +274,11 @@ async function renderDashboard(c: Context) {
       </div>
     </section>
 
-    <section class="mt-6 grid gap-4 lg:grid-cols-3">
+    <section class="mt-6 grid gap-4 lg:grid-cols-4">
       ${templateCard("nda", "/templates/nda", "agentcontract read nda --var company_name=\\\"Specific Marketplace\\\"\\nagentcontract contract send nda --to jane@example.com --name \\\"Jane Doe\\\" --var company_name=\\\"Specific Marketplace\\\" --json")}
       ${templateCard("privacy", "/templates/bear-privacy", "agentcontract read privacy --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract marketplace-onboard --to jane@example.com --name \\\"Jane Doe\\\" --json")}
       ${templateCard("contractor", "/templates/specific-contractor", "agentcontract read contractor --var effective_date=\\\"April 29, 2026\\\"\\nagentcontract contract send contractor --to jane@example.com --name \\\"Jane Doe\\\" --json")}
+      ${templateCard("filesystem-purchase-agreement", "/templates/filesystem-purchase-agreement", "agentcontract template read filesystem-purchase-agreement --out ./filesystem-purchase-agreement.md\\nagentcontract template send filesystem-purchase-agreement --to seller@example.com --name \\\"Seller Person\\\" --json")}
     </section>
 
     <section class="mt-6 rounded-lg border border-slate-200 bg-white p-4">
@@ -351,6 +354,8 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
     recipient_email: "jane@example.com"
   };
   const previewHtml = marked.parse(applyTemplateVars(loadTemplate(templateId), previewVars), { async: false }) as string;
+  const senderSignatureRequired = definition.fields.some((field) => field.signerRole === "sender") || templateId === "nda" || templateId === "mutual-nda";
+  const signingOrder = templateId === "filesystem-purchase-agreement" ? "recipient_first" : undefined;
   const variables = definition.variables.map((variable) => `
     <label>
       <span>${escapeHtml(variable.label)}</span>
@@ -410,6 +415,8 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
     const markdown = ${JSON.stringify(loadTemplate(templateId))};
     const fields = ${JSON.stringify(definition.fields)};
     const variableKeys = ${JSON.stringify(definition.variables.map((variable) => variable.key))};
+    const senderSignatureRequired = ${JSON.stringify(senderSignatureRequired)};
+    const signingOrder = ${JSON.stringify(signingOrder)};
     const form = document.getElementById("template-form");
     const payloadBox = document.getElementById("payload");
     const preview = document.getElementById("preview");
@@ -438,7 +445,14 @@ function renderSimpleTemplatePage(c: Context, templateId: keyof typeof templateD
         template: ${JSON.stringify(templateId)},
         template_vars: templateVars,
         fields,
-        metadata: { source: "template-ui", workflow: ${JSON.stringify(templateId)} }
+        sender_signature_required: senderSignatureRequired || undefined,
+        signing_order: signingOrder || undefined,
+        metadata: {
+          source: "template-ui",
+          workflow: ${JSON.stringify(templateId)},
+          ...(senderSignatureRequired ? { sender_signature_required: true } : {}),
+          ...(signingOrder ? { signing_order: signingOrder } : {})
+        }
       };
     }
     function sync() {

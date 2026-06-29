@@ -2841,12 +2841,14 @@ agentcontract feedback --message "What broke" --command "exact command" --expect
 - \`nda\`: Bear AI mutual NDA
 - \`privacy\`: Specific Marketplace privacy acknowledgement
 - \`contractor\`: Specific Marketplace contributor terms
+- \`filesystem-purchase-agreement\`: Bear AI filesystem data purchase agreement with recipient-first countersignature
 
 ## Sending
 
 agentcontract marketplace-onboard --to contributor@example.com --name "Jane Contributor" --json
 agentcontract specific-contractor --to contributor@example.com --name "Jane Contributor" --json
 agentcontract bear-mnda --to jane@example.com --name "Jane Doe" --json
+agentcontract template send filesystem-purchase-agreement --to seller@example.com --name "Seller Person" --json
 
 ## Tracking
 
