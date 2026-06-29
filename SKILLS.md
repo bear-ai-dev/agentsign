@@ -273,6 +273,18 @@ agentcontract specific-contractor \
   --preview-file ./specific-contractor-preview.html
 ```
 
+Filesystem purchase agreement:
+
+```bash
+agentcontract template read filesystem-purchase-agreement \
+  --out ./filesystem-purchase-agreement.md
+
+agentcontract template send filesystem-purchase-agreement \
+  --to seller@example.com \
+  --name "Seller Person" \
+  --json
+```
+
 Custom contract from markdown:
 
 ```bash
