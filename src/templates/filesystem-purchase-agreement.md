@@ -18,7 +18,7 @@ ARBITRATION NOTICE AND CLASS ACTION WAIVER: EXCEPT FOR CERTAIN TYPES OF DISPUTES
 
 1.1 “Data” means the files, folders, metadata, and other content that Seller transfers to Buyer through the Upload Tool, excluding any files Seller affirmatively excludes pursuant to Section 3.2 prior to upload.
 
-1.2 “Dots” means Dots Technology Corp., the third-party payment processor used by Buyer to disburse Fees and to collect any required tax documentation from Seller.
+1.2 “Dots” means Divisible Inc., doing business as Dots, the third-party payment processor used by Buyer to disburse Fees and to collect any required tax documentation from Seller.
 
 1.3 “Fees” means the cash amount payable to Seller under Section 4, as determined by the Quality Audit.
 

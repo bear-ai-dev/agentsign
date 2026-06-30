@@ -17,11 +17,13 @@ test("filesystem purchase agreement template has 39 Tehama language and counter-
   assert.equal(template.fields.find((field) => field.id === "seller_signature")?.signerRole, "recipient");
   assert.equal(template.fields.find((field) => field.id === "buyer_signature")?.signerRole, "sender");
   assert.match(markdown, /Bear AI Inc\., 39 Tehama St, San Francisco, CA 94105/);
+  assert.match(markdown, /Divisible Inc\., doing business as Dots/);
   assert.match(markdown, /JAMS Streamlined Arbitration Rules and Procedures/);
   assert.match(markdown, /ARBITRATION NOTICE AND CLASS ACTION WAIVER/);
   assert.match(markdown, /\{\{signed:buyer_signature\}\}/);
   assert.match(markdown, /\{\{signed:seller_signature\}\}/);
   assert.doesNotMatch(markdown, /2261 Market/);
+  assert.doesNotMatch(markdown, /Dots Technology Corp/);
 });
 
 test("template send dry-run defaults filesystem agreement to recipient-first countersignature", () => {
