@@ -84,15 +84,13 @@ Seller acknowledges that Buyer intends to use, transfer, store, and process the 
 
 All information Seller provides to Buyer in connection with this Agreement (including in the Order Form and through Dots) is true, accurate, and complete.
 
-## 6. PII Scrubbing; Retention and Destruction
+## 6. PII Scrubbing; Data Security
 
 6.1 PII Scrubbing Process. Following receipt of the Data, Buyer will use commercially reasonable efforts to identify and remove Personal Information from the Data using a combination of automated tooling and, where commercially feasible, human review (the “PII Scrubbing Process”). Buyer makes no representation or warranty that the PII Scrubbing Process will identify or remove all Personal Information.
 
-6.2 Retention of Raw Data. Buyer will retain the Data in its raw, pre-scrubbed form for a period of up to thirty (30) days after completion of the PII Scrubbing Process for quality-assurance and audit purposes, after which the raw Data will be deleted from Buyer’s production systems. Backups containing the raw Data will be overwritten in the ordinary course of Buyer’s backup rotation.
+6.2 Final Dataset. The Final Dataset (and any derivatives thereof, including model weights and outputs) is the property of Buyer.
 
-6.3 Final Dataset. The Final Dataset (and any derivatives thereof, including model weights and outputs) is the property of Buyer and is not subject to the retention limit in Section 6.2.
-
-6.4 Security. Buyer will maintain commercially reasonable administrative, technical, and physical safeguards designed to protect the Data while in Buyer’s possession, consistent with industry standards for organizations of Buyer’s size and stage.
+6.3 Security. Buyer will maintain commercially reasonable administrative, technical, and physical safeguards designed to protect the Data while in Buyer’s possession, consistent with industry standards for organizations of Buyer’s size and stage.
 
 ## 7. Confidentiality
 
@@ -104,7 +102,7 @@ All information Seller provides to Buyer in connection with this Agreement (incl
 
 8.1 Affirmative Consent. By executing this Agreement and uploading the Data, Seller affirmatively consents to Buyer’s collection, use, processing, transfer, and disclosure of the Data as described in this Agreement.
 
-8.2 Withdrawal of Consent. Seller may withdraw consent to Buyer’s future processing of the Data by sending a written notice to janak@withspecific.com (or such other address as Buyer may designate in writing). Upon receipt of a withdrawal notice, Buyer will, within a commercially reasonable period, (a) cease all further processing of the raw, pre-scrubbed Data attributable to Seller, and (b) delete the raw, pre-scrubbed Data attributable to Seller from Buyer’s production systems to the extent it has not already been deleted under Section 6.2.
+8.2 Withdrawal of Consent. Seller may withdraw consent to Buyer’s future processing of the Data by sending a written notice to janak@withspecific.com (or such other address as Buyer may designate in writing). Upon receipt of a withdrawal notice, Buyer will, within a commercially reasonable period, (a) cease all further processing of the raw, pre-scrubbed Data attributable to Seller, and (b) delete the raw, pre-scrubbed Data attributable to Seller from Buyer’s production systems to the extent it has not already been deleted.
 
 8.3 Limits on Withdrawal. Seller acknowledges and agrees that withdrawal of consent operates prospectively only and does not require Buyer to: (i) destroy, modify, or retrain any model, embedding, output, or derivative dataset that incorporates the Data or insights derived from the Data; (ii) recall any Final Dataset or derivative dataset that has been sublicensed or transferred to a third party; or (iii) return any Fees paid to Seller. Buyer’s obligations under this Section 8 are subject to Buyer’s right to retain Data as required by applicable law, legal process, or for the establishment, exercise, or defense of legal claims.
 
@@ -132,7 +130,7 @@ All information Seller provides to Buyer in connection with this Agreement (incl
 
 12.1 Term. This Agreement commences on the Effective Date and continues in perpetuity, subject to Seller’s withdrawal rights under Section 8.
 
-12.2 Survival. Sections 1, 2, 4.3 (with respect to taxes), 5, 6.3, 7, 8.3, 9.2, 10, 11, 12, and 13 will survive any termination or expiration of this Agreement.
+12.2 Survival. Sections 1, 2, 4.3 (with respect to taxes), 5, 6.2, 7, 8.3, 9.2, 10, 11, 12, and 13 will survive any termination or expiration of this Agreement.
 
 ## 13. General Provisions
 
