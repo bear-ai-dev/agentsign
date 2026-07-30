@@ -88,6 +88,41 @@ function sourcePdfPlaceholderMarkdown(title: string, sha256: string, bytes: numb
   ].join("\n");
 }
 
+type DocumentForBody = {
+  markdown: string;
+  title: string;
+  source: "source_pdf" | "template" | "raw_markdown";
+  sourcePdf: Buffer | null;
+  sourcePdfSha256: string | null;
+  sourcePdfFilename: string | null;
+};
+
+function documentForBody(body: CreateBody): DocumentForBody {
+  const sourcePdf = sourcePdfForBody(body);
+  if (!sourcePdf) {
+    const markdown = markdownForBody(body);
+    return {
+      markdown,
+      title: titleFromMarkdown(markdown),
+      source: body.template ? "template" : "raw_markdown",
+      sourcePdf: null,
+      sourcePdfSha256: null,
+      sourcePdfFilename: null
+    };
+  }
+
+  const sourcePdfSha256 = pdfSha256(sourcePdf);
+  const title = sourcePdfTitle(body);
+  return {
+    markdown: sourcePdfPlaceholderMarkdown(title, sourcePdfSha256, sourcePdf.byteLength),
+    title,
+    source: "source_pdf",
+    sourcePdf,
+    sourcePdfSha256,
+    sourcePdfFilename: body.document_pdf_filename?.trim() || null
+  };
+}
+
 function normalizeEmailList(value: string | string[] | undefined) {
   if (!value) return [];
   const raw = Array.isArray(value) ? value : [value];
@@ -156,12 +191,14 @@ function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) 
 
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, options: CreateOptions = {}) {
   assertCreateBody(body);
-  const sourcePdf = sourcePdfForBody(body);
-  const sourcePdfSha256 = sourcePdf ? pdfSha256(sourcePdf) : null;
-  const documentTitle = sourcePdf ? sourcePdfTitle(body) : titleFromMarkdown(markdownForBody(body));
-  const markdown = sourcePdf
-    ? sourcePdfPlaceholderMarkdown(documentTitle, sourcePdfSha256!, sourcePdf.byteLength)
-    : markdownForBody(body);
+  const {
+    markdown,
+    title: documentTitle,
+    source: documentSource,
+    sourcePdf,
+    sourcePdfSha256,
+    sourcePdfFilename
+  } = documentForBody(body);
   const id = `agr_${nanoid(12)}`;
   const token = nanoid(32);
   const webhookSecret = body.webhook_url ? `whsec_${nanoid(32)}` : null;
@@ -204,19 +241,18 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     senderToken,
     createdAt,
     createdAt,
-    sourcePdf ? sourcePdf.toString("base64") : null,
+    sourcePdf?.toString("base64") ?? null,
     sourcePdfSha256,
-    sourcePdf ? sourcePdf.byteLength : null,
-    sourcePdf ? body.document_pdf_filename?.trim() || null : null
+    sourcePdf?.byteLength ?? null,
+    sourcePdfFilename
   );
 
-  const documentSource = sourcePdf ? "source_pdf" : body.template ? "template" : "raw_markdown";
   await addAuditEvent({
     agreementId: id,
     eventType: "created",
     data: {
       source: documentSource,
-      ...(sourcePdfSha256 ? { source_pdf_sha256: sourcePdfSha256, source_pdf_bytes: sourcePdf!.byteLength } : {})
+      ...(sourcePdf ? { source_pdf_sha256: sourcePdfSha256, source_pdf_bytes: sourcePdf.byteLength } : {})
     }
   });
   const cc = normalizeEmailList(body.cc ?? body.recipient?.cc);

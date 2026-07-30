@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { marked } from "marked";
@@ -246,10 +245,6 @@ export async function renderPDF(input: {
   return (await renderPDFResult(input)).path;
 }
 
-export function sourcePdfSha256(buffer: Buffer) {
-  return createHash("sha256").update(buffer).digest("hex");
-}
-
 export function signatureCertificateMarkdown(documentTitle: string) {
   return [
     "# Signature Certificate",
@@ -277,15 +272,7 @@ export async function renderAgreementPdfResult(input: {
   sourcePdf?: Buffer | null;
   documentTitle?: string;
 }) {
-  if (!input.sourcePdf) {
-    return renderPDFResult({
-      agreementId: input.agreementId,
-      markdown: input.markdown,
-      fields: input.fields,
-      signedFields: input.signedFields,
-      auditEvents: input.auditEvents
-    });
-  }
+  if (!input.sourcePdf) return renderPDFResult(input);
 
   const certificate = await renderPDFResult({
     agreementId: `${input.agreementId}-certificate`,
@@ -293,7 +280,7 @@ export async function renderAgreementPdfResult(input: {
     fields: input.fields,
     signedFields: input.signedFields,
     auditEvents: input.auditEvents,
-    documentSha256: sourcePdfSha256(input.sourcePdf)
+    documentSha256: documentHash(input.sourcePdf)
   });
   const buffer = await appendPdf(input.sourcePdf, certificate.buffer);
   const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);

@@ -1185,19 +1185,24 @@ function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
 const maxSourcePdfBytes = 6 * 1024 * 1024;
 
 type SourcePdfInput = {
+  buffer: Buffer;
   base64: string;
   filename: string;
   bytes: number;
 };
 
+function titleFromPdfFilename(filename: string) {
+  return filename.replace(/\.pdf$/i, "");
+}
+
 function sourcePdfFromBuffer(buffer: Buffer, filename: string, label: string): SourcePdfInput {
-  if (buffer.length < 5 || buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+  if (buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
     throw new CliError(`${label} must be a PDF file (missing %PDF- header)`);
   }
   if (buffer.length > maxSourcePdfBytes) {
     throw new CliError(`${label} is ${buffer.length} bytes; the limit is ${maxSourcePdfBytes} bytes (hosted request size cap)`);
   }
-  return { base64: buffer.toString("base64"), filename, bytes: buffer.length };
+  return { buffer, base64: buffer.toString("base64"), filename, bytes: buffer.length };
 }
 
 function pdfFromArgs(args: Args): SourcePdfInput | undefined {
@@ -1319,7 +1324,7 @@ function baseContractPayload(args: Args): AgreementPayload {
       ...sharedSendOptions(args),
       document_pdf_base64: sourcePdf.base64,
       document_pdf_filename: sourcePdf.filename,
-      document_title: stringArg(args, "title", "contract-name", "document-title") ?? sourcePdf.filename.replace(/\.pdf$/i, ""),
+      document_title: stringArg(args, "title", "contract-name", "document-title") ?? titleFromPdfFilename(sourcePdf.filename),
       fields: fieldsFromArgs(args, defaultFieldsFor(stringArg(args, "field-preset") ?? "nda")),
       metadata: { source: "agentcontract-cli", template_kind: "source_pdf" }
     };
@@ -1995,26 +2000,24 @@ function contractPayload(args: Args, contract: ContractDefinitionForCli, require
     contract_name: contract.name
   };
 
-  if (sourcePdf) {
-    return {
-      recipient: { name: recipientName, email: recipientEmail },
-      ...sharedSendOptions(args),
+  const documentPayload: AgreementPayload = sourcePdf
+    ? {
       document_pdf_base64: sourcePdf.base64,
       document_pdf_filename: sourcePdf.filename,
-      document_title: contract.name,
-      fields: fieldsFromArgs(args, contract.fields),
-      metadata
+      document_title: contract.name
+    }
+    : {
+      document_markdown: contract.markdown,
+      template_vars: {
+        ...(contract.template_vars_default ?? {}),
+        ...templateVarsFromArgs(args)
+      }
     };
-  }
 
   return {
     recipient: { name: recipientName, email: recipientEmail },
     ...sharedSendOptions(args),
-    document_markdown: contract.markdown,
-    template_vars: {
-      ...(contract.template_vars_default ?? {}),
-      ...templateVarsFromArgs(args)
-    },
+    ...documentPayload,
     fields: fieldsFromArgs(args, contract.fields),
     metadata
   };
@@ -2066,7 +2069,7 @@ async function addContract(args: Args, positional: string[]) {
   const now = new Date().toISOString();
 
   if (sourcePdf) {
-    const name = stringArg(args, "contract-name", "title") ?? stringArg(args, "name") ?? sourcePdf.filename.replace(/\.pdf$/i, "");
+    const name = stringArg(args, "contract-name", "title") ?? stringArg(args, "name") ?? titleFromPdfFilename(sourcePdf.filename);
     const contract = writeLocalContract({
       id,
       name,
@@ -2078,7 +2081,7 @@ async function addContract(args: Args, positional: string[]) {
       source: stringArg(args, "source") ?? "local-pdf",
       source_pdf: "contract.pdf",
       source_pdf_filename: sourcePdf.filename
-    }, markdownFromArgs(args) ?? sourcePdfStubMarkdown(name, sourcePdf), args, Buffer.from(sourcePdf.base64, "base64"));
+    }, markdownFromArgs(args) ?? sourcePdfStubMarkdown(name, sourcePdf), args, sourcePdf.buffer);
 
     return {
       contract_saved: true,

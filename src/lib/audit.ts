@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import type { AuditEvent } from "./types.js";
 
-export function documentHash(markdown: string) {
-  return createHash("sha256").update(markdown).digest("hex");
+export function documentHash(document: string | Buffer) {
+  return createHash("sha256").update(document).digest("hex");
 }
 
 export function auditEventsForApi(events: AuditEvent[]) {
