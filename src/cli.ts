@@ -2965,6 +2965,7 @@ agentcontract contracts
 agentcontract read privacy --var effective_date="April 29, 2026"
 agentcontract contract show contractor --markdown
 agentcontract contract add custom-sow --markdown-file ./contract.md --fields-file ./fields.json
+agentcontract contract add release-agreement --pdf-file ./release.pdf --fields-file ./fields.json
 agentcontract contract feedback custom-sow --note "Make the IP assignment clearer"
 agentcontract contract read custom-sow --with-feedback
 agentcontract contract edit custom-sow
@@ -2984,6 +2985,8 @@ agentcontract marketplace-onboard --to contributor@example.com --name "Jane Cont
 agentcontract specific-contractor --to contributor@example.com --name "Jane Contributor" --json
 agentcontract bear-mnda --to jane@example.com --name "Jane Doe" --json
 agentcontract template send filesystem-purchase-agreement --to seller@example.com --name "Seller Person" --json
+
+Exact-PDF contracts: pass --pdf-file to \`contract add\` or \`send-contract\` to send an original PDF. Signers review and sign the exact PDF (fonts/layout preserved); the signed PDF keeps the original pages byte-for-byte and appends a signature certificate with the signed fields, audit trail, and source SHA-256. \`contract preview\` writes the exact PDF instead of HTML for these contracts.
 
 ## Tracking
 
