@@ -4,7 +4,7 @@ import { addAuditEvent, all, get, getAgreement, getAuditEvents, nowIso, parseJso
 import { env } from "../lib/env.js";
 import { requireApiKey } from "../lib/auth.js";
 import { sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
-import { pdfBufferForAgreement } from "../lib/pdfStorage.js";
+import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from "../lib/pdfStorage.js";
 import { posthog, signerDistinctId } from "../lib/posthog.js";
 import { fieldsForSigner, requiresSenderSignature as fieldsRequireSenderSignature } from "../lib/signers.js";
 import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templates.js";
@@ -24,6 +24,9 @@ type CreateBody = {
   template?: string;
   template_vars?: Record<string, unknown>;
   document_markdown?: string;
+  document_pdf_base64?: string;
+  document_pdf_filename?: string;
+  document_title?: string;
   fields?: FieldDefinition[];
   webhook_url?: string;
   metadata?: Record<string, unknown>;
@@ -36,9 +39,13 @@ type CreateOptions = {
   ownerEmail?: string | null;
 };
 
+const maxSourcePdfBytes = 6 * 1024 * 1024;
+
 function assertCreateBody(body: CreateBody) {
   if (!body.recipient?.name || !body.recipient?.email) throw new Error("recipient.name and recipient.email are required");
-  if (!body.document_markdown && !body.template) throw new Error("template or document_markdown is required");
+  if (!body.document_markdown && !body.template && !body.document_pdf_base64) {
+    throw new Error("template, document_markdown, or document_pdf_base64 is required");
+  }
   if (!Array.isArray(body.fields)) throw new Error("fields array is required");
 }
 
@@ -49,6 +56,36 @@ function markdownForBody(body: CreateBody) {
     recipient_name: body.recipient?.name ?? "",
     recipient_email: body.recipient?.email ?? ""
   });
+}
+
+function sourcePdfForBody(body: CreateBody) {
+  if (!body.document_pdf_base64) return null;
+  const buffer = Buffer.from(body.document_pdf_base64, "base64");
+  if (!buffer.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error("document_pdf_base64 must decode to a PDF file (missing %PDF- header)");
+  }
+  if (buffer.byteLength > maxSourcePdfBytes) {
+    throw new Error(`document_pdf_base64 decodes to ${buffer.byteLength} bytes; the limit is ${maxSourcePdfBytes} bytes`);
+  }
+  return buffer;
+}
+
+function sourcePdfTitle(body: CreateBody) {
+  const explicit = body.document_title?.trim();
+  if (explicit) return explicit;
+  const filename = body.document_pdf_filename?.trim();
+  if (filename) return filename.replace(/\.pdf$/i, "");
+  return "Original PDF Agreement";
+}
+
+function sourcePdfPlaceholderMarkdown(title: string, sha256: string, bytes: number) {
+  return [
+    `# ${title}`,
+    "",
+    `This agreement was sent as an original PDF document (${bytes} bytes, SHA-256 \`${sha256}\`).`,
+    "",
+    "Signers review and sign the original PDF. The signed PDF preserves the original pages byte-for-byte and appends a signature certificate with the signed fields and audit trail."
+  ].join("\n");
 }
 
 function normalizeEmailList(value: string | string[] | undefined) {
@@ -119,12 +156,16 @@ function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) 
 
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, options: CreateOptions = {}) {
   assertCreateBody(body);
-  const markdown = markdownForBody(body);
+  const sourcePdf = sourcePdfForBody(body);
+  const sourcePdfSha256 = sourcePdf ? pdfSha256(sourcePdf) : null;
+  const documentTitle = sourcePdf ? sourcePdfTitle(body) : titleFromMarkdown(markdownForBody(body));
+  const markdown = sourcePdf
+    ? sourcePdfPlaceholderMarkdown(documentTitle, sourcePdfSha256!, sourcePdf.byteLength)
+    : markdownForBody(body);
   const id = `agr_${nanoid(12)}`;
   const token = nanoid(32);
   const webhookSecret = body.webhook_url ? `whsec_${nanoid(32)}` : null;
   const createdAt = nowIso();
-  const documentTitle = titleFromMarkdown(markdown);
   const senderEmail = normalizeEmailList(body.sender_email)[0] ?? null;
   const senderName = typeof body.sender_name === "string" ? body.sender_name.trim() : "";
   const notificationEmails = normalizeEmailList(body.notification_email ?? body.sender_email);
@@ -146,8 +187,9 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   await run(
     `INSERT INTO agreements (
       id, status, recipient_name, recipient_email, document_markdown, document_title, fields_json,
-      webhook_url, webhook_secret, metadata_json, owner_email, signing_token, sender_signing_token, created_at, sent_at
-    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      webhook_url, webhook_secret, metadata_json, owner_email, signing_token, sender_signing_token, created_at, sent_at,
+      source_pdf_base64, source_pdf_sha256, source_pdf_bytes, source_pdf_filename
+    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     body.recipient!.name,
     body.recipient!.email,
@@ -161,10 +203,22 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     token,
     senderToken,
     createdAt,
-    createdAt
+    createdAt,
+    sourcePdf ? sourcePdf.toString("base64") : null,
+    sourcePdfSha256,
+    sourcePdf ? sourcePdf.byteLength : null,
+    sourcePdf ? body.document_pdf_filename?.trim() || null : null
   );
 
-  await addAuditEvent({ agreementId: id, eventType: "created", data: { source: body.template ? "template" : "raw_markdown" } });
+  const documentSource = sourcePdf ? "source_pdf" : body.template ? "template" : "raw_markdown";
+  await addAuditEvent({
+    agreementId: id,
+    eventType: "created",
+    data: {
+      source: documentSource,
+      ...(sourcePdfSha256 ? { source_pdf_sha256: sourcePdfSha256, source_pdf_bytes: sourcePdf!.byteLength } : {})
+    }
+  });
   const cc = normalizeEmailList(body.cc ?? body.recipient?.cc);
 
   const signingUrl = `${baseUrl}/sign/${token}`;
@@ -208,7 +262,7 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   posthog.captureEvent("agreement created", {
     agreement_id: id,
     status: "sent",
-    source: body.template ? "template" : "raw_markdown",
+    source: documentSource,
     template: body.template ?? null,
     field_count: fields.length,
     cc_count: cc.length,
@@ -271,7 +325,15 @@ function agreementForApi(agreement: Agreement, options: { includeSignedFields?: 
     signed_pdf_url: agreement.status === "completed" ? `${env.baseUrl}/v1/agreements/${agreement.id}/pdf` : null,
     signed_pdf_saved: Boolean(agreement.signed_pdf_base64),
     signed_pdf_sha256: agreement.signed_pdf_sha256,
-    signed_pdf_bytes: agreement.signed_pdf_bytes
+    signed_pdf_bytes: agreement.signed_pdf_bytes,
+    source_pdf: agreement.source_pdf_base64
+      ? {
+        filename: agreement.source_pdf_filename,
+        sha256: agreement.source_pdf_sha256,
+        bytes: agreement.source_pdf_bytes,
+        url: `${env.baseUrl}/v1/agreements/${agreement.id}/source-pdf`
+      }
+      : null
   };
 }
 
@@ -291,6 +353,9 @@ agreements.post("/v1/agreements/bulk", async (c) => {
     const body = await c.req.json<{
       template?: string;
       document_markdown?: string;
+      document_pdf_base64?: string;
+      document_pdf_filename?: string;
+      document_title?: string;
       template_vars_default?: Record<string, unknown>;
       recipients?: Array<{ name: string; email: string; cc?: string | string[]; template_vars?: Record<string, unknown>; metadata?: Record<string, unknown> }>;
       cc?: string | string[];
@@ -313,6 +378,9 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         recipient,
         template: body.template,
         document_markdown: body.document_markdown,
+        document_pdf_base64: body.document_pdf_base64,
+        document_pdf_filename: body.document_pdf_filename,
+        document_title: body.document_title,
         template_vars: { ...(body.template_vars_default ?? {}), ...(recipient.template_vars ?? {}) },
         cc: recipient.cc ?? body.cc,
         notification_email: body.notification_email,
@@ -440,6 +508,20 @@ agreements.get("/v1/agreements/:id/pdf", async (c) => {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.id}.pdf"`
+    }
+  });
+});
+
+agreements.get("/v1/agreements/:id/source-pdf", async (c) => {
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+  const buffer = sourcePdfBufferForAgreement(agreement);
+  if (!buffer) return c.json({ error: "Agreement has no source PDF" }, 404);
+
+  return new Response(buffer, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${agreement.source_pdf_filename ?? `${agreement.id}-source.pdf`}"`
     }
   });
 });

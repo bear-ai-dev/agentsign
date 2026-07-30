@@ -36,6 +36,10 @@ export type Agreement = {
   signed_pdf_base64: string | null;
   signed_pdf_sha256: string | null;
   signed_pdf_bytes: number | null;
+  source_pdf_base64: string | null;
+  source_pdf_sha256: string | null;
+  source_pdf_bytes: number | null;
+  source_pdf_filename: string | null;
 };
 
 export type AuditEvent = {

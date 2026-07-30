@@ -1,11 +1,23 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { getAuditEvents, parseJson, run } from "./db.js";
-import { renderPDFResult } from "./pdf.js";
+import { renderAgreementPdfResult } from "./pdf.js";
 import type { Agreement, FieldDefinition, SignedFields } from "./types.js";
 
 export function pdfSha256(buffer: Buffer) {
   return createHash("sha256").update(buffer).digest("hex");
+}
+
+export function sourcePdfBufferForAgreement(agreement: Agreement) {
+  if (!agreement.source_pdf_base64) return null;
+  const buffer = Buffer.from(agreement.source_pdf_base64, "base64");
+  if (agreement.source_pdf_bytes !== null && buffer.byteLength !== Number(agreement.source_pdf_bytes)) {
+    throw new Error(`Stored source PDF byte length mismatch for ${agreement.id}`);
+  }
+  if (agreement.source_pdf_sha256 && pdfSha256(buffer) !== agreement.source_pdf_sha256) {
+    throw new Error(`Stored source PDF hash mismatch for ${agreement.id}`);
+  }
+  return buffer;
 }
 
 export async function saveSignedPdfToAgreement(input: {
@@ -45,12 +57,14 @@ export async function pdfBufferForAgreement(agreement: Agreement) {
     return buffer;
   }
 
-  const rendered = await renderPDFResult({
+  const rendered = await renderAgreementPdfResult({
     agreementId: agreement.id,
     markdown: agreement.document_markdown,
     fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
     signedFields: parseJson<SignedFields | undefined>(agreement.signed_fields_json, undefined),
-    auditEvents: await getAuditEvents(agreement.id)
+    auditEvents: await getAuditEvents(agreement.id),
+    sourcePdf: sourcePdfBufferForAgreement(agreement),
+    documentTitle: agreement.document_title
   });
 
   if (agreement.status === "completed") {

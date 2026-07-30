@@ -7,7 +7,7 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdir
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { marked } from "marked";
 import { nanoid } from "nanoid";
@@ -30,11 +30,14 @@ type SavedContractDefinition = {
   created_at: string;
   updated_at: string;
   source?: string;
+  source_pdf?: string;
+  source_pdf_filename?: string;
 };
 type ContractDefinitionForCli = SavedContractDefinition & {
   kind: "built-in" | "local";
   markdown: string;
   path?: string;
+  pdfPath?: string;
 };
 type ContractFeedback = {
   id: string;
@@ -60,7 +63,7 @@ type ProductFeedbackForCli = {
   created_at: string;
 };
 
-const cliVersion = "0.1.14";
+const cliVersion = "0.1.15";
 const packageName = "@bear-ai-dev/agentcontract";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
@@ -187,6 +190,10 @@ function contractFeedbackPath(id: string, args: Args = {}) {
   return join(contractDir(id, args), "feedback.jsonl");
 }
 
+function contractPdfPath(id: string, args: Args = {}) {
+  return join(contractDir(id, args), "contract.pdf");
+}
+
 function builtInContract(id: string): ContractDefinitionForCli | undefined {
   const definition = templateDefinitions[id as keyof typeof templateDefinitions];
   if (!definition) return undefined;
@@ -219,6 +226,7 @@ function readLocalContract(id: string, args: Args = {}): ContractDefinitionForCl
   if (!meta.id || !meta.name || !Array.isArray(meta.fields)) {
     throw new CliError(`Contract ${id} metadata is invalid`, `${metaPath} must include id, name, and fields.`);
   }
+  const pdfPath = typeof meta.source_pdf === "string" ? join(contractDir(id, args), meta.source_pdf) : undefined;
   return {
     id: String(meta.id),
     name: String(meta.name),
@@ -230,9 +238,12 @@ function readLocalContract(id: string, args: Args = {}): ContractDefinitionForCl
     created_at: typeof meta.created_at === "string" ? meta.created_at : "",
     updated_at: typeof meta.updated_at === "string" ? meta.updated_at : "",
     source: typeof meta.source === "string" ? meta.source : undefined,
+    source_pdf: typeof meta.source_pdf === "string" ? meta.source_pdf : undefined,
+    source_pdf_filename: typeof meta.source_pdf_filename === "string" ? meta.source_pdf_filename : undefined,
     kind: "local",
     markdown: readTextFile(markdownPath, `contract ${id} markdown`),
-    path: markdownPath
+    path: markdownPath,
+    pdfPath: pdfPath && existsSync(pdfPath) ? pdfPath : undefined
   };
 }
 
@@ -271,7 +282,8 @@ function contractSummary(contract: ContractDefinitionForCli) {
       type: field.type,
       required: field.required === true
     })),
-    path: contract.path
+    path: contract.path,
+    ...(contract.pdfPath ? { source_pdf: true, pdf_path: contract.pdfPath, pdf_filename: contract.source_pdf_filename } : {})
   };
 }
 
@@ -291,11 +303,12 @@ function defaultContractVars(markdown: string, seed: Record<string, unknown> = {
   };
 }
 
-function writeLocalContract(contract: SavedContractDefinition, markdown: string, args: Args = {}) {
+function writeLocalContract(contract: SavedContractDefinition, markdown: string, args: Args = {}, sourcePdf?: Buffer) {
   const id = assertContractId(contract.id);
   const dir = contractDir(id, args);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   writeFileSync(contractMarkdownPath(id, args), markdown);
+  if (sourcePdf) writeFileSync(contractPdfPath(id, args), sourcePdf);
   writeFileSync(contractMetaPath(id, args), `${JSON.stringify({ ...contract, id }, null, 2)}\n`, { mode: 0o600 });
   chmodSync(contractMetaPath(id, args), 0o600);
   return readLocalContract(id, args)!;
@@ -386,6 +399,7 @@ Usage:
   agentcontract agreement pdf agr_123 --out ./agreement.pdf
   agentcontract contract show privacy
   agentcontract contract add partner-msa --markdown-file ./partner-msa.md --fields-file ./fields.json
+  agentcontract contract add release-agreement --pdf-file ./release.pdf --fields-file ./fields.json
   agentcontract contract feedback partner-msa --note "Use California law and shorten the termination section"
   agentcontract contract edit partner-msa
   agentcontract contract read partner-msa --with-feedback
@@ -458,6 +472,8 @@ Options:
   --vars-json <json>                 Template variables as JSON
   --vars-file <path>                 Template variables JSON file
   --markdown-file <path>             Custom markdown contract file
+  --pdf-file <path>                  Original PDF contract file. Signers review and sign the exact PDF;
+                                      the signed output keeps the original pages and appends a signature certificate
   --markdown-stdin                   Read custom contract markdown from stdin
   --fields-json <json>               JSON field definitions array
   --fields-file <path>               JSON field definitions file
@@ -1166,6 +1182,55 @@ function fieldsFromArgs(args: Args, fallback: Array<Record<string, unknown>>) {
   return parsed as Array<Record<string, unknown>>;
 }
 
+const maxSourcePdfBytes = 6 * 1024 * 1024;
+
+type SourcePdfInput = {
+  base64: string;
+  filename: string;
+  bytes: number;
+};
+
+function sourcePdfFromBuffer(buffer: Buffer, filename: string, label: string): SourcePdfInput {
+  if (buffer.length < 5 || buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+    throw new CliError(`${label} must be a PDF file (missing %PDF- header)`);
+  }
+  if (buffer.length > maxSourcePdfBytes) {
+    throw new CliError(`${label} is ${buffer.length} bytes; the limit is ${maxSourcePdfBytes} bytes (hosted request size cap)`);
+  }
+  return { base64: buffer.toString("base64"), filename, bytes: buffer.length };
+}
+
+function pdfFromArgs(args: Args): SourcePdfInput | undefined {
+  const pdfFile = stringArg(args, "pdf-file", "pdf");
+  if (!pdfFile) return undefined;
+  const path = resolve(pdfFile);
+  if (!existsSync(path)) throw new CliError(`--pdf-file not found: ${path}`);
+  let buffer: Buffer;
+  try {
+    buffer = readFileSync(path);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliError(`--pdf-file could not be read: ${message}`);
+  }
+  return sourcePdfFromBuffer(buffer, basename(path), "--pdf-file");
+}
+
+function contractSourcePdf(contract: ContractDefinitionForCli): SourcePdfInput | undefined {
+  if (!contract.pdfPath) return undefined;
+  const buffer = readFileSync(contract.pdfPath);
+  return sourcePdfFromBuffer(buffer, contract.source_pdf_filename ?? basename(contract.pdfPath), `contract ${contract.id} PDF`);
+}
+
+function sourcePdfStubMarkdown(name: string, pdf: SourcePdfInput) {
+  return [
+    `# ${name}`,
+    "",
+    `Original PDF contract (\`${pdf.filename}\`, ${pdf.bytes} bytes).`,
+    "",
+    "Signers review and sign the original PDF exactly as stored next to this file (contract.pdf). This markdown is only a local placeholder; the PDF is what gets sent."
+  ].join("\n");
+}
+
 function markdownFromArgs(args: Args) {
   const cached = args.__markdown_content;
   if (typeof cached === "string") return cached;
@@ -1187,6 +1252,9 @@ type AgreementPayload = {
   notification_email?: string[];
   template?: string;
   document_markdown?: string;
+  document_pdf_base64?: string;
+  document_pdf_filename?: string;
+  document_title?: string;
   template_vars?: Record<string, unknown>;
   fields?: Array<Record<string, unknown>>;
   webhook_url?: string;
@@ -1244,11 +1312,23 @@ function basePrivacyPayload(args: Args) {
   });
 }
 
-function baseContractPayload(args: Args) {
+function baseContractPayload(args: Args): AgreementPayload {
+  const sourcePdf = pdfFromArgs(args);
+  if (sourcePdf) {
+    return {
+      ...sharedSendOptions(args),
+      document_pdf_base64: sourcePdf.base64,
+      document_pdf_filename: sourcePdf.filename,
+      document_title: stringArg(args, "title", "contract-name", "document-title") ?? sourcePdf.filename.replace(/\.pdf$/i, ""),
+      fields: fieldsFromArgs(args, defaultFieldsFor(stringArg(args, "field-preset") ?? "nda")),
+      metadata: { source: "agentcontract-cli", template_kind: "source_pdf" }
+    };
+  }
+
   const markdown = markdownFromArgs(args);
   const template = stringArg(args, "template") ?? (markdown ? undefined : "contractor");
   if (!template && !markdown) {
-    throw new CliError("send-contract needs --template or --markdown-file");
+    throw new CliError("send-contract needs --template, --markdown-file, or --pdf-file");
   }
   const vars = templateVarsFromArgs(args);
   const definition = template ? templateDefinitions[template as keyof typeof templateDefinitions] : undefined;
@@ -1365,6 +1445,20 @@ function escapeHtml(value: unknown) {
 }
 
 function writePreview(payload: AgreementPayload, args: Args) {
+  if (payload.document_pdf_base64) {
+    const output = resolve(stringArg(args, "preview-file", "output-file", "out") ?? join(tmpdir(), "agentcontract-preview.pdf"));
+    mkdirSync(dirname(output), { recursive: true });
+    writeFileSync(output, Buffer.from(payload.document_pdf_base64, "base64"));
+    if (args.open) openTarget(output);
+    return {
+      preview: true,
+      source_pdf: true,
+      path: output,
+      opened: Boolean(args.open),
+      title: payload.document_title ?? payload.document_pdf_filename,
+      note: "This contract is an original PDF; the preview is the exact PDF signers will see."
+    };
+  }
   const output = resolve(stringArg(args, "preview-file", "output-file", "out") ?? join(tmpdir(), "agentcontract-preview.html"));
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, previewHtmlFor(payload));
@@ -1883,7 +1977,7 @@ function renderedContractMarkdown(args: Args, contract: ContractDefinitionForCli
   });
 }
 
-function contractPayload(args: Args, contract: ContractDefinitionForCli, requireRecipient: boolean) {
+function contractPayload(args: Args, contract: ContractDefinitionForCli, requireRecipient: boolean): AgreementPayload {
   const recipientName = requireRecipient
     ? receiverName(args)
     : stringArg(args, "name", "receiver-name") ?? "Preview Recipient";
@@ -1892,6 +1986,27 @@ function contractPayload(args: Args, contract: ContractDefinitionForCli, require
     : stringArg(args, "to", "email", "receiver-email")
       ? validateEmail(stringArg(args, "to", "email", "receiver-email")!, "--to / receiver email")
       : "preview@example.com";
+  const sourcePdf = contractSourcePdf(contract);
+  const metadata = {
+    source: "agentcontract-cli",
+    workflow: "contract_library",
+    contract_id: contract.id,
+    contract_kind: contract.kind,
+    contract_name: contract.name
+  };
+
+  if (sourcePdf) {
+    return {
+      recipient: { name: recipientName, email: recipientEmail },
+      ...sharedSendOptions(args),
+      document_pdf_base64: sourcePdf.base64,
+      document_pdf_filename: sourcePdf.filename,
+      document_title: contract.name,
+      fields: fieldsFromArgs(args, contract.fields),
+      metadata
+    };
+  }
+
   return {
     recipient: { name: recipientName, email: recipientEmail },
     ...sharedSendOptions(args),
@@ -1901,13 +2016,7 @@ function contractPayload(args: Args, contract: ContractDefinitionForCli, require
       ...templateVarsFromArgs(args)
     },
     fields: fieldsFromArgs(args, contract.fields),
-    metadata: {
-      source: "agentcontract-cli",
-      workflow: "contract_library",
-      contract_id: contract.id,
-      contract_kind: contract.kind,
-      contract_name: contract.name
-    }
+    metadata
   };
 }
 
@@ -1953,15 +2062,41 @@ async function addContract(args: Args, positional: string[]) {
   }
 
   const seeded = fromTemplate ? builtInContract(fromTemplate)! : undefined;
+  const sourcePdf = pdfFromArgs(args);
+  const now = new Date().toISOString();
+
+  if (sourcePdf) {
+    const name = stringArg(args, "contract-name", "title") ?? stringArg(args, "name") ?? sourcePdf.filename.replace(/\.pdf$/i, "");
+    const contract = writeLocalContract({
+      id,
+      name,
+      description: stringArg(args, "description") ?? `Original PDF contract (${sourcePdf.filename}). Signers sign the exact PDF.`,
+      fields: fieldsFromArgs(args, defaultFieldsFor(stringArg(args, "field-preset") ?? "nda")),
+      template_vars_default: {},
+      created_at: existingLocal?.created_at || now,
+      updated_at: now,
+      source: stringArg(args, "source") ?? "local-pdf",
+      source_pdf: "contract.pdf",
+      source_pdf_filename: sourcePdf.filename
+    }, markdownFromArgs(args) ?? sourcePdfStubMarkdown(name, sourcePdf), args, Buffer.from(sourcePdf.base64, "base64"));
+
+    return {
+      contract_saved: true,
+      contract: contractSummary(contract),
+      pdf_path: contract.pdfPath,
+      markdown_path: contract.path,
+      metadata_path: contractMetaPath(id, args)
+    };
+  }
+
   const markdown = markdownFromArgs(args) ?? seeded?.markdown;
   if (!markdown) {
     throw new CliError(
-      "--markdown-file or --from-template is required",
-      "Example: agentcontract contract add partner-msa --markdown-file ./partner-msa.md"
+      "--markdown-file, --pdf-file, or --from-template is required",
+      "Example: agentcontract contract add partner-msa --markdown-file ./partner-msa.md (or --pdf-file ./partner-msa.pdf to send the exact PDF)"
     );
   }
 
-  const now = new Date().toISOString();
   const vars = defaultContractVars(markdown, {
     ...(seeded?.template_vars_default ?? {}),
     ...templateVarsFromArgs(args)

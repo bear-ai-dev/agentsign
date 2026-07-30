@@ -145,6 +145,15 @@ agentcontract contract add partner-msa \
   --json
 ```
 
+Add a reusable contract from an original PDF. Signers review and sign the exact PDF (fonts and layout preserved); the signed output keeps the original pages byte-for-byte and appends a signature certificate with the signed fields and audit trail:
+
+```bash
+agentcontract contract add release-agreement \
+  --pdf-file ./contracts/release-agreement.pdf \
+  --fields-file ./contracts/signing-fields.json \
+  --json
+```
+
 Agents can create contracts directly from generated markdown and structured fields:
 
 ```bash
@@ -294,6 +303,19 @@ agentcontract send-contract \
   --from sid@usebear.ai \
   --markdown-file ./contract.md \
   --vars-file ./vars.json \
+  --fields-file ./fields.json \
+  --dry-run \
+  --json
+```
+
+Exact PDF one-off (no saved contract). The recipient signs the original PDF as sent:
+
+```bash
+agentcontract send-contract \
+  --to jane@example.com \
+  --name "Jane Doe" \
+  --from sid@usebear.ai \
+  --pdf-file ./contract.pdf \
   --fields-file ./fields.json \
   --dry-run \
   --json

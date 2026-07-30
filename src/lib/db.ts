@@ -179,7 +179,11 @@ async function ensureAgreementStorageSchema() {
     ["owner_email", "TEXT"],
     ["signed_pdf_base64", "TEXT"],
     ["signed_pdf_sha256", "TEXT"],
-    ["signed_pdf_bytes", "INTEGER"]
+    ["signed_pdf_bytes", "INTEGER"],
+    ["source_pdf_base64", "TEXT"],
+    ["source_pdf_sha256", "TEXT"],
+    ["source_pdf_bytes", "INTEGER"],
+    ["source_pdf_filename", "TEXT"]
   ] as const;
 
   if (pool) {

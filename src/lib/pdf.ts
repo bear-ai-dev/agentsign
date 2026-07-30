@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { marked } from "marked";
+import { PDFDocument } from "pdf-lib";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { env } from "./env.js";
@@ -114,7 +116,7 @@ function signedFieldsHtml(fields: FieldDefinition[], signedFields?: SignedFields
   `;
 }
 
-function auditPageHtml(markdown: string, events: AuditEvent[], signedFields?: SignedFields) {
+function auditPageHtml(markdown: string, events: AuditEvent[], signedFields?: SignedFields, documentSha256?: string) {
   if (!signedFields) return "";
   const signature = Object.values(signedFields).map(signatureHtml).find(Boolean);
   const rows = events.map((event) => `
@@ -129,7 +131,7 @@ function auditPageHtml(markdown: string, events: AuditEvent[], signedFields?: Si
   return `
     <section class="audit page-break">
       <h1>Audit Trail</h1>
-      <p><strong>Document SHA-256:</strong> <code>${documentHash(markdown)}</code></p>
+      <p><strong>Document SHA-256:</strong> <code>${documentSha256 ?? documentHash(markdown)}</code></p>
       ${signature ?? ""}
       <table>
         <thead><tr><th>Timestamp</th><th>Event</th><th>IP</th><th>User Agent</th></tr></thead>
@@ -144,6 +146,7 @@ export function renderDocumentHtml(input: {
   fields?: FieldDefinition[];
   signedFields?: SignedFields;
   auditEvents?: AuditEvent[];
+  documentSha256?: string;
 }) {
   const fields = input.fields ?? [];
   const { body, renderedFieldIds } = renderContractBodyHtml({
@@ -183,7 +186,7 @@ export function renderDocumentHtml(input: {
   <main>
     ${body}
     ${signedFieldsHtml(fields, input.signedFields, renderedFieldIds)}
-    ${auditPageHtml(input.markdown, input.auditEvents ?? [], input.signedFields)}
+    ${auditPageHtml(input.markdown, input.auditEvents ?? [], input.signedFields, input.documentSha256)}
   </main>
 </body>
 </html>`;
@@ -209,6 +212,7 @@ export async function renderPDFResult(input: {
   fields: FieldDefinition[];
   signedFields?: SignedFields;
   auditEvents?: AuditEvent[];
+  documentSha256?: string;
 }) {
   mkdirSync(env.pdfOutputDir, { recursive: true });
   const html = renderDocumentHtml(input);
@@ -240,4 +244,59 @@ export async function renderPDF(input: {
   auditEvents?: AuditEvent[];
 }) {
   return (await renderPDFResult(input)).path;
+}
+
+export function sourcePdfSha256(buffer: Buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+export function signatureCertificateMarkdown(documentTitle: string) {
+  return [
+    "# Signature Certificate",
+    "",
+    `**Document:** ${documentTitle}`,
+    "",
+    "The pages preceding this certificate are the original document exactly as it was sent for signature, byte-identical to the file whose SHA-256 fingerprint appears in the audit trail below. The signatures and field values on this certificate apply to that document."
+  ].join("\n");
+}
+
+export async function appendPdf(source: Buffer, addendum: Buffer) {
+  const document = await PDFDocument.load(source, { updateMetadata: false });
+  const addendumDocument = await PDFDocument.load(addendum);
+  const pages = await document.copyPages(addendumDocument, addendumDocument.getPageIndices());
+  for (const page of pages) document.addPage(page);
+  return Buffer.from(await document.save());
+}
+
+export async function renderAgreementPdfResult(input: {
+  agreementId: string;
+  markdown: string;
+  fields: FieldDefinition[];
+  signedFields?: SignedFields;
+  auditEvents?: AuditEvent[];
+  sourcePdf?: Buffer | null;
+  documentTitle?: string;
+}) {
+  if (!input.sourcePdf) {
+    return renderPDFResult({
+      agreementId: input.agreementId,
+      markdown: input.markdown,
+      fields: input.fields,
+      signedFields: input.signedFields,
+      auditEvents: input.auditEvents
+    });
+  }
+
+  const certificate = await renderPDFResult({
+    agreementId: `${input.agreementId}-certificate`,
+    markdown: signatureCertificateMarkdown(input.documentTitle ?? "Original PDF document"),
+    fields: input.fields,
+    signedFields: input.signedFields,
+    auditEvents: input.auditEvents,
+    documentSha256: sourcePdfSha256(input.sourcePdf)
+  });
+  const buffer = await appendPdf(input.sourcePdf, certificate.buffer);
+  const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);
+  writeFileSync(path, buffer);
+  return { path, buffer };
 }

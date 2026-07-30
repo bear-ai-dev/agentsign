@@ -3,8 +3,8 @@ import { getCookie, setCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { addAuditEvent, getAgreementBySigningToken, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
 import { sendCompletionEmail, sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
-import { renderContractBodyHtml, renderPDFResult, signatureFontFaceCss } from "../lib/pdf.js";
-import { pdfBufferForAgreement, pdfSha256 } from "../lib/pdfStorage.js";
+import { renderAgreementPdfResult, renderContractBodyHtml, signatureFontFaceCss } from "../lib/pdf.js";
+import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from "../lib/pdfStorage.js";
 import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
 import { fieldsForSigner as fieldsForSignerRole, requiredFieldsComplete } from "../lib/signers.js";
 import type { Agreement, AuditEvent, FieldDefinition, SignedFields, SignerRole, SigningOrder } from "../lib/types.js";
@@ -61,6 +61,8 @@ const SIGN_HTML = String.raw`<!doctype html>
     .submit-row { display: flex; gap: .65rem; align-items: center; margin-top: 1rem; }
     .submit-row button { flex: 1; min-height: 2.8rem; border-radius: .45rem; font-size: .93rem; font-weight: 760; transition: background-color .15s ease, transform .15s ease; }
     .submit-row button:not(:disabled):active { transform: translateY(1px); }
+    .pdf-viewer .pdf-page { display: block; width: 100%; height: auto; margin: 0 0 1rem; border: 1px solid rgb(226 232 240); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+    .pdf-viewer-fallback { margin-top: .5rem; font-size: .82rem; color: rgb(71 85 105); }
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; }
       .sign-panel { position: static; }
@@ -181,6 +183,8 @@ const PREVIEW_HTML = String.raw`<!doctype html>
     .contract .typed-signature { display: inline-block; max-width: 100%; vertical-align: middle; overflow: visible; }
     .contract .typed-signature-text { font-family: "AgentContractSignature", "Brush Script MT", "Segoe Script", "Snell Roundhand", cursive; font-size: 2.75rem; fill: rgb(15 23 42); }
     .contract .typed-signature-line { stroke: rgb(15 23 42); stroke-width: 1.4; stroke-linecap: round; }
+    .pdf-viewer .pdf-page { display: block; width: 100%; height: auto; margin: 0 0 1rem; border: 1px solid rgb(226 232 240); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+    .pdf-viewer-fallback { margin-top: .5rem; font-size: .82rem; color: rgb(71 85 105); }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-950">
@@ -269,6 +273,48 @@ function signerLabel(role: SignerRole) {
   return role === "sender" ? "Sender" : "Recipient";
 }
 
+const pdfjsVersion = "4.6.82";
+
+function pdfViewerHtml(token: string, filename: string | null) {
+  const sourceUrl = `/sign/${encodeURIComponent(token)}/source.pdf`;
+  const label = filename ? ` (<strong>${escapeHtml(filename)}</strong>)` : "";
+  return `
+    <div class="pdf-viewer" id="pdf-viewer" data-source="${sourceUrl}"></div>
+    <p class="pdf-viewer-fallback">You are reviewing the original PDF document${label}, shown exactly as it was sent. <a href="${sourceUrl}" target="_blank" rel="noopener">Open the original PDF</a> to view or download it directly.</p>
+    <script type="module">
+      const container = document.getElementById("pdf-viewer");
+      try {
+        const pdfjs = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.min.mjs");
+        pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs";
+        const doc = await pdfjs.getDocument(container.dataset.source).promise;
+        const width = container.clientWidth || 720;
+        for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+          const page = await doc.getPage(pageNumber);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: (width / baseViewport.width) * (window.devicePixelRatio || 1) });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.className = "pdf-page";
+          container.appendChild(canvas);
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        }
+      } catch (error) {
+        console.error("[AgentContract] inline PDF preview failed", error);
+        container.remove();
+      }
+    </script>`;
+}
+
+function documentPanelHtml(agreement: Agreement, token: string, signedFields: SignedFields) {
+  if (agreement.source_pdf_base64) return pdfViewerHtml(token, agreement.source_pdf_filename);
+  return renderContractBodyHtml({
+    markdown: agreement.document_markdown,
+    fields: allFieldsForAgreement(agreement),
+    signedFields
+  }).body;
+}
+
 function renderField(field: FieldDefinition) {
   const required = field.required ? "required" : "";
   const dataRequired = field.required ? "data-required=\"true\"" : "";
@@ -340,16 +386,29 @@ sign.get("/sign/:token", async (c) => {
     return c.html(pendingHtml(token));
   }
 
-  const documentHtml = renderContractBodyHtml({
-    markdown: agreement.document_markdown,
-    fields: allFieldsForAgreement(agreement),
-    signedFields
-  }).body;
+  const documentHtml = documentPanelHtml(agreement, token, signedFields);
   return c.html(SIGN_HTML
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
     .replace("{{fields_html}}", fields.map(renderField).join("\n"))
     .replaceAll("{{token}}", escapeHtml(token)));
+});
+
+sign.get("/sign/:token/source.pdf", async (c) => {
+  const token = c.req.param("token");
+  const lookup = await getAgreementBySigningToken(token);
+  const agreement = lookup?.agreement;
+  if (!agreement) return c.json({ error: "Signing link not found" }, 404);
+  if (agreement.status === "cancelled") return c.json({ error: "Agreement is cancelled" }, 410);
+  const buffer = sourcePdfBufferForAgreement(agreement);
+  if (!buffer) return c.json({ error: "Agreement has no source PDF" }, 404);
+
+  return new Response(buffer, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${agreement.source_pdf_filename ?? `${agreement.id}-source.pdf`}"`
+    }
+  });
 });
 
 sign.get("/preview/:token", async (c) => {
@@ -363,11 +422,7 @@ sign.get("/preview/:token", async (c) => {
     status: agreement.status
   }, distinctId);
 
-  const documentHtml = renderContractBodyHtml({
-    markdown: agreement.document_markdown,
-    fields: allFieldsForAgreement(agreement),
-    signedFields: parseJson<SignedFields>(agreement.signed_fields_json, {})
-  }).body;
+  const documentHtml = documentPanelHtml(agreement, token, parseJson<SignedFields>(agreement.signed_fields_json, {}));
   return c.html(PREVIEW_HTML
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
@@ -474,12 +529,14 @@ sign.post("/sign/:token/submit", async (c) => {
     }
 
     const auditEvents = await getAuditEvents(agreement.id);
-    const pdf = await renderPDFResult({
+    const pdf = await renderAgreementPdfResult({
       agreementId: agreement.id,
       markdown: agreement.document_markdown,
       fields: allFields,
       signedFields,
-      auditEvents: [...auditEvents, signedEvent, completedEvent]
+      auditEvents: [...auditEvents, signedEvent, completedEvent],
+      sourcePdf: sourcePdfBufferForAgreement(agreement),
+      documentTitle: agreement.document_title
     });
     await runTransaction([
       {
