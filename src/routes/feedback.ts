@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { nanoid } from "nanoid";
 import { verifyStoredApiKey } from "../lib/apiKeys.js";
 import { requireApiKey } from "../lib/auth.js";
-import { all, nowIso, parseJson, run } from "../lib/db.js";
+import { all, get, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import type { ApiKeyRecord, ProductFeedback } from "../lib/types.js";
@@ -166,4 +166,36 @@ feedback.get("/v1/feedback", requireApiKey, async (c) => {
   );
 
   return c.json({ feedback: rows.map(publicFeedback) });
+});
+
+feedback.post("/v1/feedback/:id/status", requireApiKey, async (c) => {
+  const current = apiKeyRecord(c);
+  const body = await c.req.json<{ status?: string; expected_status?: string }>().catch(() => ({})) as {
+    status?: string;
+    expected_status?: string;
+  };
+  const status = cleanString(body.status, 40);
+  const expectedStatus = cleanString(body.expected_status, 40);
+  const allowedStatuses = new Set(["open", "triaged", "closed"]);
+  if (!status || !allowedStatuses.has(status) || (expectedStatus && !allowedStatuses.has(expectedStatus))) {
+    return c.json({ error: "status and expected_status must be open, triaged, or closed" }, 400);
+  }
+  if (!isBootstrapKey(c) && !current?.owner_email) {
+    return c.json({ error: "This API key has no owner. Run agentcontract login to create a user-owned key." }, 403);
+  }
+
+  const where = ["id = ?"];
+  const params: unknown[] = [status, c.req.param("id")];
+  if (!isBootstrapKey(c)) {
+    where.push("owner_email = ?");
+    params.push(current!.owner_email);
+  }
+  if (expectedStatus) {
+    where.push("status = ?");
+    params.push(expectedStatus);
+  }
+  const updated = await run(`UPDATE product_feedback SET status = ? WHERE ${where.join(" AND ")}`, ...params);
+  if (updated.changes !== 1) return c.json({ error: "Feedback not found or status changed" }, 409);
+  const row = await get<ProductFeedback>("SELECT * FROM product_feedback WHERE id = ?", c.req.param("id"));
+  return c.json({ feedback: publicFeedback(row!) });
 });

@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { execFileSync } from "node:child_process";
 import pg from "pg";
+import { verifiedPostgresSsl } from "../src/lib/postgres.js";
 
-type FeedbackStatus = "open" | "in_progress" | "closed";
+type FeedbackStatus = "open" | "triaged" | "closed";
 
 type ProductFeedback = {
   id: string;
@@ -74,20 +75,11 @@ function json(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
 }
 
-function postgresSsl(databaseUrl: string) {
-  const sslSetting = (process.env.PGSSLMODE ?? process.env.DATABASE_SSL ?? "").toLowerCase();
-  if (sslSetting === "disable" || sslSetting === "false" || sslSetting === "0") return false;
-
-  const hostname = new URL(databaseUrl).hostname;
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return false;
-  return { rejectUnauthorized: false };
-}
-
 async function withPg<T>(run: (client: pg.PoolClient) => Promise<T>) {
   const databaseUrl = cleanEnv(process.env.DATABASE_URL);
   if (!databaseUrl) throw new Error("DATABASE_URL is required for direct feedback table access");
 
-  const pool = new pg.Pool({ connectionString: databaseUrl, ssl: postgresSsl(databaseUrl) });
+  const pool = new pg.Pool({ connectionString: databaseUrl, ssl: verifiedPostgresSsl(databaseUrl) });
   const client = await pool.connect();
   try {
     return await run(client);
@@ -151,12 +143,12 @@ async function getFeedback(id: string) {
   return response.feedback.find((item) => item.id === id) ?? null;
 }
 
-async function setFeedbackStatus(id: string, status: FeedbackStatus) {
+async function setFeedbackStatus(id: string, status: FeedbackStatus, expectedStatus?: FeedbackStatus) {
   if (process.env.DATABASE_URL) {
     return withPg(async (client) => {
       const result = await client.query<ProductFeedback>(
-        "UPDATE product_feedback SET status = $1 WHERE id = $2 RETURNING *",
-        [status, id]
+        `UPDATE product_feedback SET status = $1 WHERE id = $2${expectedStatus ? " AND status = $3" : ""} RETURNING *`,
+        expectedStatus ? [status, id, expectedStatus] : [status, id]
       );
       return result.rows[0] ?? null;
     });
@@ -164,7 +156,7 @@ async function setFeedbackStatus(id: string, status: FeedbackStatus) {
 
   const response = await apiRequest<{ feedback: ProductFeedback }>(`/v1/feedback/${id}/status`, {
     method: "POST",
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status, expected_status: expectedStatus })
   });
   return response.feedback;
 }
@@ -176,7 +168,7 @@ async function claimFeedback(id?: string) {
       try {
         const result = id
           ? await client.query<ProductFeedback>(
-              "UPDATE product_feedback SET status = 'in_progress' WHERE id = $1 AND status = 'open' RETURNING *",
+              "UPDATE product_feedback SET status = 'triaged' WHERE id = $1 AND status = 'open' RETURNING *",
               [id]
             )
           : await client.query<ProductFeedback>(`
@@ -188,7 +180,7 @@ async function claimFeedback(id?: string) {
                 FOR UPDATE SKIP LOCKED
               )
               UPDATE product_feedback feedback
-              SET status = 'in_progress'
+              SET status = 'triaged'
               FROM picked
               WHERE feedback.id = picked.id
               RETURNING feedback.*
@@ -204,7 +196,7 @@ async function claimFeedback(id?: string) {
 
   const feedback = id ? await getFeedback(id) : (await listOpenFeedback(1))[0] ?? null;
   if (!feedback || feedback.status !== "open") return null;
-  return setFeedbackStatus(feedback.id, "in_progress");
+  return setFeedbackStatus(feedback.id, "triaged", "open");
 }
 
 function escapeHtml(value: unknown) {
@@ -349,7 +341,7 @@ async function main() {
   if (command === "start" || command === "in-progress") {
     const id = args.find((arg) => !arg.startsWith("-"));
     if (!id) throw new Error("feedback id is required");
-    json({ feedback: await setFeedbackStatus(id, "in_progress") });
+    json({ feedback: await setFeedbackStatus(id, "triaged") });
     return;
   }
 

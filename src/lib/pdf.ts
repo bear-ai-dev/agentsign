@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { marked } from "marked";
 import { PDFDocument } from "pdf-lib";
+import sanitizeHtml from "sanitize-html";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { env } from "./env.js";
@@ -13,8 +14,9 @@ export const signatureFontFaceCss = `
   font-family: "AgentContractSignature";
   font-style: normal;
   font-weight: 400;
-  src: url("https://fonts.gstatic.com/s/allura/v23/9oRPNYsQpS4zjuAPjA.ttf") format("truetype");
-}`;
+  src: local("Brush Script MT"), local("Segoe Script"), local("Snell Roundhand");
+}
+`;
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")
@@ -198,7 +200,18 @@ export function renderContractBodyHtml(input: {
 }) {
   const fields = input.fields ?? [];
   const rendered = renderSignedFieldPlaceholders(input.markdown, fields, input.signedFields);
-  let body = marked.parse(rendered.markdown, { async: false }) as string;
+  let body = sanitizeHtml(marked.parse(rendered.markdown, { async: false }) as string, {
+    allowedTags: [
+      "a", "blockquote", "br", "code", "del", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+      "hr", "li", "ol", "p", "pre", "strong", "table", "tbody", "td", "th", "thead", "tr", "ul"
+    ],
+    allowedAttributes: { a: ["href", "title"] },
+    allowedSchemes: ["https", "mailto"],
+    allowProtocolRelative: false,
+    transformTags: {
+      a: (_tagName, attribs) => ({ tagName: "a", attribs: { ...attribs, rel: "noopener noreferrer" } })
+    }
+  });
   for (const [token, html] of rendered.htmlByToken) {
     body = body.replaceAll(token, html);
   }
@@ -223,7 +236,13 @@ export async function renderPDFResult(input: {
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setRequestInterception(true);
+    page.on("request", (request) => {
+      const protocol = new URL(request.url()).protocol;
+      if (protocol === "data:" || protocol === "about:") void request.continue();
+      else void request.abort("blockedbyclient");
+    });
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
     await page.evaluate(() => document.fonts.ready);
     const pdf = await page.pdf({ format: "Letter", printBackground: true, margin: { top: "0.45in", right: "0.35in", bottom: "0.45in", left: "0.35in" } });
     const buffer = Buffer.from(pdf);

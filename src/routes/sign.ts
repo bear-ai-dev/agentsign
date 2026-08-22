@@ -596,7 +596,7 @@ sign.post("/sign/:token/submit", async (c) => {
   }
 
   const completed = (await getAgreementBySigningToken(token))!.agreement;
-  if (completed.webhook_url) enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
+  if (completed.webhook_url) await enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
   const notificationEmails = notificationEmailsFor(completed);
   posthog.captureEvent("agreement completed", {
     agreement_id: completed.id,

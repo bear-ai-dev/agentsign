@@ -51,7 +51,8 @@ test("typed signatures include an explicit signature font face", () => {
 
   assert.match(html, /@font-face/);
   assert.match(html, /font-family: "AgentContractSignature"/);
-  assert.match(html, /fonts\.gstatic\.com\/s\/allura/);
+  assert.match(html, /src: local\("Brush Script MT"\)/);
+  assert.doesNotMatch(html, /https?:\/\//);
 });
 
 test("unsigned field placeholders render as empty inline slots", () => {

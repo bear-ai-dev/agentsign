@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApiKey } from "../lib/apiKeys.js";
-import { createCliLoginCode, createEmailLoginCode, consumeCliLoginCode, consumeEmailLoginCode } from "../lib/cliLogin.js";
+import { createCliLoginCode, createEmailLoginCode, consumeCliLoginCode, consumeEmailLoginCode, invalidateEmailLoginCode, LoginCodeRateLimitError } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
 import { requireAdminSession } from "../lib/workos.js";
 
@@ -86,18 +86,18 @@ set -euo pipefail
 echo "Installing AgentContract CLI..."
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js 20+ is required. Install it first: https://nodejs.org/" >&2
+  echo "Node.js 22.17+ is required. Install it first: https://nodejs.org/" >&2
   exit 1
 fi
 
-if ! node -e 'const major = Number(process.versions.node.split(".")[0]); process.exit(major >= 20 ? 0 : 1)' >/dev/null 2>&1; then
-  echo "Node.js 20+ is required. Current version: $(node -v)" >&2
-  echo "Install Node.js 20+ first: https://nodejs.org/" >&2
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 17) ? 0 : 1)' >/dev/null 2>&1; then
+  echo "Node.js 22.17+ is required. Current version: $(node -v)" >&2
+  echo "Install Node.js 22.17+ first: https://nodejs.org/" >&2
   exit 1
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required. Install Node.js 20+ first: https://nodejs.org/" >&2
+  echo "npm is required. Install Node.js 22.17+ first: https://nodejs.org/" >&2
   exit 1
 fi
 
@@ -317,8 +317,9 @@ cli.post("/cli/magic/start", async (c) => {
   const email = validEmail(body.email);
   if (!email) return c.json({ error: "A valid email is required" }, 400);
 
+  let code: string | null = null;
   try {
-    const code = await createEmailLoginCode({
+    code = await createEmailLoginCode({
       keyName: body.name || "AgentContract CLI",
       ownerEmail: email
     });
@@ -329,6 +330,8 @@ cli.post("/cli/magic/start", async (c) => {
       expires_in_minutes: 5
     });
   } catch (error) {
+    if (code) await invalidateEmailLoginCode(code, email);
+    if (error instanceof LoginCodeRateLimitError) return c.json({ error: error.message }, 429);
     console.error("[AgentContract email login start failed]", error);
     return c.json({ error: "Could not start email-code login" }, 400);
   }

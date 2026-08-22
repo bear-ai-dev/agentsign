@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createEmailLoginCode, consumeEmailLoginCode } from "../lib/cliLogin.js";
+import { createEmailLoginCode, consumeEmailLoginCode, invalidateEmailLoginCode, LoginCodeRateLimitError } from "../lib/cliLogin.js";
 import { sendCliLoginCodeEmail } from "../lib/email.js";
 import { ownerDistinctId, posthog, setPosthogDistinctId } from "../lib/posthog.js";
 import { completeWorkosCallback, loginUrl, logout, readEmailAdminSession, setEmailAdminSession, workosConfigured } from "../lib/workos.js";
@@ -108,8 +108,9 @@ auth.post("/login/email/start", async (c) => {
   const workosUrl = workosConfigured() ? `/login?workos=1&returnTo=${encodeURIComponent(returnTo)}` : null;
   if (!email) return c.html(loginPage({ returnTo, error: "Enter a valid email address.", workosUrl }), 400);
 
+  let code: string | null = null;
   try {
-    const code = await createEmailLoginCode({
+    code = await createEmailLoginCode({
       keyName: "AgentContract Admin",
       ownerEmail: email
     });
@@ -123,6 +124,10 @@ auth.post("/login/email/start", async (c) => {
     }, distinctId);
     return c.html(loginPage({ returnTo, email, sent: true, workosUrl }));
   } catch (error) {
+    if (code) await invalidateEmailLoginCode(code, email);
+    if (error instanceof LoginCodeRateLimitError) {
+      return c.html(loginPage({ returnTo, email, error: error.message, workosUrl }), 429);
+    }
     console.error("[AgentContract admin email login start failed]", error);
     await posthog.captureException(error, c, {
       event_stage: "login_code_request",

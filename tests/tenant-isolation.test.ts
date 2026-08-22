@@ -28,7 +28,7 @@ function adminEmailCookie(email: string) {
     email,
     exp: Date.now() + 60 * 60 * 1000
   })).toString("base64url");
-  const signature = createHmac("sha256", process.env.AGENTCONTRACT_API_KEY!).update(payload).digest("base64url");
+  const signature = createHmac("sha256", process.env.WORKOS_COOKIE_PASSWORD!).update(payload).digest("base64url");
   return `agentcontract_admin_email_session=${payload}.${signature}`;
 }
 
@@ -50,6 +50,7 @@ before(async () => {
   routeTestDir = await mkdtemp(join(tmpdir(), "agentcontract-tenant-"));
   process.env.DATABASE_PATH = join(routeTestDir, "agentcontract.db");
   process.env.AGENTCONTRACT_API_KEY = "ak_test_tenant_isolation";
+  process.env.WORKOS_COOKIE_PASSWORD = "tenant-isolation-cookie-secret-for-tests";
   process.env.BASE_URL = "https://agentcontract.to";
   [appModule, apiKeysModule] = await Promise.all([
     import("../src/app.js"),

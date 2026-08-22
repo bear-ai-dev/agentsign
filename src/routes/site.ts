@@ -1287,7 +1287,7 @@ AgentContract lets AI agent workflows send approved NDAs, privacy acknowledgemen
 - [E-signature for AI agents](${publicUrl("/esignature-for-ai-agents")}): Human-in-the-loop e-signature workflow page.
 - [CLI docs](${publicUrl("/cli")}): Install, authenticate, inspect templates, send agreements, track status, and report failures.
 - [Template library](${publicUrl("/templates")}): Public previews for standard mutual NDA, one-way NDA, and website/app privacy policy templates.
-- [CLI installer](${publicUrl("/cli/install.sh")}): Shell installer for Node.js 20+ environments.
+- [CLI installer](${publicUrl("/cli/install.sh")}): Shell installer for Node.js 22.17+ environments.
 - [Status and version metadata](${publicUrl("/healthz")}): Current AgentContract service and CLI version metadata.
 
 ## Agent Guidance
@@ -3128,7 +3128,7 @@ agentcontract feedback --area install --message "update reports success but acti
         <div class="doc-grid">
           <article class="doc-block">
             <h3>Install and log in</h3>
-            <p>Use the hosted installer for Node.js 20+ machines. The CLI keeps local auth config on the machine that is running the agent.</p>
+            <p>Use the hosted installer for Node.js 22.17+ machines. The CLI keeps local auth config on the machine that is running the agent.</p>
             ${docsCode(installCommand)}
           </article>
           <article class="doc-block">
@@ -4129,7 +4129,7 @@ Never draft or edit legal terms.`;
           <div class="proof">
             <div class="proof-row">
               <code>Send</code>
-              <div><strong>Agent sent approved document</strong><small>Template and fields are locked.</small></div>
+              <div><strong>Agent sent reviewed document</strong><small>The calling workflow selected the content and fields.</small></div>
             </div>
             <div class="proof-row">
               <code>Sign</code>
@@ -4162,15 +4162,15 @@ Never draft or edit legal terms.`;
       </div>
       <div class="offer">
         <div class="offer-nav">
-          <div class="offer-item active">Use a locked template</div>
+          <div class="offer-item active">Use a reviewed template</div>
           <div class="offer-item">Send an existing PDF</div>
           <div class="offer-item">Let people sign</div>
           <div class="offer-item">Get PDFs and webhooks</div>
         </div>
         <div class="offer-body">
           <div class="offer-copy">
-            <h3>Approved templates in. Signed PDFs out.</h3>
-            <p>Agents fill in template variables or send a PDF you give them. They cannot change the terms; a human signs.</p>
+            <h3>Reviewed documents in. Signed PDFs out.</h3>
+            <p>Agents can fill template variables, submit custom Markdown, or send a PDF you give them. Your calling workflow is responsible for restricting and approving the terms; a human signs.</p>
           </div>
           <div class="contract-card">
             <h4>Acme Marketplace Privacy Acknowledgement</h4>
@@ -4247,7 +4247,7 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
       <div class="faq-grid">
         <div class="faq">
           <h3>Do agents sign contracts?</h3>
-          <p>No. Agents send approved documents. People sign in the browser.</p>
+          <p>No. Agents send documents selected by your workflow. People review and sign them in the browser.</p>
         </div>
         <div class="faq">
           <h3>Can I use custom templates?</h3>
@@ -4263,15 +4263,15 @@ agentcontract marketplace-onboard --to jane@example.com --name "Jane Contributor
         </div>
         <div class="faq">
           <h3>Why not just use DocuSign or Dropbox Sign?</h3>
-          <p>You probably can. AgentContract is shaped for agent workflows. Each key has rate limits. There is a dry-run mode. There is a kill switch that revokes a key and cancels its in-flight sends. If your sending is human-driven, DocuSign is fine.</p>
+          <p>You probably can. AgentContract is shaped for agent workflows and includes a dry-run mode plus revocable API keys. Revoking a key blocks future authenticated requests; it does not cancel agreements already sent. If your sending is human-driven, DocuSign is fine.</p>
         </div>
         <div class="faq">
           <h3>What happens if my agent goes haywire and sends 500 NDAs?</h3>
-          <p>Every key has daily and per-minute send caps. Revoke a key from the CLI or dashboard. That also cancels every in-flight agreement that key created.</p>
+          <p>AgentContract does not currently enforce per-key send caps. Put approval and budget limits around automated sends, monitor agreement creation, and revoke the key to stop future requests. Cancel any already-sent agreements separately.</p>
         </div>
         <div class="faq">
           <h3>Can the agent change the terms of the contract?</h3>
-          <p>No. Agents fill in template variables or send a PDF as-is. They cannot edit the language.</p>
+          <p>The API and CLI can send custom Markdown as well as approved templates, so your workflow must restrict agents to reviewed language when that is required. Use template-only policies and human dry-run approval in the calling system.</p>
         </div>
         <div class="faq">
           <h3>How does the recipient know this is real and not a phishing email?</h3>

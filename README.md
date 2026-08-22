@@ -11,7 +11,7 @@ npm run migrate
 npm run dev
 ```
 
-The default local API key is `ak_local_dev_key_change_me`. Do not use that key in production. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console.
+Before starting the server, set `AGENTCONTRACT_API_KEY` and `WORKOS_COOKIE_PASSWORD` to separate random values of at least 32 characters. Production refuses to start with missing, shared, or placeholder credentials. If `RESEND_API_KEY` is empty, signing and completion emails are printed to the console in local development only.
 
 ## Analytics
 
@@ -52,7 +52,7 @@ agentcontract login --email you@example.com --api-url https://agentcontract.to
 agentcontract skill
 ```
 
-Requires Node.js 20+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
+Requires Node.js 22.17+ and npm. The install script uses the prebuilt AgentContract package served from the hosted app, so remote testers do not need this repo checked out or any local build tools.
 
 `agentcontract login --email` sends a six-digit AgentContract code, creates a user-owned API key after verification, and saves `~/.agentcontract/config.json` with file mode `0600`. WorkOS browser login is still available with `agentcontract login`, but the email-code flow is the reliable default for remote agents and first-time users:
 
@@ -522,7 +522,7 @@ agentcontract template show privacy --json
 
 ```bash
 curl http://localhost:3000/v1/templates/privacy \
-  -H "Authorization: Bearer ak_local_dev_key_change_me"
+  -H "Authorization: Bearer $AGENTCONTRACT_API_KEY"
 ```
 
 ## Specific contributor terms template
@@ -564,7 +564,7 @@ npm run cli -- bulk-mnda --from janak@usebear.ai --file recipients.json --compan
 
 ```bash
 curl -X POST http://localhost:3000/v1/agreements \
-  -H "Authorization: Bearer ak_local_dev_key_change_me" \
+  -H "Authorization: Bearer $AGENTCONTRACT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "recipient": {"name": "Jane Doe", "email": "jane@example.com"},
@@ -590,7 +590,7 @@ curl -X POST http://localhost:3000/v1/agreements \
 
 ```bash
 curl -X POST http://localhost:3000/v1/agreements/bulk \
-  -H "Authorization: Bearer ak_local_dev_key_change_me" \
+  -H "Authorization: Bearer $AGENTCONTRACT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "template": "contractor",
@@ -625,7 +625,7 @@ curl -X POST http://localhost:3000/v1/agreements/bulk \
 
 ```bash
 curl -X POST http://localhost:3000/v1/agreements \
-  -H "Authorization: Bearer ak_local_dev_key_change_me" \
+  -H "Authorization: Bearer $AGENTCONTRACT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"recipient":{"name":"Jane Doe","email":"jane@example.com"},"document_markdown":"# Test Agreement\n\nHello {{name}}","template_vars":{"name":"Jane"},"fields":[{"id":"full_name","label":"Full legal name","type":"text","required":true},{"id":"signature","label":"Signature","type":"signature","required":true}]}'
 ```
@@ -634,7 +634,7 @@ curl -X POST http://localhost:3000/v1/agreements \
 
 ```bash
 curl http://localhost:3000/v1/agreements/agr_.../document \
-  -H "Authorization: Bearer ak_local_dev_key_change_me"
+  -H "Authorization: Bearer $AGENTCONTRACT_API_KEY"
 ```
 
 The CLI wrapper is usually easier for agents:

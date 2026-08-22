@@ -73,6 +73,21 @@ function isSensitiveKey(key: string) {
   return sensitiveKeys.has(normalized) || normalized.endsWith("_token") || normalized.endsWith("_secret");
 }
 
+export function redactCapabilityPath(path: string) {
+  return path
+    .replace(/\/(sign|preview)\/[^/?\s]+/g, "/$1/[redacted]");
+}
+
+function safeReferrer(value: string | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return `${url.origin}${redactCapabilityPath(url.pathname)}`;
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeValue(value: unknown, depth = 0): unknown {
   if (depth > 6) return "[truncated]";
   if (value === null || value === undefined) return value;
@@ -137,14 +152,14 @@ export function posthogDistinctId(c: Context) {
 }
 
 function requestProperties(c: Context, startedAt: number, status: number) {
-  const path = new URL(c.req.url).pathname;
+  const path = redactCapabilityPath(new URL(c.req.url).pathname);
   return {
     method: c.req.method,
     path,
     status,
     duration_ms: Math.round(performance.now() - startedAt),
     user_agent: c.req.header("user-agent") ?? null,
-    referrer: c.req.header("referer") ?? c.req.header("referrer") ?? null,
+    referrer: safeReferrer(c.req.header("referer") ?? c.req.header("referrer")),
     ip_hash: clientIp(c)
       ? createHash("sha256").update(clientIp(c)!).digest("hex").slice(0, 24)
       : null
@@ -192,7 +207,7 @@ export function createPosthogTelemetry(options: TelemetryOptions = {}) {
     const contextProperties = c
       ? {
         method: c.req.method,
-        path: new URL(c.req.url).pathname,
+        path: redactCapabilityPath(new URL(c.req.url).pathname),
         user_agent: c.req.header("user-agent") ?? null,
         ip_hash: clientIp(c)
           ? createHash("sha256").update(clientIp(c)!).digest("hex").slice(0, 24)

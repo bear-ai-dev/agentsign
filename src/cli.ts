@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import "dotenv/config";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
@@ -65,6 +64,7 @@ type ProductFeedbackForCli = {
 
 const cliVersion = "0.1.15";
 const packageName = "@bear-ai-dev/agentcontract";
+const officialHostedOrigin = "https://agentcontract.to";
 const configPath = process.env.AGENTCONTRACT_CONFIG ?? join(homedir(), ".agentcontract", "config.json");
 const contractsDir = process.env.AGENTCONTRACT_CONTRACTS_DIR ?? join(dirname(configPath), "contracts");
 let configLoadError: string | undefined;
@@ -858,8 +858,7 @@ function updateCommand(args: Args, targetVersion = "latest") {
 }
 
 function hostedUpdateCommand(args: Args) {
-  const { apiUrl } = apiConfig(args, false);
-  const scriptUrl = `${apiUrl}/cli/install.sh`;
+  const scriptUrl = `${officialHostedOrigin}/cli/install.sh`;
   return {
     manager: "hosted-installer",
     command: "bash",
@@ -884,11 +883,10 @@ async function latestVersionForUpdate(args: Args) {
   if (override) return { latestVersion: override, registryUrl: null as string | null, source: "override" };
 
   if (!usePackageManagerUpdate(args)) {
-    const { apiUrl } = apiConfig(args, false);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8_000);
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch(officialHostedOrigin, {
         headers: { Accept: "application/json" },
         signal: controller.signal
       });

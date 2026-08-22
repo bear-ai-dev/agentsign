@@ -1,0 +1,11 @@
+{
+  "tags": [
+    "hono",
+    "node"
+  ],
+  "sentinels": [
+    "package.json"
+  ],
+  "detectedAt": "2026-08-21T23:57:24.623Z",
+  "rootPath": "/Users/janaksunil/Documents/New project/agentink"
+}

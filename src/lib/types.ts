@@ -76,6 +76,7 @@ export type CliLoginCode = {
   created_at: string;
   expires_at: string;
   used_at: string | null;
+  failed_attempts: number;
 };
 
 export type ProductFeedback = {

@@ -192,7 +192,13 @@ export function defaultTemplateVars(definition: TemplateDefinition) {
 export function applyTemplateVars(markdown: string, vars: Record<string, unknown> = {}) {
   return markdown.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => {
     const value = vars[key];
-    return value === undefined || value === null ? "" : String(value);
+    if (value === undefined || value === null) return "";
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\r", " ")
+      .replaceAll("\n", " ");
   });
 }
 

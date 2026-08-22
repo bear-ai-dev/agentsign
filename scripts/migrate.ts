@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import Database from "better-sqlite3";
 import pg from "pg";
+import { verifiedPostgresSsl } from "../src/lib/postgres.js";
 
 type Target = "sqlite" | "postgres";
 type MigrationFile = {
@@ -33,16 +34,6 @@ function loadMigrations(): MigrationFile[] {
       const sql = readFileSync(join(migrationsDir, filename), "utf8");
       return { filename, sql, checksum: sha256(sql) };
     });
-}
-
-function postgresSsl() {
-  if (!databaseUrl) return undefined;
-  const sslSetting = (process.env.PGSSLMODE ?? process.env.DATABASE_SSL ?? "").toLowerCase();
-  if (sslSetting === "disable" || sslSetting === "false" || sslSetting === "0") return false;
-
-  const hostname = new URL(databaseUrl).hostname;
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return false;
-  return { rejectUnauthorized: false };
 }
 
 function normalizePostgresSql(sql: string) {
@@ -201,7 +192,7 @@ async function ensurePostgresCompatibility(client: pg.PoolClient) {
 async function migratePostgres(migrations: MigrationFile[]) {
   if (!databaseUrl) throw new Error("DATABASE_URL is required for Postgres migrations");
 
-  const pool = new pg.Pool({ connectionString: databaseUrl, ssl: postgresSsl() });
+  const pool = new pg.Pool({ connectionString: databaseUrl, ssl: verifiedPostgresSsl(databaseUrl!) });
   const client = await pool.connect();
   try {
     console.log("Migration target: postgres (DATABASE_URL)");

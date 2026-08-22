@@ -11,6 +11,7 @@ import { applyTemplateVars, loadTemplate, titleFromMarkdown } from "../lib/templ
 import { auditEventsForApi } from "../lib/audit.js";
 import type { Agreement, ApiKeyRecord, FieldDefinition, SignedFields, SigningOrder } from "../lib/types.js";
 import { cancelledPayload, enqueueWebhook } from "./webhooks.js";
+import { validateWebhookUrl } from "../lib/safeWebhook.js";
 
 export const agreements = new Hono();
 agreements.use("/v1/*", requireApiKey);
@@ -41,12 +42,55 @@ type CreateOptions = {
 
 const maxSourcePdfBytes = 6 * 1024 * 1024;
 
+const fieldTypes = new Set(["text", "email", "date", "currency", "number", "select", "boolean", "signature", "initials"]);
+
+function assertFieldDefinitions(value: unknown, name: string): asserts value is FieldDefinition[] {
+  if (!Array.isArray(value)) throw new Error(`${name} array is required`);
+  for (const rawField of value) {
+    if (!rawField || typeof rawField !== "object" || Array.isArray(rawField)) throw new Error(`${name} entries must be objects`);
+    const field = rawField as Record<string, unknown>;
+    if (typeof field.id !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,79}$/.test(field.id)) {
+      throw new Error(`${name} field ids must be strings beginning with a letter`);
+    }
+    if (typeof field.label !== "string" || !field.label.trim()) throw new Error(`${name} field labels are required`);
+    if (typeof field.type !== "string" || !fieldTypes.has(field.type)) throw new Error(`${name} contains an unsupported field type`);
+    if (field.required !== undefined && typeof field.required !== "boolean") throw new Error(`${name} required values must be booleans`);
+    if (field.signerRole !== undefined && field.signerRole !== "recipient" && field.signerRole !== "sender") {
+      throw new Error(`${name} signerRole must be recipient or sender`);
+    }
+    if (field.options !== undefined && (!Array.isArray(field.options) || field.options.some((option) => typeof option !== "string"))) {
+      throw new Error(`${name} options must be strings`);
+    }
+  }
+}
+
 function assertCreateBody(body: CreateBody) {
   if (!body.recipient?.name || !body.recipient?.email) throw new Error("recipient.name and recipient.email are required");
   if (!body.document_markdown && !body.template && !body.document_pdf_base64) {
     throw new Error("template, document_markdown, or document_pdf_base64 is required");
   }
-  if (!Array.isArray(body.fields)) throw new Error("fields array is required");
+  assertFieldDefinitions(body.fields, "fields");
+  if (body.sender_fields !== undefined) assertFieldDefinitions(body.sender_fields, "sender_fields");
+}
+
+function assertUniqueFieldIds(fields: FieldDefinition[]) {
+  const ids = new Set<string>();
+  for (const field of fields) {
+    if (ids.has(field.id)) throw new Error(`Duplicate field id: ${field.id}`);
+    ids.add(field.id);
+  }
+}
+
+async function validateCreateBody(body: CreateBody) {
+  assertCreateBody(body);
+  if (body.webhook_url) await validateWebhookUrl(body.webhook_url);
+  documentForBody(body);
+  const requiresSenderSignature = senderSignatureRequired(body);
+  if (requiresSenderSignature && !normalizeEmailList(body.sender_email)[0]) {
+    throw new Error("sender_email is required when sender signature is required");
+  }
+  signingOrderFor(body, requiresSenderSignature);
+  assertUniqueFieldIds(agreementFieldsFor(body, requiresSenderSignature));
 }
 
 function markdownForBody(body: CreateBody) {
@@ -190,7 +234,7 @@ function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) 
 }
 
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, options: CreateOptions = {}) {
-  assertCreateBody(body);
+  await validateCreateBody(body);
   const {
     markdown,
     title: documentTitle,
@@ -213,6 +257,7 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   const signingOrder = signingOrderFor(body, requiresSenderSignature);
   const senderToken = requiresSenderSignature ? nanoid(32) : null;
   const fields = agreementFieldsFor(body, requiresSenderSignature);
+  assertUniqueFieldIds(fields);
   const metadata = {
     ...(body.metadata ?? {}),
     ...(notificationEmails.length ? { notification_email: notificationEmails } : {}),
@@ -247,7 +292,16 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     sourcePdfFilename
   );
 
-  await addAuditEvent({
+  const deliveryErrors: string[] = [];
+  const safeAuditEvent = async (input: Parameters<typeof addAuditEvent>[0]) => {
+    try {
+      await addAuditEvent(input);
+    } catch (error) {
+      deliveryErrors.push(`audit: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("[AgentContract audit write failed]", error);
+    }
+  };
+  await safeAuditEvent({
     agreementId: id,
     eventType: "created",
     data: {
@@ -259,41 +313,50 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
 
   const signingUrl = `${baseUrl}/sign/${token}`;
   const senderSigningUrl = senderToken ? `${baseUrl}/sign/${senderToken}` : null;
-
   if (!requiresSenderSignature || signingOrder !== "sender_first") {
-    await sendSigningEmail({
-      to: body.recipient!.email!,
-      cc,
-      replyTo: senderEmail ? [senderEmail] : undefined,
-      senderName,
-      recipientName: body.recipient!.name!,
-      documentTitle,
-      signingUrl
-    });
+    try {
+      await sendSigningEmail({
+        to: body.recipient!.email!,
+        cc,
+        replyTo: senderEmail ? [senderEmail] : undefined,
+        senderName,
+        recipientName: body.recipient!.name!,
+        documentTitle,
+        signingUrl
+      });
+    } catch (error) {
+      deliveryErrors.push(`recipient: ${error instanceof Error ? error.message : String(error)}`);
+    }
   } else {
-    await addAuditEvent({ agreementId: id, eventType: "recipient_signing_email_deferred", data: { signing_order: signingOrder } });
+    await safeAuditEvent({ agreementId: id, eventType: "recipient_signing_email_deferred", data: { signing_order: signingOrder } });
   }
 
   if (senderEmail && senderSigningUrl && signingOrder !== "recipient_first") {
-    await sendSenderSigningEmail({
-      to: senderEmail,
-      senderName,
-      recipientName: body.recipient!.name!,
-      recipientEmail: body.recipient!.email!,
-      documentTitle,
-      agreementId: id,
-      signingUrl: senderSigningUrl,
-      recipientSigned: false
-    });
+    try {
+      await sendSenderSigningEmail({
+        to: senderEmail,
+        senderName,
+        recipientName: body.recipient!.name!,
+        recipientEmail: body.recipient!.email!,
+        documentTitle,
+        agreementId: id,
+        signingUrl: senderSigningUrl,
+        recipientSigned: false
+      });
+    } catch (error) {
+      deliveryErrors.push(`sender: ${error instanceof Error ? error.message : String(error)}`);
+    }
   } else if (senderEmail && senderSigningUrl) {
-    await addAuditEvent({ agreementId: id, eventType: "sender_signing_email_deferred", data: { signing_order: signingOrder } });
+    await safeAuditEvent({ agreementId: id, eventType: "sender_signing_email_deferred", data: { signing_order: signingOrder } });
   }
 
-  await addAuditEvent({
-    agreementId: id,
-    eventType: "sent",
-    data: { recipient_email: body.recipient!.email, cc, sender_email: senderEmail, sender_signature_required: requiresSenderSignature, signing_order: signingOrder }
-  });
+  await safeAuditEvent(deliveryErrors.length
+    ? { agreementId: id, eventType: "delivery_failed", data: { errors: deliveryErrors } }
+    : {
+      agreementId: id,
+      eventType: "sent",
+      data: { recipient_email: body.recipient!.email, cc, sender_email: senderEmail, sender_signature_required: requiresSenderSignature, signing_order: signingOrder }
+    });
 
   posthog.captureEvent("agreement created", {
     agreement_id: id,
@@ -319,6 +382,8 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     signing_order: signingOrder,
     webhook_secret: webhookSecret,
     notification_email: notificationEmails,
+    delivery_status: deliveryErrors.length ? "failed" : "sent",
+    delivery_errors: deliveryErrors,
     created_at: createdAt
   };
 }
@@ -408,9 +473,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
     if (!Array.isArray(body.recipients) || body.recipients.length === 0) throw new Error("recipients array is required");
 
     const ownerEmail = currentOwnerEmail(c);
-    const results = [];
-    for (const recipient of body.recipients) {
-      results.push(await createAgreement({
+    const agreementBodies = body.recipients.map((recipient): CreateBody => ({
         recipient,
         template: body.template,
         document_markdown: body.document_markdown,
@@ -428,7 +491,12 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         sender_signature_required: body.sender_signature_required,
         sender_fields: body.sender_fields,
         signing_order: body.signing_order
-      }, new URL(c.req.url).origin, { ownerEmail }));
+      }));
+    await Promise.all(agreementBodies.map(validateCreateBody));
+
+    const results = [];
+    for (const agreementBody of agreementBodies) {
+      results.push(await createAgreement(agreementBody, new URL(c.req.url).origin, { ownerEmail }));
     }
     return c.json({ agreements: results }, 201);
   } catch (error) {
@@ -500,7 +568,7 @@ agreements.post("/v1/agreements/:id/cancel", async (c) => {
   await run("UPDATE agreements SET status = 'cancelled' WHERE id = ?", agreement.id);
   await addAuditEvent({ agreementId: agreement.id, eventType: "cancelled" });
   const updated = (await getAgreement(agreement.id))!;
-  if (updated.webhook_url) enqueueWebhook(updated.id, updated.webhook_url, cancelledPayload(updated));
+  if (updated.webhook_url) await enqueueWebhook(updated.id, updated.webhook_url, cancelledPayload(updated));
   posthog.captureEvent("agreement cancelled", {
     agreement_id: updated.id,
     previous_status: agreement.status,

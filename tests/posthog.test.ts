@@ -119,3 +119,19 @@ test("PostHog error capture includes Hono request context and flushes", async ()
   assert.equal(fake.events.at(-1)?.event, "http request completed");
   assert.equal(fake.events.at(-1)?.properties?.status, 500);
 });
+
+test("PostHog redacts signing capability tokens from paths and referrers", async () => {
+  const fake = new FakePosthogClient();
+  const telemetry = createPosthogTelemetry({ projectApiKey: "phc_test", client: fake });
+  const app = new Hono();
+  app.use("*", telemetry.middleware());
+  app.get("/sign/:token", (c) => c.text("ok"));
+
+  await app.request("https://agentcontract.test/sign/secret-signing-capability", {
+    headers: { referer: "https://agentcontract.test/preview/other-secret?token=leak" }
+  });
+  const properties = fake.events[0].properties ?? {};
+  assert.equal(properties.path, "/sign/[redacted]");
+  assert.equal(properties.referrer, "https://agentcontract.test/preview/[redacted]");
+  assert.doesNotMatch(JSON.stringify(properties), /secret-signing-capability|other-secret|token=leak/);
+});
