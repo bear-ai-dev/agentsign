@@ -65,7 +65,10 @@ function signState(state: AuthState) {
 }
 
 function sessionSecret() {
-  return env.workosCookiePassword || env.apiKey;
+  if (!env.workosCookiePassword) {
+    throw new Error("WORKOS_COOKIE_PASSWORD is required for dashboard sessions");
+  }
+  return env.workosCookiePassword;
 }
 
 function signPayload(payload: string) {

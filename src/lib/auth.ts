@@ -6,7 +6,7 @@ export async function requireApiKey(c: Context, next: Next) {
   const header = c.req.header("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
 
-  if (token && token === env.apiKey) {
+  if (env.apiKey && token && token === env.apiKey) {
     c.set("apiKeyBootstrap", true);
     await next();
     return;

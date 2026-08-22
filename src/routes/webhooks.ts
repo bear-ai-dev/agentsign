@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { all, get, getAgreement, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import type { Agreement, SignedFields } from "../lib/types.js";
+import { postWebhook } from "../lib/safeWebhook.js";
 
 const retryDelaysMs = [60_000, 300_000, 1_800_000, 7_200_000, 43_200_000];
 
@@ -34,9 +35,9 @@ export function cancelledPayload(agreement: Agreement) {
   };
 }
 
-export function enqueueWebhook(agreementId: string, url: string, payload: unknown) {
+export async function enqueueWebhook(agreementId: string, url: string, payload: unknown) {
   const id = `whd_${nanoid(16)}`;
-  void run(
+  await run(
     `INSERT INTO webhook_deliveries (id, agreement_id, url, payload_json, attempts, next_retry_at)
      VALUES (?, ?, ?, ?, 0, ?)`,
     id,
@@ -44,7 +45,8 @@ export function enqueueWebhook(agreementId: string, url: string, payload: unknow
     url,
     JSON.stringify(payload),
     nowIso()
-  ).then(() => deliverWebhook(id));
+  );
+  void deliverWebhook(id).catch((error) => console.error("[AgentContract webhook delivery failed]", error));
 }
 
 export async function deliverWebhook(deliveryId: string) {
@@ -64,22 +66,18 @@ export async function deliverWebhook(deliveryId: string) {
   const signature = signWebhookPayload(delivery.payload_json, agreement.webhook_secret);
 
   try {
-    const response = await fetch(delivery.url, {
-      method: "POST",
-      headers: {
+    const status = await postWebhook(delivery.url, delivery.payload_json, {
         "Content-Type": "application/json",
         "X-AgentInk-Signature": signature
-      },
-      body: delivery.payload_json
     });
 
-    if (response.status >= 200 && response.status < 300) {
+    if (status >= 200 && status < 300) {
       await run(
         `UPDATE webhook_deliveries
          SET attempts = ?, status_code = ?, delivered_at = ?, last_attempt_at = ?, next_retry_at = NULL, error = NULL
          WHERE id = ?`,
         attempt,
-        response.status,
+        status,
         nowIso(),
         nowIso(),
         delivery.id
@@ -87,7 +85,7 @@ export async function deliverWebhook(deliveryId: string) {
       return;
     }
 
-    await scheduleRetry(delivery.id, attempt, response.status, `HTTP ${response.status}`);
+    await scheduleRetry(delivery.id, attempt, status, `HTTP ${status}`);
   } catch (error) {
     await scheduleRetry(delivery.id, attempt, null, error instanceof Error ? error.message : String(error));
   }

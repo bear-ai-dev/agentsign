@@ -4,13 +4,16 @@ import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import pg from "pg";
 import { env } from "./env.js";
+import { verifiedPostgresSsl } from "./postgres.js";
 import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
 
 mkdirSync(dirname(env.databasePath), { recursive: true });
 
 const usePostgres = Boolean(process.env.DATABASE_URL);
 const sqlite = usePostgres ? null : new Database(env.databasePath);
-const pool = usePostgres ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
+const pool = usePostgres
+  ? new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: verifiedPostgresSsl(process.env.DATABASE_URL!) })
+  : null;
 
 if (sqlite) {
   sqlite.pragma("journal_mode = WAL");
@@ -264,7 +267,8 @@ async function ensureCliLoginCodesSchema() {
     ["owner_email", "TEXT"],
     ["created_at", "TEXT"],
     ["expires_at", "TEXT"],
-    ["used_at", "TEXT"]
+    ["used_at", "TEXT"],
+    ["failed_attempts", "INTEGER NOT NULL DEFAULT 0"]
   ] as const;
   const sql = `CREATE TABLE IF NOT EXISTS cli_login_codes (
     id TEXT PRIMARY KEY,
@@ -274,7 +278,8 @@ async function ensureCliLoginCodesSchema() {
     owner_email TEXT,
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL,
-    used_at TEXT
+    used_at TEXT,
+    failed_attempts INTEGER NOT NULL DEFAULT 0
   )`;
 
   if (pool) {
@@ -283,8 +288,17 @@ async function ensureCliLoginCodesSchema() {
       await pool.query(`ALTER TABLE cli_login_codes ADD COLUMN IF NOT EXISTS ${name} ${type}`);
     }
     await pool.query("UPDATE cli_login_codes SET key_name = 'AgentContract CLI' WHERE key_name IS NULL");
+    await pool.query("UPDATE cli_login_codes SET failed_attempts = 0 WHERE failed_attempts IS NULL");
+    await pool.query(`UPDATE cli_login_codes AS stale
+      SET used_at = COALESCE(stale.used_at, stale.created_at)
+      WHERE stale.used_at IS NULL AND stale.owner_email IS NOT NULL AND EXISTS (
+        SELECT 1 FROM cli_login_codes AS newer
+        WHERE newer.owner_email = stale.owner_email AND newer.used_at IS NULL
+          AND (newer.created_at > stale.created_at OR (newer.created_at = stale.created_at AND newer.id > stale.id))
+      )`);
     await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_login_codes_hash ON cli_login_codes(code_hash)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_cli_login_codes_pending ON cli_login_codes(expires_at) WHERE used_at IS NULL");
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_cli_login_codes_active_email ON cli_login_codes(owner_email) WHERE used_at IS NULL AND owner_email IS NOT NULL");
     return;
   }
 
@@ -297,8 +311,17 @@ async function ensureCliLoginCodesSchema() {
   }
   sqlite!.exec(`
     UPDATE cli_login_codes SET key_name = 'AgentContract CLI' WHERE key_name IS NULL;
+    UPDATE cli_login_codes SET failed_attempts = 0 WHERE failed_attempts IS NULL;
+    UPDATE cli_login_codes AS stale
+      SET used_at = COALESCE(stale.used_at, stale.created_at)
+      WHERE stale.used_at IS NULL AND stale.owner_email IS NOT NULL AND EXISTS (
+        SELECT 1 FROM cli_login_codes AS newer
+        WHERE newer.owner_email = stale.owner_email AND newer.used_at IS NULL
+          AND (newer.created_at > stale.created_at OR (newer.created_at = stale.created_at AND newer.id > stale.id))
+      );
     CREATE INDEX IF NOT EXISTS idx_cli_login_codes_hash ON cli_login_codes(code_hash);
     CREATE INDEX IF NOT EXISTS idx_cli_login_codes_pending ON cli_login_codes(expires_at) WHERE used_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cli_login_codes_active_email ON cli_login_codes(owner_email) WHERE used_at IS NULL AND owner_email IS NOT NULL;
   `);
 }
 

@@ -116,13 +116,41 @@ const cookieConsentSnippet = `
     }
   }
 </style>
-<script type="module">
-  import { getOrCreateConsentRuntime } from "https://esm.sh/c15t@2.1.0";
-
-  const { consentStore } = getOrCreateConsentRuntime({
-    mode: "offline",
-    consentCategories: ["necessary", "measurement", "marketing", "functionality"],
-  });
+<script>
+  const consentStorageKey = "agentcontract_cookie_consent_v1";
+  const consentListeners = new Set();
+  const storedConsent = (() => {
+    try { return JSON.parse(localStorage.getItem(consentStorageKey) || "null"); } catch { return null; }
+  })();
+  const consentState = {
+    activeUI: storedConsent ? null : "banner",
+    consents: storedConsent || { necessary: true, measurement: false, marketing: false, functionality: false },
+    selectedConsents: { ...(storedConsent || {}) },
+    async saveConsents(mode) {
+      if (mode === "all") this.consents = { necessary: true, measurement: true, marketing: true, functionality: true };
+      else if (mode === "necessary") this.consents = { necessary: true, measurement: false, marketing: false, functionality: false };
+      else this.consents = { necessary: true, ...this.selectedConsents };
+      this.selectedConsents = { ...this.consents };
+      this.activeUI = null;
+      localStorage.setItem(consentStorageKey, JSON.stringify(this.consents));
+      consentListeners.forEach((listener) => listener());
+    },
+    setActiveUI(value) {
+      this.activeUI = value;
+      consentListeners.forEach((listener) => listener());
+    },
+    setSelectedConsent(category, value) {
+      this.selectedConsents[category] = value;
+      consentListeners.forEach((listener) => listener());
+    }
+  };
+  const consentStore = {
+    getState: () => consentState,
+    subscribe(listener) {
+      consentListeners.add(listener);
+      return () => consentListeners.delete(listener);
+    }
+  };
 
   window.c15tStore = consentStore;
 

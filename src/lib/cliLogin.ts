@@ -5,6 +5,25 @@ import { get, hasColumn, nowIso, run } from "./db.js";
 import type { CliLoginCode } from "./types.js";
 
 const ttlMs = 5 * 60 * 1000;
+const issuanceCooldownMs = 60_000;
+const maxFailedAttempts = 5;
+const maxCodeGenerationAttempts = 10;
+
+export class LoginCodeRateLimitError extends Error {
+  constructor() {
+    super("Please wait before requesting another login code");
+    this.name = "LoginCodeRateLimitError";
+  }
+}
+
+function normalizedEmail(value: string | null | undefined) {
+  return value?.trim().toLowerCase() || null;
+}
+
+async function cleanupLoginCodes() {
+  const now = nowIso();
+  await run("DELETE FROM cli_login_codes WHERE used_at IS NOT NULL OR expires_at <= ?", now);
+}
 
 async function insertLoginCode(code: string, input: {
   keyName?: string | null;
@@ -32,7 +51,7 @@ async function insertLoginCode(code: string, input: {
     ...(hasLegacyPlaintextColumn ? [""] : []),
     input.keyName?.trim() || "AgentContract CLI",
     input.ownerId ?? null,
-    input.ownerEmail ?? null,
+    normalizedEmail(input.ownerEmail),
     createdAt,
     expiresAt
   );
@@ -53,7 +72,30 @@ export async function createEmailLoginCode(input: {
   ownerId?: string | null;
   ownerEmail?: string | null;
 }) {
-  return insertLoginCode(String(randomInt(100000, 1_000_000)), input);
+  const ownerEmail = normalizedEmail(input.ownerEmail);
+  if (!ownerEmail) throw new Error("ownerEmail is required for email login codes");
+
+  await cleanupLoginCodes();
+  const active = await get<Pick<CliLoginCode, "created_at">>(
+    "SELECT created_at FROM cli_login_codes WHERE owner_email = ? AND used_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
+    ownerEmail,
+    nowIso()
+  );
+  if (active && Date.now() - new Date(active.created_at).getTime() < issuanceCooldownMs) {
+    throw new LoginCodeRateLimitError();
+  }
+  await run("UPDATE cli_login_codes SET used_at = ? WHERE owner_email = ? AND used_at IS NULL", nowIso(), ownerEmail);
+
+  for (let attempt = 0; attempt < maxCodeGenerationAttempts; attempt += 1) {
+    try {
+      return await insertLoginCode(String(randomInt(100000, 1_000_000)), { ...input, ownerEmail });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/active_email|owner_email/i.test(message)) throw new LoginCodeRateLimitError();
+      if (!/unique|duplicate|constraint/i.test(message) || attempt === maxCodeGenerationAttempts - 1) throw error;
+    }
+  }
+  throw new Error("Could not generate a unique login code");
 }
 
 async function claimLoginCode(record: CliLoginCode) {
@@ -79,11 +121,36 @@ export async function consumeCliLoginCode(code: string) {
 }
 
 export async function consumeEmailLoginCode(code: string, ownerEmail: string) {
+  const email = normalizedEmail(ownerEmail);
+  if (!email) return null;
   const record = await get<CliLoginCode>(
-    "SELECT * FROM cli_login_codes WHERE code_hash = ? AND owner_email = ? AND used_at IS NULL",
+    "SELECT * FROM cli_login_codes WHERE code_hash = ? AND owner_email = ? AND used_at IS NULL AND expires_at > ? AND failed_attempts < ?",
     hashApiKey(code),
-    ownerEmail
+    email,
+    nowIso(),
+    maxFailedAttempts
   );
-  if (!record) return null;
+  if (!record) {
+    await run(
+      `UPDATE cli_login_codes
+       SET failed_attempts = failed_attempts + 1,
+           used_at = CASE WHEN failed_attempts + 1 >= ? THEN ? ELSE used_at END
+       WHERE owner_email = ? AND used_at IS NULL AND expires_at > ?`,
+      maxFailedAttempts,
+      nowIso(),
+      email,
+      nowIso()
+    );
+    return null;
+  }
   return claimLoginCode(record);
+}
+
+export async function invalidateEmailLoginCode(code: string, ownerEmail: string) {
+  await run(
+    "UPDATE cli_login_codes SET used_at = ? WHERE code_hash = ? AND owner_email = ? AND used_at IS NULL",
+    nowIso(),
+    hashApiKey(code),
+    normalizedEmail(ownerEmail)
+  );
 }

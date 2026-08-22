@@ -38,6 +38,7 @@ async function deliverEmail(input: {
   logLabel: string;
 }) {
   if (!env.resendApiKey) {
+    if (env.isProduction) throw new Error("RESEND_API_KEY is required in production");
     console.log("[AgentContract email fallback]");
     console.log(`To: ${input.to.join(", ")}`);
     if (input.cc?.length) console.log(`Cc: ${input.cc.join(", ")}`);
@@ -61,15 +62,26 @@ async function deliverEmail(input: {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8_000);
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.resendApiKey}`,
-        "Content-Type": "application/json"
-      },
-      body,
-      signal: controller.signal
-    }).finally(() => clearTimeout(timeout));
+    let response: Response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.resendApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body,
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (attempt < maxAttempts - 1) {
+        await sleep(Math.min(250 * 2 ** attempt, 2_000));
+        continue;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const result = await response.json().catch(() => ({}));
     if (response.ok) {

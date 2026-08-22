@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cookieConsentMiddleware } from "./lib/cookieConsent.js";
-import { posthog } from "./lib/posthog.js";
+import { posthog, redactCapabilityPath } from "./lib/posthog.js";
 import { agreements } from "./routes/agreements.js";
 import { apiKeys } from "./routes/apiKeys.js";
 import { auth } from "./routes/auth.js";
@@ -15,7 +15,7 @@ import { startWebhookRetryWorker } from "./routes/webhooks.js";
 
 export const app = new Hono();
 
-app.use("*", logger());
+app.use("*", logger((message) => console.log(redactCapabilityPath(message))));
 app.use("*", posthog.middleware());
 app.use("*", cookieConsentMiddleware);
 app.onError(async (error, c) => {
