@@ -21,6 +21,8 @@ AgentContract uses PostHog server-side telemetry through `posthog-node`. Set `PO
 
 `npm run migrate` is production-aware. With no `DATABASE_URL`, it migrates local SQLite. When `DATABASE_URL` is set, it migrates the Supabase/Postgres database, records each SQL file in `schema_migrations`, stores a SHA-256 checksum, and uses a Postgres advisory lock so two deploys cannot migrate at the same time.
 
+Remote Postgres connections always verify the server certificate. Providers with a private certificate authority, including Supabase's shared pooler, also require `DATABASE_CA_CERT` to contain their PEM CA certificate. Literal PEM newlines and `\\n`-escaped newlines are accepted. Download the CA from the provider's authenticated settings page; do not disable certificate verification.
+
 For production:
 
 ```bash
