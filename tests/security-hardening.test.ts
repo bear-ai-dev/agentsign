@@ -4,6 +4,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after, before } from "node:test";
+import { rootCertificates } from "node:tls";
 
 const repoDir = process.cwd();
 const tsxLoader = join(repoDir, "node_modules", "tsx", "dist", "loader.mjs");
@@ -212,6 +213,19 @@ test("email login codes throttle issuance and lock after five wrong guesses", as
 test("remote PostgreSQL always verifies certificates", async () => {
   const { verifiedPostgresSsl } = await import("../src/lib/postgres.js");
   assert.deepEqual(verifiedPostgresSsl("postgres://user:pass@db.example.com/app"), { rejectUnauthorized: true });
+  const ca = rootCertificates[0]!;
+  assert.deepEqual(verifiedPostgresSsl("postgres://user:pass@db.example.com/app", ca), {
+    rejectUnauthorized: true,
+    ca
+  });
+  assert.deepEqual(verifiedPostgresSsl("postgres://user:pass@db.example.com/app", ca.replace(/\n/g, "\\n")), {
+    rejectUnauthorized: true,
+    ca
+  });
+  assert.throws(
+    () => verifiedPostgresSsl("postgres://user:pass@db.example.com/app", "not a certificate"),
+    /valid PEM-encoded X\.509 certificate/
+  );
   assert.equal(verifiedPostgresSsl("postgres://user:pass@localhost/app"), false);
 });
 
