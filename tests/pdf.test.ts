@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { unlinkSync } from "node:fs";
 import test from "node:test";
-import { renderDocumentHtml } from "../src/lib/pdf.js";
+import { renderDocumentHtml, renderPDFResult } from "../src/lib/pdf.js";
+import { signatureFontData } from "../src/lib/signatureFont.generated.js";
 
 test("signed field placeholders render values inline instead of duplicating them below", () => {
   const html = renderDocumentHtml({
@@ -38,7 +40,7 @@ test("signed field placeholders render values inline instead of duplicating them
   assert.doesNotMatch(html, /<h2>Signed Fields<\/h2>/);
 });
 
-test("typed signatures include an explicit signature font face", () => {
+test("typed signatures include a self-contained signature font face", () => {
   const html = renderDocumentHtml({
     markdown: "Signature: {{signed:seller_signature}}",
     fields: [
@@ -51,8 +53,45 @@ test("typed signatures include an explicit signature font face", () => {
 
   assert.match(html, /@font-face/);
   assert.match(html, /font-family: "AgentContractSignature"/);
-  assert.match(html, /src: local\("Brush Script MT"\)/);
+  assert.match(html, /src: url\("data:font\/woff2;base64,/);
+  assert.doesNotMatch(html, /src: local\(/);
   assert.doesNotMatch(html, /https?:\/\//);
+});
+
+test("the signature font is compiled into source as valid WOFF2 data", () => {
+  const font = Buffer.from(signatureFontData, "base64");
+  assert.ok(font.byteLength > 20_000, "the generated source must contain the complete signature font");
+  assert.equal(font.subarray(0, 4).toString("ascii"), "wOF2");
+});
+
+test("generated PDFs embed the signature font instead of falling back to plain text", async () => {
+  const result = await renderPDFResult({
+    agreementId: `signature-font-regression-${process.pid}`,
+    markdown: [
+      "# Signatures",
+      "",
+      "Printed Name: {{signed:printed_name}}",
+      "",
+      "Signature: {{signed:signature}}"
+    ].join("\n"),
+    fields: [
+      { id: "printed_name", label: "Printed name", type: "text", required: true },
+      { id: "signature", label: "Signature", type: "signature", required: true }
+    ],
+    signedFields: {
+      printed_name: "Janak Sunil",
+      signature: { signed: true, typed_name: "Janak Sunil", method: "typed" }
+    }
+  });
+
+  try {
+    assert.ok(
+      result.buffer.includes(Buffer.from("Allura-Regular")),
+      "the generated PDF must embed the Allura signature font"
+    );
+  } finally {
+    unlinkSync(result.path);
+  }
 });
 
 test("unsigned field placeholders render as empty inline slots", () => {

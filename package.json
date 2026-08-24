@@ -40,12 +40,13 @@
     "cli": "tsx src/cli.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run test && npm run build",
-    "build": "node scripts/clean-dist.mjs && tsc && node scripts/copy-assets.mjs",
+    "build": "npm run font:embed && node scripts/clean-dist.mjs && tsc && node scripts/copy-assets.mjs",
     "start": "node dist/src/index.js",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:status": "tsx scripts/migrate.ts --status",
     "migrate:dry-run": "tsx scripts/migrate.ts --dry-run",
     "feedback:autopilot": "tsx scripts/feedback-autopilot.ts",
+    "font:embed": "node scripts/embed-signature-font.mjs",
     "prepare": "npm run build",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
@@ -66,6 +67,7 @@
     "sanitize-html": "^2.17.5"
   },
   "devDependencies": {
+    "@fontsource/allura": "5.3.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.20.0",
