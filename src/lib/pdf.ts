@@ -7,6 +7,7 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { env } from "./env.js";
 import { documentHash } from "./audit.js";
+import { signatureFontData } from "./signatureFont.generated.js";
 import type { AuditEvent, FieldDefinition, SignedFields } from "./types.js";
 
 export const signatureFontFaceCss = `
@@ -14,7 +15,7 @@ export const signatureFontFaceCss = `
   font-family: "AgentContractSignature";
   font-style: normal;
   font-weight: 400;
-  src: local("Brush Script MT"), local("Segoe Script"), local("Snell Roundhand");
+  src: url("data:font/woff2;base64,${signatureFontData}") format("woff2");
 }
 `;
 
