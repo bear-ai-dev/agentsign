@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { marked } from "marked";
 import { PDFDocument } from "pdf-lib";
@@ -9,16 +9,12 @@ import { env } from "./env.js";
 import { documentHash } from "./audit.js";
 import type { AuditEvent, FieldDefinition, SignedFields } from "./types.js";
 
-const signatureFontData = readFileSync(
-  new URL(import.meta.resolve("@fontsource/allura/files/allura-latin-400-normal.woff2"))
-).toString("base64");
-
 export const signatureFontFaceCss = `
 @font-face {
   font-family: "AgentContractSignature";
   font-style: normal;
   font-weight: 400;
-  src: url("data:font/woff2;base64,${signatureFontData}") format("woff2");
+  src: local("Brush Script MT"), local("Segoe Script"), local("Snell Roundhand");
 }
 `;
 
