@@ -145,7 +145,13 @@ async function migrateSqlite(migrations: MigrationFile[]) {
       }
 
       const apply = db.transaction(() => {
-        db.exec(migration.sql);
+        const sql = migration.filename === "017_embedded_signing.sql"
+          ? migration.sql.split("\n").filter((line) => {
+              const column = line.match(/^ALTER TABLE agreements ADD COLUMN ([A-Za-z_][A-Za-z0-9_]*) /)?.[1];
+              return !column || !sqliteColumnExists(db, "agreements", column);
+            }).join("\n")
+          : migration.sql;
+        db.exec(sql);
         db.prepare("INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES (?, ?, ?)")
           .run(migration.filename, migration.checksum, new Date().toISOString());
       });
@@ -242,7 +248,8 @@ async function migratePostgres(migrations: MigrationFile[]) {
       try {
         await client.query("SET LOCAL lock_timeout = '10s'");
         await client.query("SET LOCAL statement_timeout = '60s'");
-        await client.query(normalizePostgresSql(migration.sql));
+        const sql = migration.filename === "017_embedded_signing.sql" ? migration.sql.replaceAll("ADD COLUMN ", "ADD COLUMN IF NOT EXISTS ") : migration.sql;
+        await client.query(normalizePostgresSql(sql));
         await client.query(
           "INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES ($1, $2, $3)",
           [migration.filename, migration.checksum, new Date().toISOString()]

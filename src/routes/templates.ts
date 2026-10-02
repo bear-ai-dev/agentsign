@@ -1,10 +1,11 @@
 import { Hono, type Context } from "hono";
-import { existsSync, readFileSync } from "node:fs";
 import { marked } from "marked";
 import { requireApiKey } from "../lib/auth.js";
-import { all, getAuditEvents, parseJson, run } from "../lib/db.js";
+import { isEmbedded } from "../lib/embeddedSigning.js";
+import { all, getAuditEvents, parseJson } from "../lib/db.js";
 import { auditEventsForApi } from "../lib/audit.js";
-import { renderPDF } from "../lib/pdf.js";
+import { pdfBufferForAgreement } from "../lib/pdfStorage.js";
+import { sourceDocumentBufferForAgreement } from "../lib/agreementArtifacts.js";
 import { applyTemplateVars, contractorTemplateDefinition, defaultTemplateVars, loadTemplate, privacyTemplateDefinition, templateDefinitions } from "../lib/templates.js";
 import { requireAdminSession } from "../lib/workos.js";
 import { createAgreement } from "./agreements.js";
@@ -156,7 +157,7 @@ function agreementRow(agreement: Agreement) {
       </td>
       <td class="py-3 align-top">
         <div class="flex flex-wrap gap-2">
-          <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/preview/${escapeHtml(agreement.signing_token)}">Preview</a>
+          ${isEmbedded(agreement) ? "" : `<a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/preview/${escapeHtml(agreement.signing_token)}">Preview</a>`}
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/document">Text</a>
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/pdf">PDF</a>
           <a class="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50" href="/dashboard/agreements/${escapeHtml(agreement.id)}/audit">Audit</a>
@@ -312,24 +313,13 @@ async function renderDashboardPdf(c: Context) {
   const agreement = await getDashboardAgreement(c, id);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
 
-  let path = agreement.signed_pdf_path;
-  if (!path || !existsSync(path)) {
-    path = await renderPDF({
-      agreementId: agreement.id,
-      markdown: agreement.document_markdown,
-      fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
-      signedFields: parseJson<SignedFields | undefined>(agreement.signed_fields_json, undefined),
-      auditEvents: await getAuditEvents(agreement.id)
-    });
-    if (agreement.status === "completed") {
-      await run("UPDATE agreements SET signed_pdf_path = ? WHERE id = ?", path, agreement.id);
-    }
-  }
-
-  return new Response(readFileSync(path), {
+  const buffer = agreement.status === "completed" ? await pdfBufferForAgreement(agreement) : await sourceDocumentBufferForAgreement(agreement);
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${agreement.id}.pdf"`
+      "Content-Disposition": `inline; filename="${agreement.id}.pdf"`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff"
     }
   });
 }

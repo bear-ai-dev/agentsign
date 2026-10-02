@@ -2,6 +2,9 @@ import { Hono, type Context } from "hono";
 import { nanoid } from "nanoid";
 import { addAuditEvent, all, get, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
+import { creationHash, isEmbedded, inactiveAgreement, newSigningToken, hashSigningToken, ProviderRequestError, validatedEmbeddedOptions, validateSessionRequest, type EmbeddedOptions } from "../lib/embeddedSigning.js";
+import { certificateBufferForAgreement, sourceDocumentBufferForAgreement } from "../lib/agreementArtifacts.js";
+import { assertEmbeddedCreator, bindBulkRequest, creationScope } from "../lib/agreementIdempotency.js";
 import { requireApiKey } from "../lib/auth.js";
 import { sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
 import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from "../lib/pdfStorage.js";
@@ -15,8 +18,13 @@ import { validateWebhookUrl } from "../lib/safeWebhook.js";
 
 export const agreements = new Hono();
 agreements.use("/v1/*", requireApiKey);
+agreements.use("/v1/*", async (c, next) => {
+  c.header("Cache-Control", "private, no-store");
+  c.header("X-Content-Type-Options", "nosniff");
+  await next();
+});
 
-type CreateBody = {
+type CreateBody = EmbeddedOptions & {
   recipient?: { name?: string; email?: string; cc?: string | string[] };
   cc?: string | string[];
   notification_email?: string | string[];
@@ -38,6 +46,8 @@ type CreateBody = {
 
 type CreateOptions = {
   ownerEmail?: string | null;
+  authenticatedScope?: string;
+  idempotencyScope?: string;
 };
 
 const maxSourcePdfBytes = 6 * 1024 * 1024;
@@ -91,6 +101,7 @@ async function validateCreateBody(body: CreateBody) {
   }
   signingOrderFor(body, requiresSenderSignature);
   assertUniqueFieldIds(agreementFieldsFor(body, requiresSenderSignature));
+  validatedEmbeddedOptions(body, agreementFieldsFor(body, requiresSenderSignature));
 }
 
 function markdownForBody(body: CreateBody) {
@@ -235,6 +246,11 @@ function agreementFieldsFor(body: CreateBody, requiresSenderSignature: boolean) 
 
 export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, options: CreateOptions = {}) {
   await validateCreateBody(body);
+  const embedded = validatedEmbeddedOptions(body, agreementFieldsFor(body, senderSignatureRequired(body)));
+  const authenticatedScope = creationScope(options.ownerEmail, options.authenticatedScope);
+  const scope = options.idempotencyScope ?? authenticatedScope;
+  assertEmbeddedCreator(embedded.mode, options.ownerEmail, authenticatedScope);
+  const requestHash = creationHash(body);
   const {
     markdown,
     title: documentTitle,
@@ -266,12 +282,13 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     ...(requiresSenderSignature ? { sender_signature_required: true, signing_order: signingOrder } : {})
   };
 
-  await run(
+  const inserted = await run(
     `INSERT INTO agreements (
       id, status, recipient_name, recipient_email, document_markdown, document_title, fields_json,
       webhook_url, webhook_secret, metadata_json, owner_email, signing_token, sender_signing_token, created_at, sent_at,
-      source_pdf_base64, source_pdf_sha256, source_pdf_bytes, source_pdf_filename
-    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      source_pdf_base64, source_pdf_sha256, source_pdf_bytes, source_pdf_filename,
+      signing_mode, allowed_parent_origins_json, prefill_fields_json, idempotency_scope, idempotency_key, creation_request_sha256
+    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
     id,
     body.recipient!.name,
     body.recipient!.email,
@@ -289,8 +306,19 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     sourcePdf?.toString("base64") ?? null,
     sourcePdfSha256,
     sourcePdf?.byteLength ?? null,
-    sourcePdfFilename
+    sourcePdfFilename,
+    embedded.mode,
+    JSON.stringify(embedded.origins),
+    JSON.stringify(embedded.prefill),
+    scope,
+    body.idempotency_key ?? null,
+    requestHash
   );
+  if (!inserted.changes) {
+    const existing = await get<Agreement>("SELECT * FROM agreements WHERE idempotency_scope = ? AND idempotency_key = ?", scope, body.idempotency_key ?? null);
+    if (!existing || existing.creation_request_sha256 !== requestHash) throw new ProviderRequestError("idempotency_key was already used with a different request", 409);
+    return creationResult(existing, baseUrl);
+  }
 
   const deliveryErrors: string[] = [];
   const safeAuditEvent = async (input: Parameters<typeof addAuditEvent>[0]) => {
@@ -311,9 +339,9 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   });
   const cc = normalizeEmailList(body.cc ?? body.recipient?.cc);
 
-  const signingUrl = `${baseUrl}/sign/${token}`;
-  const senderSigningUrl = senderToken ? `${baseUrl}/sign/${senderToken}` : null;
-  if (!requiresSenderSignature || signingOrder !== "sender_first") {
+  const signingUrl = embedded.mode === "embedded" ? null : `${baseUrl}/sign/${token}`;
+  const senderSigningUrl = embedded.mode !== "embedded" && senderToken ? `${baseUrl}/sign/${senderToken}` : null;
+  if (signingUrl && (!requiresSenderSignature || signingOrder !== "sender_first")) {
     try {
       await sendSigningEmail({
         to: body.recipient!.email!,
@@ -327,7 +355,7 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     } catch (error) {
       deliveryErrors.push(`recipient: ${error instanceof Error ? error.message : String(error)}`);
     }
-  } else {
+  } else if (signingUrl) {
     await safeAuditEvent({ agreementId: id, eventType: "recipient_signing_email_deferred", data: { signing_order: signingOrder } });
   }
 
@@ -376,15 +404,28 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
   return {
     id,
     status: "sent",
-    preview_url: `${baseUrl}/preview/${token}`,
+    signing_mode: embedded.mode,
+    preview_url: embedded.mode === "embedded" ? null : `${baseUrl}/preview/${token}`,
     signing_url: signingUrl,
     sender_signing_url: senderSigningUrl,
     signing_order: signingOrder,
     webhook_secret: webhookSecret,
     notification_email: notificationEmails,
-    delivery_status: deliveryErrors.length ? "failed" : "sent",
+    delivery_status: embedded.mode === "embedded" ? "managed" : deliveryErrors.length ? "failed" : "sent",
     delivery_errors: deliveryErrors,
     created_at: createdAt
+  };
+}
+
+function creationResult(agreement: Agreement, baseUrl: string) {
+  const metadata = parseJson<Record<string, unknown>>(agreement.metadata_json, {});
+  return {
+    id: agreement.id, status: agreement.status, signing_mode: agreement.signing_mode,
+    preview_url: isEmbedded(agreement) ? null : `${baseUrl}/preview/${agreement.signing_token}`,
+    signing_url: isEmbedded(agreement) ? null : `${baseUrl}/sign/${agreement.signing_token}`,
+    sender_signing_url: !isEmbedded(agreement) && agreement.sender_signing_token ? `${baseUrl}/sign/${agreement.sender_signing_token}` : null,
+    signing_order: metadata.signing_order ?? "parallel", webhook_secret: agreement.webhook_secret,
+    notification_email: metadata.notification_email ?? [], delivery_status: isEmbedded(agreement) ? "managed" : "sent", delivery_errors: [], created_at: agreement.created_at
   };
 }
 
@@ -396,8 +437,17 @@ function currentOwnerEmail(c: Context) {
   return apiKeyRecord(c)?.owner_email ?? null;
 }
 
-async function getAgreementForOwner(id: string, ownerEmail: string | null) {
-  if (!ownerEmail) return getAgreement(id);
+function authenticatedCreationScope(c: Context) {
+  const record = apiKeyRecord(c);
+  const bootstrap = (c as unknown as { get(key: string): unknown }).get("apiKeyBootstrap") === true;
+  return creationScope(record?.owner_email, bootstrap ? "bootstrap" : record ? `key:${record.id}` : undefined);
+}
+
+async function getAgreementForOwner(id: string, ownerEmail: string | null, c: Context) {
+  if (!ownerEmail) {
+    const agreement = await getAgreement(id);
+    return agreement && apiKeyRecord(c) && isEmbedded(agreement) ? undefined : agreement;
+  }
   return get<Agreement>("SELECT * FROM agreements WHERE id = ? AND owner_email = ?", id, ownerEmail);
 }
 
@@ -413,9 +463,12 @@ function agreementForApi(agreement: Agreement, options: { includeSignedFields?: 
     webhook_url: agreement.webhook_url,
     webhook_secret: agreement.webhook_secret,
     metadata: parseJson<Record<string, unknown> | null>(agreement.metadata_json, null),
-    preview_url: `${env.baseUrl}/preview/${agreement.signing_token}`,
-    signing_url: `${env.baseUrl}/sign/${agreement.signing_token}`,
-    sender_signing_url: agreement.sender_signing_token ? `${env.baseUrl}/sign/${agreement.sender_signing_token}` : null,
+    signing_mode: agreement.signing_mode,
+    allowed_parent_origins: parseJson<string[]>(agreement.allowed_parent_origins_json, []),
+    prefill_fields: parseJson<Record<string, unknown>>(agreement.prefill_fields_json, {}),
+    preview_url: isEmbedded(agreement) ? null : `${env.baseUrl}/preview/${agreement.signing_token}`,
+    signing_url: isEmbedded(agreement) ? null : `${env.baseUrl}/sign/${agreement.signing_token}`,
+    sender_signing_url: !isEmbedded(agreement) && agreement.sender_signing_token ? `${env.baseUrl}/sign/${agreement.sender_signing_token}` : null,
     signing_order: typeof parseJson<Record<string, unknown>>(agreement.metadata_json, {}).signing_order === "string"
       ? parseJson<Record<string, unknown>>(agreement.metadata_json, {}).signing_order
       : "parallel",
@@ -441,17 +494,18 @@ function agreementForApi(agreement: Agreement, options: { includeSignedFields?: 
 agreements.post("/v1/agreements", async (c) => {
   try {
     const result = await createAgreement(await c.req.json<CreateBody>(), new URL(c.req.url).origin, {
-      ownerEmail: currentOwnerEmail(c)
+      ownerEmail: currentOwnerEmail(c),
+      authenticatedScope: authenticatedCreationScope(c)
     });
     return c.json(result, 201);
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, 400);
+    return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, error instanceof ProviderRequestError ? error.status : 400);
   }
 });
 
 agreements.post("/v1/agreements/bulk", async (c) => {
   try {
-    const body = await c.req.json<{
+    const body = await c.req.json<EmbeddedOptions & {
       template?: string;
       document_markdown?: string;
       document_pdf_base64?: string;
@@ -473,8 +527,14 @@ agreements.post("/v1/agreements/bulk", async (c) => {
     if (!Array.isArray(body.recipients) || body.recipients.length === 0) throw new Error("recipients array is required");
 
     const ownerEmail = currentOwnerEmail(c);
-    const agreementBodies = body.recipients.map((recipient): CreateBody => ({
+    const scope = authenticatedCreationScope(c);
+    assertEmbeddedCreator(body.signing_mode ?? "hosted", ownerEmail, scope);
+    const agreementBodies = body.recipients.map((recipient, index): CreateBody => ({
         recipient,
+        signing_mode: body.signing_mode,
+        allowed_parent_origins: body.allowed_parent_origins,
+        prefill_fields: body.prefill_fields,
+        idempotency_key: body.idempotency_key === undefined ? undefined : `${creationHash(body.idempotency_key)}:${index}`,
         template: body.template,
         document_markdown: body.document_markdown,
         document_pdf_base64: body.document_pdf_base64,
@@ -493,14 +553,15 @@ agreements.post("/v1/agreements/bulk", async (c) => {
         signing_order: body.signing_order
       }));
     await Promise.all(agreementBodies.map(validateCreateBody));
+    const memberScope = await bindBulkRequest(scope, body.idempotency_key, body);
 
     const results = [];
     for (const agreementBody of agreementBodies) {
-      results.push(await createAgreement(agreementBody, new URL(c.req.url).origin, { ownerEmail }));
+      results.push(await createAgreement(agreementBody, new URL(c.req.url).origin, { ownerEmail, authenticatedScope: scope, idempotencyScope: memberScope }));
     }
     return c.json({ agreements: results }, 201);
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, 400);
+    return c.json({ error: error instanceof Error ? error.message : "Invalid request" }, error instanceof ProviderRequestError ? error.status : 400);
   }
 });
 
@@ -512,6 +573,7 @@ agreements.get("/v1/agreements", async (c) => {
   const params: unknown[] = [];
   const where: string[] = [];
   const ownerEmail = currentOwnerEmail(c);
+  if (!ownerEmail && apiKeyRecord(c)) where.push("signing_mode = 'hosted'");
   if (ownerEmail) {
     where.push("owner_email = ?");
     params.push(ownerEmail);
@@ -538,13 +600,13 @@ agreements.get("/v1/agreements", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({ ...agreementForApi(agreement, { includeSignedFields: true }), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });
 
 agreements.get("/v1/agreements/:id/document", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({
     agreement_id: agreement.id,
@@ -561,7 +623,7 @@ agreements.get("/v1/agreements/:id/document", async (c) => {
 });
 
 agreements.post("/v1/agreements/:id/cancel", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   if (agreement.status === "completed") return c.json({ error: "Completed agreements cannot be cancelled" }, 400);
 
@@ -578,8 +640,9 @@ agreements.post("/v1/agreements/:id/cancel", async (c) => {
 });
 
 agreements.post("/v1/agreements/:id/remind", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+  if (isEmbedded(agreement)) return c.json({ error: "Embedded signing requires a new signing session" }, 409);
   if (agreement.status === "completed" || agreement.status === "cancelled") return c.json({ error: `Cannot remind ${agreement.status} agreement` }, 400);
 
   const metadata = parseJson<Record<string, unknown>>(agreement.metadata_json, {});
@@ -602,13 +665,45 @@ agreements.post("/v1/agreements/:id/remind", async (c) => {
   return c.json({ ok: true });
 });
 
-agreements.get("/v1/agreements/:id/pdf", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+agreements.post("/v1/agreements/:id/signing-sessions", async (c) => {
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+  if (!isEmbedded(agreement)) return c.json({ error: "Agreement does not use embedded signing" }, 409);
+  if (inactiveAgreement(agreement)) return c.json({ error: "Agreement is not available for signing" }, 409);
+  try {
+    const body = await c.req.json();
+    const { parentOrigin, returnUrl, role } = validateSessionRequest(agreement, body);
+    const token = newSigningToken();
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    await run("INSERT INTO agreement_signing_sessions (token_hash, agreement_id, signer_role, parent_origin, return_url, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", hashSigningToken(token), agreement.id, role, parentOrigin, returnUrl, expiresAt, nowIso());
+    await addAuditEvent({ agreementId: agreement.id, eventType: "signing_session_created", data: { signer_role: role, parent_origin: parentOrigin, expires_at: expiresAt } });
+    const origin = new URL(c.req.url).origin;
+    c.header("Cache-Control", "private, no-store");
+    return c.json({ session_url: `${origin}/sign/${token}`, expires_at: expiresAt, origin }, 201);
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "Invalid session request" }, error instanceof ProviderRequestError ? error.status : 400);
+  }
+});
+
+agreements.get("/v1/agreements/:id/documents/:kind", async (c) => {
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
+  if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+  const kind = c.req.param("kind");
+  if (!["source", "signed", "certificate"].includes(kind)) return c.json({ error: "Document kind not found" }, 404);
+  if (kind !== "source" && agreement.status !== "completed") return c.json({ error: "Agreement is not completed" }, 409);
+  const buffer = kind === "source" ? await sourceDocumentBufferForAgreement(agreement) : kind === "certificate" ? await certificateBufferForAgreement(agreement) : await pdfBufferForAgreement(agreement);
+  return new Response(new Uint8Array(buffer), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${agreement.id}-${kind}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+});
+
+agreements.get("/v1/agreements/:id/pdf", async (c) => {
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
+  if (!agreement) return c.json({ error: "Agreement not found" }, 404);
+
+  if (isEmbedded(agreement) && agreement.status !== "completed") return c.json({ error: "Agreement is not completed" }, 409);
 
   const buffer = await pdfBufferForAgreement(agreement);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.id}.pdf"`
@@ -617,12 +712,12 @@ agreements.get("/v1/agreements/:id/pdf", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id/source-pdf", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   const buffer = sourcePdfBufferForAgreement(agreement);
   if (!buffer) return c.json({ error: "Agreement has no source PDF" }, 404);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.source_pdf_filename ?? `${agreement.id}-source.pdf`}"`
@@ -631,7 +726,7 @@ agreements.get("/v1/agreements/:id/source-pdf", async (c) => {
 });
 
 agreements.get("/v1/agreements/:id/audit", async (c) => {
-  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c));
+  const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
   return c.json({ agreement_id: agreement.id, audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });

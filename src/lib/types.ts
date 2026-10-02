@@ -26,6 +26,12 @@ export type Agreement = {
   webhook_secret: string | null;
   metadata_json: string | null;
   owner_email: string | null;
+  signing_mode: "hosted" | "embedded";
+  allowed_parent_origins_json: string | null;
+  prefill_fields_json: string | null;
+  idempotency_scope: string | null;
+  idempotency_key: string | null;
+  creation_request_sha256: string | null;
   signing_token: string;
   sender_signing_token: string | null;
   created_at: string;

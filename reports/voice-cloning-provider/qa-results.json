@@ -1,0 +1,17 @@
+{
+  "tool": "Playwright with local Chrome",
+  "provider_origin": "http://localhost:4021",
+  "parent_origin": "http://localhost:4022",
+  "results": [
+    {
+      "width": 1440,
+      "screenshot": "/Users/rishigarg/specific-platform/agentsign/reports/voice-cloning-provider/embedded-desktop.png",
+      "completed": true
+    },
+    {
+      "width": 390,
+      "screenshot": "/Users/rishigarg/specific-platform/agentsign/reports/voice-cloning-provider/embedded-phone.png",
+      "completed": true
+    }
+  ]
+}
