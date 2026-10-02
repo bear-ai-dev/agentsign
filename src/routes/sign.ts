@@ -6,7 +6,7 @@ import { sendCompletionEmail, sendSenderSigningEmail, sendSigningEmail } from ".
 import { renderAgreementPdfResult, renderContractBodyHtml, signatureFontFaceCss } from "../lib/pdf.js";
 import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from "../lib/pdfStorage.js";
 import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
-import { fieldsForSigner as fieldsForSignerRole, requiredFieldsComplete } from "../lib/signers.js";
+import { fieldsForSigner as fieldsForSignerRole, recipientPrefillForField, requiredFieldsComplete } from "../lib/signers.js";
 import type { Agreement, AuditEvent, FieldDefinition, SignedFields, SignerRole, SigningOrder } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
 import { completionScript, inactiveAgreement, isEmbedded, ProviderRequestError, type SigningSession } from "../lib/embeddedSigning.js";
@@ -340,7 +340,7 @@ function renderField(field: FieldDefinition, prefill?: unknown) {
     const previewClass = field.type === "initials" ? "typed-signature-preview initials empty" : "typed-signature-preview empty";
     return `
       <div class="field-block" data-field="${escapeHtml(field.id)}" data-typed-signature>
-        <label class="field-label" for="${inputId}">${escapeHtml(field.label)}${field.required ? " *" : ""}<input id="${inputId}" type="text" autocomplete="name" data-signature-input placeholder="${placeholder}" /></label>
+        <label class="field-label" for="${inputId}">${escapeHtml(field.label)}${field.required ? " *" : ""}<input id="${inputId}" type="text" autocomplete="off" data-signature-input placeholder="${placeholder}" /></label>
         <div class="${previewClass}" data-signature-preview data-placeholder="${previewPlaceholder}">${previewPlaceholder}</div>
         <p class="field-hint">Typing your name creates your electronic signature for this agreement.</p>
         <input type="hidden" ${common} />
@@ -405,7 +405,7 @@ sign.get("/sign/:token", async (c) => {
   return c.html(signingHtml
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
-    .replace("{{fields_html}}", fields.map((field) => renderField(field, prefill[field.id])).join("\n"))
+    .replace("{{fields_html}}", fields.map((field) => renderField(field, recipientPrefillForField(field, agreement, prefill))).join("\n"))
     .replaceAll("{{token}}", escapeHtml(token)));
 });
 
