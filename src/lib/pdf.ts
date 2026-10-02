@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { marked } from "marked";
 import { PDFDocument } from "pdf-lib";
@@ -247,8 +248,8 @@ export async function renderPDFResult(input: {
     await page.evaluate(() => document.fonts.ready);
     const pdf = await page.pdf({ format: "Letter", printBackground: true, margin: { top: "0.45in", right: "0.35in", bottom: "0.45in", left: "0.35in" } });
     const buffer = Buffer.from(pdf);
-    const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);
-    writeFileSync(path, buffer);
+    const path = join(env.pdfOutputDir, `${input.agreementId}-${randomUUID()}.pdf`);
+    writeFileSync(path, buffer, { flag: "wx", mode: 0o600 });
     return { path, buffer };
   } finally {
     await browser.close();
@@ -303,7 +304,7 @@ export async function renderAgreementPdfResult(input: {
     documentSha256: documentHash(input.sourcePdf)
   });
   const buffer = await appendPdf(input.sourcePdf, certificate.buffer);
-  const path = join(env.pdfOutputDir, `${input.agreementId}.pdf`);
-  writeFileSync(path, buffer);
+  const path = join(env.pdfOutputDir, `${input.agreementId}-${randomUUID()}.pdf`);
+  writeFileSync(path, buffer, { flag: "wx", mode: 0o600 });
   return { path, buffer };
 }

@@ -37,25 +37,25 @@ export async function saveSignedPdfToAgreement(input: {
   );
 }
 
+function verifiedSignedPdfBuffer(agreement: Agreement, buffer: Buffer) {
+  if (agreement.signed_pdf_bytes != null && buffer.byteLength !== Number(agreement.signed_pdf_bytes)) throw new Error(`Stored signed PDF byte length mismatch for ${agreement.id}`);
+  if (agreement.signed_pdf_sha256 && pdfSha256(buffer) !== agreement.signed_pdf_sha256) throw new Error(`Stored signed PDF hash mismatch for ${agreement.id}`);
+  return buffer;
+}
+
 export async function pdfBufferForAgreement(agreement: Agreement) {
-  if (agreement.status === "completed" && agreement.signed_pdf_base64) {
-    const buffer = Buffer.from(agreement.signed_pdf_base64, "base64");
-    if (agreement.signed_pdf_bytes !== null && buffer.byteLength !== Number(agreement.signed_pdf_bytes)) {
-      throw new Error(`Stored signed PDF byte length mismatch for ${agreement.id}`);
-    }
-    if (agreement.signed_pdf_sha256 && pdfSha256(buffer) !== agreement.signed_pdf_sha256) {
-      throw new Error(`Stored signed PDF hash mismatch for ${agreement.id}`);
-    }
-    return buffer;
-  }
+  if (agreement.status === "completed" && agreement.signed_pdf_base64) return verifiedSignedPdfBuffer(agreement, Buffer.from(agreement.signed_pdf_base64, "base64"));
 
   if (agreement.signed_pdf_path && existsSync(agreement.signed_pdf_path)) {
     const buffer = readFileSync(agreement.signed_pdf_path);
     if (agreement.status === "completed") {
+      verifiedSignedPdfBuffer(agreement, buffer);
       await saveSignedPdfToAgreement({ agreementId: agreement.id, path: agreement.signed_pdf_path, buffer });
     }
     return buffer;
   }
+
+  if (agreement.status === "completed" && (agreement.signed_pdf_sha256 || agreement.signed_pdf_bytes != null)) throw new Error(`Stored signed PDF artifact is missing for ${agreement.id}`);
 
   const rendered = await renderAgreementPdfResult({
     agreementId: agreement.id,

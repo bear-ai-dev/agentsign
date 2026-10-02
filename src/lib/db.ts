@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import pg from "pg";
 import { env } from "./env.js";
 import { verifiedPostgresSsl } from "./postgres.js";
+import { hashSigningToken, isEmbedded, type SigningSession, ProviderRequestError } from "./embeddedSigning.js";
 import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
 
 mkdirSync(dirname(env.databasePath), { recursive: true });
@@ -40,7 +41,13 @@ export async function run(sql: string, ...params: unknown[]) {
   return { changes: result.changes } satisfies RunResult;
 }
 
-export async function runTransaction(statements: Array<{ sql: string; params?: unknown[] }>) {
+type SigningGuard = { agreementId: string; sessionTokenHash?: string };
+
+function assertSessionActive(session: { expires_at: string } | undefined) {
+  if (!session || session.expires_at <= nowIso()) throw new ProviderRequestError("Signing session expired; issue a new session", 409);
+}
+
+export async function runTransaction(statements: Array<{ sql: string; params?: unknown[]; expectedChanges?: number }>, signingGuard?: SigningGuard) {
   await dbReady;
   if (!statements.length) return;
 
@@ -48,8 +55,16 @@ export async function runTransaction(statements: Array<{ sql: string; params?: u
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      if (signingGuard) {
+        await client.query("SELECT id FROM agreements WHERE id = $1 FOR UPDATE", [signingGuard.agreementId]);
+        if (signingGuard.sessionTokenHash) {
+          const session = await client.query("SELECT expires_at FROM agreement_signing_sessions WHERE token_hash = $1 AND agreement_id = $2 FOR UPDATE", [signingGuard.sessionTokenHash, signingGuard.agreementId]);
+          assertSessionActive(session.rows[0]);
+        }
+      }
       for (const statement of statements) {
-        await client.query(toPg(statement.sql), statement.params ?? []);
+        const result = await client.query(toPg(statement.sql), statement.params ?? []);
+        if (statement.expectedChanges !== undefined && result.rowCount !== statement.expectedChanges) throw new ProviderRequestError("Signing state changed; refresh the session", 409);
       }
       await client.query("COMMIT");
       return;
@@ -61,12 +76,14 @@ export async function runTransaction(statements: Array<{ sql: string; params?: u
     }
   }
 
-  const transaction = sqlite!.transaction((items: Array<{ sql: string; params?: unknown[] }>) => {
+  const transaction = sqlite!.transaction((items: Array<{ sql: string; params?: unknown[]; expectedChanges?: number }>) => {
+    if (signingGuard?.sessionTokenHash) assertSessionActive(sqlite!.prepare("SELECT expires_at FROM agreement_signing_sessions WHERE token_hash = ? AND agreement_id = ?").get(signingGuard.sessionTokenHash, signingGuard.agreementId) as { expires_at: string } | undefined);
     for (const statement of items) {
-      sqlite!.prepare(statement.sql).run(...(statement.params ?? []));
+      const result = sqlite!.prepare(statement.sql).run(...(statement.params ?? []));
+      if (statement.expectedChanges !== undefined && result.changes !== statement.expectedChanges) throw new ProviderRequestError("Signing state changed; refresh the session", 409);
     }
   });
-  transaction(statements);
+  transaction.immediate(statements);
 }
 
 export async function get<T>(sql: string, ...params: unknown[]): Promise<T | undefined> {
@@ -128,20 +145,24 @@ export async function getAgreement(id: string): Promise<Agreement | undefined> {
 }
 
 export async function getAgreementByToken(token: string): Promise<Agreement | undefined> {
-  return get<Agreement>("SELECT * FROM agreements WHERE signing_token = ?", token);
+  return (await getAgreementBySigningToken(token))?.agreement;
 }
 
-export async function getAgreementBySigningToken(token: string): Promise<{ agreement: Agreement; signerRole: SignerRole } | undefined> {
+export async function getSigningSession(token: string) {
+  return get<SigningSession>("SELECT * FROM agreement_signing_sessions WHERE token_hash = ? AND expires_at > ?", hashSigningToken(token), nowIso());
+}
+
+export async function getAgreementBySigningToken(token: string): Promise<{ agreement: Agreement; signerRole: SignerRole; session?: SigningSession } | undefined> {
+  const session = await getSigningSession(token);
+  if (session) {
+    const agreement = await getAgreement(session.agreement_id);
+    if (agreement && isEmbedded(agreement)) return { agreement, signerRole: session.signer_role, session };
+  }
   const agreement = await get<Agreement>(
-    "SELECT * FROM agreements WHERE signing_token = ? OR sender_signing_token = ? LIMIT 1",
-    token,
-    token
+    "SELECT * FROM agreements WHERE signing_mode = 'hosted' AND (signing_token = ? OR sender_signing_token = ?) LIMIT 1", token, token
   );
   if (!agreement) return undefined;
-  return {
-    agreement,
-    signerRole: agreement.sender_signing_token === token ? "sender" : "recipient"
-  };
+  return { agreement, signerRole: agreement.sender_signing_token === token ? "sender" : "recipient" };
 }
 
 export async function getAuditEvents(agreementId: string): Promise<AuditEvent[]> {
@@ -170,6 +191,8 @@ async function ensureSchema() {
   }
 
   await ensureAgreementStorageSchema();
+  await ensureEmbeddedSigningSchema();
+  await applyMigrationFile("018_bulk_idempotency.sql");
   await ensureApiKeysSchema();
   await ensureCliLoginCodesSchema();
   await ensureProductFeedbackSchema();
@@ -178,6 +201,12 @@ async function ensureSchema() {
 
 async function ensureAgreementStorageSchema() {
   const columns = [
+    ["signing_mode", "TEXT NOT NULL DEFAULT 'hosted'"],
+    ["allowed_parent_origins_json", "TEXT"],
+    ["prefill_fields_json", "TEXT"],
+    ["idempotency_scope", "TEXT"],
+    ["idempotency_key", "TEXT"],
+    ["creation_request_sha256", "TEXT"],
     ["sender_signing_token", "TEXT"],
     ["owner_email", "TEXT"],
     ["signed_pdf_base64", "TEXT"],
@@ -208,6 +237,12 @@ async function ensureAgreementStorageSchema() {
   sqlite!.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agreements_sender_signing_token ON agreements(sender_signing_token) WHERE sender_signing_token IS NOT NULL");
   sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_owner_email ON agreements(owner_email) WHERE owner_email IS NOT NULL");
   sqlite!.exec("CREATE INDEX IF NOT EXISTS idx_agreements_signed_pdf_sha256 ON agreements(signed_pdf_sha256) WHERE signed_pdf_sha256 IS NOT NULL");
+}
+
+async function ensureEmbeddedSigningSchema() {
+  const sql = readFileSync(join(process.cwd(), "migrations", "017_embedded_signing.sql"), "utf8").split("\n").filter((line) => !line.startsWith("ALTER TABLE")).join("\n");
+  if (pool) await pool.query(sql);
+  else sqlite!.exec(sql);
 }
 
 async function ensureApiKeysSchema() {

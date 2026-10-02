@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
-import { addAuditEvent, getAgreementBySigningToken, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
+import { addAuditEvent, getAgreement, getAgreementBySigningToken, getAgreementByToken, getAuditEvents, nowIso, parseJson, run, runTransaction } from "../lib/db.js";
 import { sendCompletionEmail, sendSenderSigningEmail, sendSigningEmail } from "../lib/email.js";
 import { renderAgreementPdfResult, renderContractBodyHtml, signatureFontFaceCss } from "../lib/pdf.js";
 import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from "../lib/pdfStorage.js";
@@ -9,8 +9,21 @@ import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.
 import { fieldsForSigner as fieldsForSignerRole, requiredFieldsComplete } from "../lib/signers.js";
 import type { Agreement, AuditEvent, FieldDefinition, SignedFields, SignerRole, SigningOrder } from "../lib/types.js";
 import { completedPayload, enqueueWebhook } from "./webhooks.js";
+import { completionScript, inactiveAgreement, isEmbedded, ProviderRequestError, type SigningSession } from "../lib/embeddedSigning.js";
 
 export const sign = new Hono();
+
+sign.use("*", async (c, next) => {
+  const token = c.req.path.split("/")[2];
+  const lookup = token ? await getAgreementBySigningToken(token) : undefined;
+  c.header("Cache-Control", "private, no-store");
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Content-Security-Policy", `frame-ancestors ${lookup?.session?.parent_origin ?? "'none'"}`);
+  if (lookup?.session && c.req.method === "POST" && c.req.header("origin") !== new URL(c.req.url).origin) return c.json({ error: "Signing submission Origin must match the provider origin" }, 403);
+  await next();
+});
+
 
 const SIGN_HTML = String.raw`<!doctype html>
 <html>
@@ -315,7 +328,7 @@ function documentPanelHtml(agreement: Agreement, token: string, signedFields: Si
   }).body;
 }
 
-function renderField(field: FieldDefinition) {
+function renderField(field: FieldDefinition, prefill?: unknown) {
   const required = field.required ? "required" : "";
   const dataRequired = field.required ? "data-required=\"true\"" : "";
   const common = `id="field-${escapeHtml(field.id)}" name="${escapeHtml(field.id)}" ${required} ${dataRequired}`;
@@ -336,7 +349,7 @@ function renderField(field: FieldDefinition) {
   }
 
   if (field.type === "select") {
-    const options = (field.options ?? []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
+    const options = (field.options ?? []).map((option) => `<option value="${escapeHtml(option)}"${prefill === option ? " selected" : ""}>${escapeHtml(option)}</option>`).join("");
     return `<label class="field-label">${escapeHtml(field.label)}${field.required ? " *" : ""}<select ${common}><option value=""></option>${options}</select></label>`;
   }
 
@@ -346,7 +359,7 @@ function renderField(field: FieldDefinition) {
 
   const inputType = field.type === "currency" ? "number" : field.type;
   const step = field.type === "currency" ? "0.01" : "";
-  return `<label class="field-label">${escapeHtml(field.label)}${field.required ? " *" : ""}<input type="${escapeHtml(inputType)}" ${step ? `step="${step}"` : ""} ${common} /></label>`;
+  return `<label class="field-label">${escapeHtml(field.label)}${field.required ? " *" : ""}<input type="${escapeHtml(inputType)}" ${step ? `step="${step}"` : ""} ${common} value="${escapeHtml(prefill ?? "")}" /></label>`;
 }
 
 sign.get("/sign/:token", async (c) => {
@@ -357,7 +370,7 @@ sign.get("/sign/:token", async (c) => {
   const signerRole = lookup!.signerRole;
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
-  if (agreement.status === "cancelled") return c.html("<h1>This agreement has been cancelled.</h1>", 410);
+  if (inactiveAgreement(agreement)) return c.html(`<h1>This agreement is ${escapeHtml(agreement.status)}.</h1>`, 410);
 
   const viewedCookie = `agentink_viewed_${agreement.id}`;
   if (!getCookie(c, viewedCookie) && !agreement.viewed_at) {
@@ -373,7 +386,7 @@ sign.get("/sign/:token", async (c) => {
   }
 
   if (agreement.status === "completed") {
-    return c.html(successHtml(token));
+    return c.html(lookup?.session ? embeddedSuccessHtml(agreement.id, lookup.session) : successHtml(token));
   }
 
   const signedFields = parseJson<SignedFields>(agreement.signed_fields_json, {});
@@ -387,10 +400,12 @@ sign.get("/sign/:token", async (c) => {
   }
 
   const documentHtml = documentPanelHtml(agreement, token, signedFields);
-  return c.html(SIGN_HTML
+  const prefill = signerRole === "recipient" ? parseJson<Record<string, unknown>>(agreement.prefill_fields_json, {}) : {};
+  const signingHtml = lookup?.session ? SIGN_HTML.replace("window.location.href = result.signed_pdf_url;", `${completionScript(agreement.id, lookup.session)} form.innerHTML = '<p role="status">Agreement signed. Your signature has been saved.</p>';`) : SIGN_HTML;
+  return c.html(signingHtml
     .replaceAll("{{document_title}}", escapeHtml(agreement.document_title))
     .replace("{{document_html}}", documentHtml)
-    .replace("{{fields_html}}", fields.map(renderField).join("\n"))
+    .replace("{{fields_html}}", fields.map((field) => renderField(field, prefill[field.id])).join("\n"))
     .replaceAll("{{token}}", escapeHtml(token)));
 });
 
@@ -399,11 +414,11 @@ sign.get("/sign/:token/source.pdf", async (c) => {
   const lookup = await getAgreementBySigningToken(token);
   const agreement = lookup?.agreement;
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
-  if (agreement.status === "cancelled") return c.json({ error: "Agreement is cancelled" }, 410);
+  if (inactiveAgreement(agreement)) return c.json({ error: `Agreement is ${agreement.status}` }, 410);
   const buffer = sourcePdfBufferForAgreement(agreement);
   if (!buffer) return c.json({ error: "Agreement has no source PDF" }, 404);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.source_pdf_filename ?? `${agreement.id}-source.pdf`}"`
@@ -415,6 +430,7 @@ sign.get("/preview/:token", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.html("<h1>Preview not found</h1>", 404);
+  if (inactiveAgreement(agreement)) return c.html("<h1>Agreement is no longer available</h1>", 410);
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
   posthog.captureEvent("agreement preview viewed", {
@@ -438,7 +454,7 @@ sign.post("/sign/:token/submit", async (c) => {
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
   if (agreement.status === "completed") return c.json({ error: "Agreement is already completed" }, 409);
-  if (agreement.status === "cancelled") return c.json({ error: "Agreement is cancelled" }, 410);
+  if (inactiveAgreement(agreement)) return c.json({ error: `Agreement is ${agreement.status}` }, 410);
 
   let body: { fields?: Record<string, unknown>; consent_timestamp?: string };
   try {
@@ -456,6 +472,7 @@ sign.post("/sign/:token/submit", async (c) => {
   const signedFields: SignedFields = { ...existingSignedFields };
 
   if (!body.consent_timestamp) return c.json({ error: "Consent is required" }, 400);
+  if (isEmbedded(agreement) && (typeof body.consent_timestamp !== "string" || !Number.isFinite(Date.parse(body.consent_timestamp)))) return c.json({ error: "A valid consent timestamp is required" }, 400);
   if (requiredFieldsComplete(fields, existingSignedFields)) {
     return c.json({ error: `${signerLabel(signerRole)} signature is already saved` }, 409);
   }
@@ -465,6 +482,7 @@ sign.post("/sign/:token/submit", async (c) => {
 
   for (const field of fields) {
     const value = submitted[field.id];
+    if (isEmbedded(agreement) && field.type === "boolean" && value !== undefined && typeof value !== "boolean") return c.json({ error: `${field.label} requires explicit boolean assent` }, 400);
 
     if (field.type === "signature" || field.type === "initials") {
       const typedValue = typeof value === "string" ? value.trim() : "";
@@ -503,6 +521,7 @@ sign.post("/sign/:token/submit", async (c) => {
   };
 
   try {
+    const signingGuard = { agreementId: agreement.id, sessionTokenHash: lookup?.session?.token_hash };
     if (!isComplete) {
       await runTransaction([
         {
@@ -514,10 +533,11 @@ sign.post("/sign/:token/submit", async (c) => {
           sql: `UPDATE agreements
                 SET signed_fields_json = ?,
                     status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END
-                WHERE id = ?`,
-          params: [JSON.stringify(signedFields), agreement.id]
+                WHERE id = ? AND status IN ('sent', 'viewed') AND COALESCE(signed_fields_json, '') = ?`,
+          params: [JSON.stringify(signedFields), agreement.id, agreement.signed_fields_json ?? ""],
+          expectedChanges: 1
         }
-      ]);
+      ], signingGuard);
       await sendNextSignerEmail(c, agreement, signerRole, signedFields);
       posthog.captureEvent("agreement signer completed", {
         agreement_id: agreement.id,
@@ -558,7 +578,8 @@ sign.post("/sign/:token/submit", async (c) => {
                   signed_pdf_base64 = ?,
                   signed_pdf_sha256 = ?,
                   signed_pdf_bytes = ?
-              WHERE id = ?`,
+              WHERE id = ? AND status IN ('sent', 'viewed') AND COALESCE(signed_fields_json, '') = ?`,
+        expectedChanges: 1,
         params: [
           JSON.stringify(signedFields),
           completedAt,
@@ -566,11 +587,13 @@ sign.post("/sign/:token/submit", async (c) => {
           pdf.buffer.toString("base64"),
           pdfSha256(pdf.buffer),
           pdf.buffer.byteLength,
-          agreement.id
+          agreement.id,
+          agreement.signed_fields_json ?? ""
         ]
       }
-    ]);
+    ], signingGuard);
   } catch (error) {
+    if (error instanceof ProviderRequestError) return c.json({ error: error.message }, error.status);
     console.error("[AgentContract signing failed before completion]", error);
     await posthog.captureException(error, c, {
       agreement_id: agreement.id,
@@ -595,7 +618,7 @@ sign.post("/sign/:token/submit", async (c) => {
     return c.json({ error: "Signing failed before completion. Please try again." }, 500);
   }
 
-  const completed = (await getAgreementBySigningToken(token))!.agreement;
+  const completed = (await getAgreement(agreement.id))!;
   if (completed.webhook_url) await enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
   const notificationEmails = notificationEmailsFor(completed);
   posthog.captureEvent("agreement completed", {
@@ -609,7 +632,7 @@ sign.post("/sign/:token/submit", async (c) => {
     has_notifications: notificationEmails.length > 0,
     signed_pdf_bytes: completed.signed_pdf_bytes
   }, distinctId);
-  if (notificationEmails.length) {
+  if (notificationEmails.length && !isEmbedded(completed)) {
     try {
       await sendCompletionEmail({
         to: notificationEmails,
@@ -638,10 +661,11 @@ sign.post("/sign/:token/submit", async (c) => {
     }
   }
 
-  return c.json({ ok: true, agreement_id: agreement.id, completed: true, signed_pdf_url: `/sign/${token}/pdf` });
+  return c.json({ ok: true, agreement_id: agreement.id, completed: true, signed_pdf_url: isEmbedded(agreement) ? null : `/sign/${token}/pdf` });
 });
 
 async function sendNextSignerEmail(c: Context, agreement: Agreement, signerRole: SignerRole, signedFields: SignedFields) {
+  if (isEmbedded(agreement)) return;
   const order = signingOrderForAgreement(agreement);
   const origin = new URL(c.req.url).origin;
   const metadata = metadataFor(agreement);
@@ -697,6 +721,7 @@ sign.get("/sign/:token/pdf", async (c) => {
   const lookup = await getAgreementBySigningToken(token);
   const agreement = lookup?.agreement;
   if (!agreement) return c.json({ error: "Signing link not found" }, 404);
+  if (isEmbedded(agreement)) return c.json({ error: "Completed documents require authenticated artifact access" }, 403);
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
   if (agreement.status !== "completed") return c.json({ error: "Agreement is not completed" }, 400);
@@ -707,13 +732,17 @@ sign.get("/sign/:token/pdf", async (c) => {
     signed_pdf_bytes: buffer.byteLength
   }, distinctId);
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${agreement.id}.pdf"`
     }
   });
 });
+
+function embeddedSuccessHtml(agreementId: string, session: SigningSession) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Agreement signed</title></head><body><main><h1>Agreement signed</h1><p role="status">Your signature has been saved.</p></main><script>${completionScript(agreementId, session)}</script></body></html>`;
+}
 
 function successHtml(token: string) {
   return `<!doctype html>
