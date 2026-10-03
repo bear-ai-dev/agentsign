@@ -6,6 +6,7 @@ import type { Agreement, SignedFields } from "../lib/types.js";
 import { postWebhook } from "../lib/safeWebhook.js";
 
 const retryDelaysMs = [60_000, 300_000, 1_800_000, 7_200_000, 43_200_000];
+const deliveriesInFlight = new Map<string, Promise<void>>();
 
 export function signWebhookPayload(payloadJson: string, secret: string) {
   return createHmac("sha256", secret).update(payloadJson).digest("hex");
@@ -49,15 +50,24 @@ export async function enqueueWebhook(agreementId: string, url: string, payload: 
   void deliverWebhook(id).catch((error) => console.error("[AgentContract webhook delivery failed]", error));
 }
 
-export async function deliverWebhook(deliveryId: string) {
+export function deliverWebhook(deliveryId: string): Promise<void> {
+  const pending = deliveriesInFlight.get(deliveryId);
+  if (pending) return pending;
+  const delivery = executeWebhookDelivery(deliveryId).finally(() => deliveriesInFlight.delete(deliveryId));
+  deliveriesInFlight.set(deliveryId, delivery);
+  return delivery;
+}
+
+async function executeWebhookDelivery(deliveryId: string) {
   const delivery = await get<{
     id: string;
     agreement_id: string;
     url: string;
     payload_json: string;
     attempts: number;
+    delivered_at: string | null;
   }>("SELECT * FROM webhook_deliveries WHERE id = ?", deliveryId);
-  if (!delivery) return;
+  if (!delivery || delivery.delivered_at) return;
 
   const agreement = await getAgreement(delivery.agreement_id);
   if (!agreement?.webhook_secret) return;
@@ -109,16 +119,17 @@ async function scheduleRetry(deliveryId: string, attempts: number, statusCode: n
 
 export function startWebhookRetryWorker() {
   setInterval(async () => {
-    const due = await all<{ id: string }>(
-      `SELECT id FROM webhook_deliveries
-       WHERE delivered_at IS NULL AND next_retry_at IS NOT NULL AND next_retry_at <= ?
-       ORDER BY next_retry_at ASC
-       LIMIT 10`,
-      nowIso()
-    );
-
-    for (const delivery of due) {
-      void deliverWebhook(delivery.id);
+    try {
+      const due = await all<{ id: string }>(
+        `SELECT id FROM webhook_deliveries
+         WHERE delivered_at IS NULL AND next_retry_at IS NOT NULL AND next_retry_at <= ?
+         ORDER BY next_retry_at ASC
+         LIMIT 10`,
+        nowIso()
+      );
+      await Promise.all(due.map(delivery => deliverWebhook(delivery.id).catch(error => console.error("[AgentContract webhook retry failed]", delivery.id, error))));
+    } catch (error) {
+      console.error("[AgentContract webhook retry query failed]", error);
     }
   }, 15_000).unref();
 }

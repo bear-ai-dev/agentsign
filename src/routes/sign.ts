@@ -430,6 +430,7 @@ sign.get("/preview/:token", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.html("<h1>Preview not found</h1>", 404);
+  if (isEmbedded(agreement) && agreement.status === "completed") return c.json({ error: "Completed documents require authenticated artifact access" }, 403);
   if (inactiveAgreement(agreement)) return c.html("<h1>Agreement is no longer available</h1>", 410);
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);

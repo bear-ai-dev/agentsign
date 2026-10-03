@@ -9,10 +9,11 @@ export async function sourceDocumentBufferForAgreement(agreement: Agreement) {
 }
 
 export async function certificateBufferForAgreement(agreement: Agreement) {
+  const signed = await pdfBufferForAgreement(agreement);
   const source = sourcePdfBufferForAgreement(agreement);
   if (source) {
     const sourceDocument = await PDFDocument.load(source);
-    const signedDocument = await PDFDocument.load(await pdfBufferForAgreement(agreement));
+    const signedDocument = await PDFDocument.load(signed);
     const certificate = await PDFDocument.create();
     const indexes = signedDocument.getPageIndices().slice(sourceDocument.getPageCount());
     if (!indexes.length) throw new Error("Completed agreement has no signature certificate");
