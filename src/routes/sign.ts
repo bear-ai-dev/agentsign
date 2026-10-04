@@ -8,7 +8,7 @@ import { pdfBufferForAgreement, pdfSha256, sourcePdfBufferForAgreement } from ".
 import { posthog, setPosthogDistinctId, signerDistinctId } from "../lib/posthog.js";
 import { fieldsForSigner as fieldsForSignerRole, recipientPrefillForField, requiredFieldsComplete } from "../lib/signers.js";
 import type { Agreement, AuditEvent, FieldDefinition, SignedFields, SignerRole, SigningOrder } from "../lib/types.js";
-import { completedPayload, enqueueWebhook } from "./webhooks.js";
+import { completedPayload, deliverWebhook, webhookInsertStatement } from "./webhooks.js";
 import { completionScript, inactiveAgreement, isEmbedded, ProviderRequestError, type SigningSession } from "../lib/embeddedSigning.js";
 
 export const sign = new Hono();
@@ -430,6 +430,7 @@ sign.get("/preview/:token", async (c) => {
   const token = c.req.param("token");
   const agreement = await getAgreementByToken(token);
   if (!agreement) return c.html("<h1>Preview not found</h1>", 404);
+  if (isEmbedded(agreement) && agreement.status === "completed") return c.json({ error: "Completed documents require authenticated artifact access" }, 403);
   if (inactiveAgreement(agreement)) return c.html("<h1>Agreement is no longer available</h1>", 410);
   const distinctId = signerDistinctId(agreement.id);
   setPosthogDistinctId(c, distinctId);
@@ -520,6 +521,8 @@ sign.post("/sign/:token/submit", async (c) => {
     created_at: completedAt
   };
 
+  let completionDeliveryId: string | undefined;
+  let completedPdfBytes: number | null = null;
   try {
     const signingGuard = { agreementId: agreement.id, sessionTokenHash: lookup?.session?.token_hash };
     if (!isComplete) {
@@ -538,7 +541,11 @@ sign.post("/sign/:token/submit", async (c) => {
           expectedChanges: 1
         }
       ], signingGuard);
-      await sendNextSignerEmail(c, agreement, signerRole, signedFields);
+      try {
+        await sendNextSignerEmail(c, agreement, signerRole, signedFields);
+      } catch (error) {
+        console.error("[AgentContract committed next-signer notification failed]", error);
+      }
       posthog.captureEvent("agreement signer completed", {
         agreement_id: agreement.id,
         signer_role: signerRole,
@@ -558,7 +565,11 @@ sign.post("/sign/:token/submit", async (c) => {
       sourcePdf: sourcePdfBufferForAgreement(agreement),
       documentTitle: agreement.document_title
     });
+    completedPdfBytes = pdf.buffer.byteLength;
+    const completionWebhook = agreement.webhook_url ? webhookInsertStatement(agreement.id, agreement.webhook_url, completedPayload({ ...agreement, status: "completed", completed_at: completedAt, signed_fields_json: JSON.stringify(signedFields) })) : undefined;
+    completionDeliveryId = completionWebhook?.id;
     await runTransaction([
+      ...(completionWebhook ? [completionWebhook] : []),
       {
         sql: `INSERT INTO audit_events (id, agreement_id, event_type, ip_address, user_agent, data_json, created_at)
               VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -618,8 +629,8 @@ sign.post("/sign/:token/submit", async (c) => {
     return c.json({ error: "Signing failed before completion. Please try again." }, 500);
   }
 
-  const completed = (await getAgreement(agreement.id))!;
-  if (completed.webhook_url) await enqueueWebhook(completed.id, completed.webhook_url, completedPayload(completed));
+  if (completionDeliveryId) void deliverWebhook(completionDeliveryId).catch(error => console.error("[AgentContract committed webhook delivery failed]", error));
+  const completed = { ...agreement, status: "completed" as const, completed_at: completedAt, signed_fields_json: JSON.stringify(signedFields), signed_pdf_bytes: completedPdfBytes };
   const notificationEmails = notificationEmailsFor(completed);
   posthog.captureEvent("agreement completed", {
     agreement_id: completed.id,
@@ -653,11 +664,11 @@ sign.post("/sign/:token/submit", async (c) => {
         agreement_id: completed.id,
         event_stage: "completion_notification"
       });
-      await addAuditEvent({
-        agreementId: completed.id,
-        eventType: "notification_failed",
-        data: { to: notificationEmails, error: error instanceof Error ? error.message : String(error) }
-      });
+      try {
+        await addAuditEvent({ agreementId: completed.id, eventType: "notification_failed", data: { to: notificationEmails, error: error instanceof Error ? error.message : String(error) } });
+      } catch (auditError) {
+        console.error("[AgentContract committed notification audit failed]", auditError);
+      }
     }
   }
 

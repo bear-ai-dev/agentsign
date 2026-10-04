@@ -52,28 +52,39 @@ export async function validateWebhookUrl(value: string) {
   return { url, address: addresses[0] };
 }
 
-export async function postWebhook(urlValue: string, body: string, headers: Record<string, string>) {
-  const { url, address } = await validateWebhookUrl(urlValue);
-  return new Promise<number>((resolve, reject) => {
-    const req = request(url, {
-      method: "POST",
-      headers,
-      timeout: webhookTimeoutMs,
-      family: address.family,
-      lookup: (_hostname, _options, callback) => callback(null, address.address, address.family)
-    }, (response) => {
-      response.resume();
-      response.once("end", () => {
-        const status = response.statusCode ?? 0;
-        if (status >= 300 && status < 400) {
-          reject(new Error("Webhook redirects are not allowed"));
-          return;
-        }
-        resolve(status);
+export async function postWebhook(urlValue: string, body: string, headers: Record<string, string>, options: { deadlineAt?: number } = {}) {
+  const remaining = options.deadlineAt === undefined ? 15_000 : Math.min(15_000, options.deadlineAt - Date.now());
+  if (!Number.isFinite(remaining) || remaining <= 0) throw new Error("Webhook delivery deadline exceeded");
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(new Error("Webhook delivery deadline exceeded")), remaining);
+  try {
+    const expired = new Promise<never>((_resolve, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true }));
+    const { url, address } = await Promise.race([validateWebhookUrl(urlValue), expired]);
+    controller.signal.throwIfAborted();
+    return await new Promise<number>((resolve, reject) => {
+      const req = request(url, {
+        method: "POST",
+        signal: controller.signal,
+        headers,
+        timeout: webhookTimeoutMs,
+        family: address.family,
+        lookup: (_hostname, _options, callback) => callback(null, address.address, address.family)
+      }, (response) => {
+        response.resume();
+        response.once("end", () => {
+          const status = response.statusCode ?? 0;
+          if (status >= 300 && status < 400) {
+            reject(new Error("Webhook redirects are not allowed"));
+            return;
+          }
+          resolve(status);
+        });
       });
+      req.once("timeout", () => req.destroy(new Error("Webhook request timed out")));
+      req.once("error", reject);
+      req.end(body);
     });
-    req.once("timeout", () => req.destroy(new Error("Webhook request timed out")));
-    req.once("error", reject);
-    req.end(body);
-  });
+  } finally {
+    clearTimeout(deadline);
+  }
 }
