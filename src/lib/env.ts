@@ -40,6 +40,7 @@ export const env = {
   port: Number(process.env.PORT ?? 3000),
   baseUrl: cleanUrl(process.env.BASE_URL, "http://localhost:3000"),
   apiKey,
+  cronSecret: cleanEnv(process.env.CRON_SECRET),
   resendApiKey: cleanEnv(process.env.RESEND_API_KEY),
   emailFrom: cleanEnv(process.env.EMAIL_FROM, "contracts@yourdomain.com"),
   emailFromName: cleanEnv(process.env.EMAIL_FROM_NAME, "Bear AI"),

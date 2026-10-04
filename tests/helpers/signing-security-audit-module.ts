@@ -29,7 +29,7 @@ export function signingAuditFixture() {
     signing_token: "legacy-token", sender_signing_token: "legacy-sender", created_at: new Date().toISOString(), sent_at: null, viewed_at: "2026-01-01T00:00:00.000Z", completed_at: null, signed_pdf_path: null, signed_pdf_base64: null, signed_pdf_sha256: null, signed_pdf_bytes: null,
     source_pdf_base64: null, source_pdf_sha256: null, source_pdf_bytes: null, source_pdf_filename: null
   };
-  const state = { agreement, sessions: new Map<string, Embedded.SigningSession>(), audits: [] as unknown[], transactions: 0, renders: 0, reads: 0, writes: 0, emails: 0, webhooks: 0, owner: "owner@example.test" as string | null, authenticated: true, bootstrap: false, clock: Date.now(), expireDuringRender: false, files: new Map<string, Buffer>() };
+  const state = { agreement, sessions: new Map<string, Embedded.SigningSession>(), audits: [] as unknown[], transactions: 0, renders: 0, reads: 0, writes: 0, emails: 0, webhooks: 0, owner: "owner@example.test" as string | null, authenticated: true, bootstrap: false, clock: Date.now(), expireDuringRender: false, failWebhookInsert: false, failNotificationAudit: false, files: new Map<string, Buffer>() };
   const session = (token = "session-token") => {
     const value: Embedded.SigningSession = { token_hash: embedded.hashSigningToken(token), agreement_id: agreement.id, signer_role: "recipient", parent_origin: "https://parent.example.test", return_url: "https://parent.example.test/done", expires_at: new Date(state.clock + 600_000).toISOString(), created_at: new Date(state.clock).toISOString() };
     state.sessions.set(value.token_hash, value);
@@ -43,7 +43,7 @@ export function signingAuditFixture() {
     get: async (_sql: string, id: string, owner: string) => id === agreement.id && owner === agreement.owner_email ? { ...agreement } : undefined,
     getAuditEvents: async () => state.audits,
     getAgreementByToken: async (token: string): Promise<Agreement | undefined> => (await database.getAgreementBySigningToken(token))?.agreement,
-    addAuditEvent: async (event: unknown) => { state.audits.push(event); },
+    addAuditEvent: async (event: unknown) => { if (state.failNotificationAudit) throw new Error("fixture notification audit unavailable"); state.audits.push(event); },
     getAgreementBySigningToken: async (token: string) => {
       const value = state.sessions.get(embedded.hashSigningToken(token));
       if (value && value.expires_at > new Date(state.clock).toISOString() && agreement.signing_mode === "embedded") return { agreement: { ...agreement }, signerRole: value.signer_role, session: value };
@@ -64,11 +64,13 @@ export function signingAuditFixture() {
       }
       const update = statements.find(item => item.expectedChanges === 1);
       if (!update || !["sent", "viewed"].includes(agreement.status) || (agreement.signed_fields_json ?? "") !== update.params.at(-1)) throw new embedded.ProviderRequestError("Signing state changed; refresh the session", 409);
+      if (state.failWebhookInsert && statements.some(item => item.sql.startsWith("INSERT INTO webhook_deliveries"))) throw new Error("fixture webhook insert unavailable");
       state.transactions++;
+      state.webhooks += statements.filter(item => item.sql.startsWith("INSERT INTO webhook_deliveries")).length;
       agreement.signed_fields_json = String(update.params[0]);
       if (update.sql.includes("status = 'completed'")) Object.assign(agreement, { status: "completed", completed_at: update.params[1], signed_pdf_path: update.params[2], signed_pdf_base64: update.params[3], signed_pdf_sha256: update.params[4], signed_pdf_bytes: update.params[5] });
       else agreement.status = "viewed";
-      state.audits.push(...statements.filter(item => item.sql.startsWith("INSERT")).map(item => item.params));
+      state.audits.push(...statements.filter(item => item.sql.startsWith("INSERT INTO audit_events")).map(item => item.params));
     }
   };
   const pdf = {
@@ -83,7 +85,7 @@ export function signingAuditFixture() {
     hono: { Hono }, "hono/cookie": cookies, nanoid: { nanoid }, "../lib/db.js": database, "../lib/embeddedSigning.js": embedded, "../lib/signers.js": signers, "../lib/pdfStorage.js": storage, "../lib/pdf.js": pdf,
     "../lib/email.js": { sendCompletionEmail: async () => { state.emails++; }, sendSenderSigningEmail: async () => { state.emails++; }, sendSigningEmail: async () => { state.emails++; } },
     "../lib/posthog.js": { posthog: { captureEvent: () => undefined, captureException: async () => undefined }, setPosthogDistinctId: () => undefined, signerDistinctId: (id: string) => id },
-    "./webhooks.js": { completedPayload: () => ({}), cancelledPayload: () => ({}), enqueueWebhook: async () => { state.webhooks++; } },
+    "./webhooks.js": { webhookInsertStatement: (id: string, url: string, payload: unknown) => ({ id: "fixture-delivery", sql: "INSERT INTO webhook_deliveries", params: [id, url, payload] }), deliverWebhook: async () => undefined, completedPayload: () => ({}), cancelledPayload: () => ({}), enqueueWebhook: async () => { state.webhooks++; } },
     "../lib/env.js": { env: { baseUrl: "https://provider.example.test" } }, "../lib/agreementArtifacts.js": artifacts,
     "../lib/agreementIdempotency.js": {}, "../lib/templates.js": {}, "../lib/audit.js": {}, "../lib/safeWebhook.js": {},
     "../lib/auth.js": { requireApiKey: async (c: Context, next: Next) => { if (!state.authenticated) return c.json({ error: "Unauthorized" }, 401); if (state.bootstrap) c.set("apiKeyBootstrap", true); else c.set("apiKeyRecord", { id: "local-key", owner_email: state.owner }); await next(); } }

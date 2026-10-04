@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import Database from "better-sqlite3";
 import pg from "pg";
 import { verifiedPostgresSsl } from "../src/lib/postgres.js";
+import { webhookLeasePrivilegesSql } from "../src/lib/webhookLeaseSchema.js";
 
 type Target = "sqlite" | "postgres";
 type MigrationFile = {
@@ -249,7 +250,9 @@ async function migratePostgres(migrations: MigrationFile[]) {
         await client.query("SET LOCAL lock_timeout = '10s'");
         await client.query("SET LOCAL statement_timeout = '60s'");
         const sql = migration.filename === "017_embedded_signing.sql" ? migration.sql.replaceAll("ADD COLUMN ", "ADD COLUMN IF NOT EXISTS ") : migration.sql;
+        if (migration.filename === "019_webhook_delivery_leases.sql") await client.query("SELECT pg_advisory_xact_lock(424242019)");
         await client.query(normalizePostgresSql(sql));
+        if (migration.filename === "019_webhook_delivery_leases.sql") await client.query(webhookLeasePrivilegesSql);
         await client.query(
           "INSERT INTO schema_migrations (filename, checksum, applied_at) VALUES ($1, $2, $3)",
           [migration.filename, migration.checksum, new Date().toISOString()]

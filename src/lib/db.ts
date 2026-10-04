@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import pg from "pg";
 import { env } from "./env.js";
 import { verifiedPostgresSsl } from "./postgres.js";
+import { webhookLeasePrivilegesSql } from "./webhookLeaseSchema.js";
 import { hashSigningToken, isEmbedded, type SigningSession, ProviderRequestError } from "./embeddedSigning.js";
 import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
 
@@ -193,6 +194,7 @@ async function ensureSchema() {
   await ensureAgreementStorageSchema();
   await ensureEmbeddedSigningSchema();
   await applyMigrationFile("018_bulk_idempotency.sql");
+  await applyMigrationFile("019_webhook_delivery_leases.sql");
   await ensureApiKeysSchema();
   await ensureCliLoginCodesSchema();
   await ensureProductFeedbackSchema();
@@ -491,7 +493,19 @@ async function applyMigrationFile(filename: string) {
       .replaceAll("CREATE TABLE cli_login_codes", "CREATE TABLE IF NOT EXISTS cli_login_codes")
       .replaceAll("CREATE TABLE product_feedback", "CREATE TABLE IF NOT EXISTS product_feedback")
       .replace(/CREATE INDEX (?!IF NOT EXISTS)/g, "CREATE INDEX IF NOT EXISTS ");
-    await pool!.query(sql);
+    if (filename === "019_webhook_delivery_leases.sql") {
+      const client = await pool!.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(424242019)");
+        await client.query(sql);
+        await client.query(webhookLeasePrivilegesSql);
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally { client.release(); }
+    } else await pool!.query(sql);
   } else {
     sqlite!.exec(sql);
   }

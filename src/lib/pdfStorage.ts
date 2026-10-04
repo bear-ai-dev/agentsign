@@ -43,7 +43,7 @@ function verifiedSignedPdfBuffer(agreement: Agreement, buffer: Buffer) {
   return buffer;
 }
 
-export async function pdfBufferForAgreement(agreement: Agreement) {
+export async function pdfBufferForAgreement(agreement: Agreement, options: { requireCommitted?: boolean } = {}) {
   if (agreement.status === "completed" && agreement.signed_pdf_base64) return verifiedSignedPdfBuffer(agreement, Buffer.from(agreement.signed_pdf_base64, "base64"));
 
   if (agreement.signed_pdf_path && existsSync(agreement.signed_pdf_path)) {
@@ -54,6 +54,8 @@ export async function pdfBufferForAgreement(agreement: Agreement) {
     }
     return buffer;
   }
+
+  if (options.requireCommitted) throw new Error(`Stored signed PDF artifact is missing for ${agreement.id}`);
 
   if (agreement.status === "completed" && (agreement.signed_pdf_sha256 || agreement.signed_pdf_bytes != null)) throw new Error(`Stored signed PDF artifact is missing for ${agreement.id}`);
 

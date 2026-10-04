@@ -141,3 +141,40 @@ test("embedded options require a required signature for every signer role", () =
   assert.throws(() => embedded.validatedEmbeddedOptions(options, [{ id: "name", label: "Name", type: "text", required: true }]), /required signature/);
   assert.throws(() => embedded.validatedEmbeddedOptions(options, [{ id: "signature", label: "Signature", type: "signature", required: true }, { id: "sender_name", label: "Sender name", type: "text", signerRole: "sender", required: true }]), /Embedded sender fields require a required signature/);
 });
+
+test("a completion webhook insert failure prevents a partial committed signature", async () => {
+  const { state, submit } = signingAuditFixture();
+  state.agreement.webhook_url = "https://receiver.example.test";
+  state.failWebhookInsert = true;
+  assert.equal((await submit()).status, 500);
+  assert.equal(state.agreement.status, "sent");
+  assert.equal(state.agreement.signed_fields_json, null);
+  assert.equal(state.agreement.signed_pdf_base64, null);
+  assert.equal(state.transactions, 0);
+  assert.equal(state.webhooks, 0);
+});
+
+test("post-commit notification audit failure still acknowledges a hosted signature", async () => {
+  const { state, submit } = signingAuditFixture();
+  state.agreement.signing_mode = "hosted";
+  state.agreement.metadata_json = JSON.stringify({ notification_email: ["owner@example.test"] });
+  state.failNotificationAudit = true;
+  const response = await submit({ signature: "Talent" }, "legacy-token");
+  assert.equal(response.status, 200);
+  assert.equal(state.agreement.status, "completed");
+  assert.equal(state.emails, 1);
+});
+
+test("a partial hosted signature acknowledges saved evidence despite next-signer notification audit failure", async () => {
+  const { state, submit } = signingAuditFixture();
+  state.agreement.signing_mode = "hosted";
+  const fields = JSON.parse(state.agreement.fields_json);
+  state.agreement.fields_json = JSON.stringify([...fields, { id: "client", label: "Client", type: "signature", signerRole: "sender", required: true }]);
+  state.agreement.metadata_json = JSON.stringify({ signing_order: "recipient_first", sender_email: "sender@example.test" });
+  state.failNotificationAudit = true;
+  const response = await submit({ signature: "Talent" }, "legacy-token");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).pending, true);
+  assert.equal(state.agreement.status, "viewed");
+  assert.equal(state.emails, 1);
+});

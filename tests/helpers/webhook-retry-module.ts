@@ -10,10 +10,10 @@ type Webhooks = { startWebhookRetryWorker: () => void; deliverWebhook: (id: stri
 
 export function retryFixture() {
   const delivery: Delivery = { id: "delivery-test", agreement_id: "agreement-test", url: "https://receiver.example.test/webhook", payload_json: JSON.stringify({ event: "agreement.completed" }), attempts: 0, delivered_at: null, next_retry_at: "2026-01-01T00:00:00.000Z", error: null, status_code: null };
-  const state = { delivery, dueError: null as Error | null, lookupError: null as Error | null, deliveredPosts: 0, post: async () => 204, callbacks: [] as RetryTick[], errors: [] as unknown[][] };
+  const state = { delivery, dueError: null as Error | null, lookupError: null as Error | null, deliveredPosts: 0, leaseExpired: false, post: async () => 204, callbacks: [] as RetryTick[], errors: [] as unknown[][] };
   const database = {
     all: async () => { if (state.dueError) throw state.dueError; return [{ id: delivery.id }]; },
-    get: async () => { if (state.lookupError) throw state.lookupError; return { ...delivery }; },
+    get: async () => { if (state.lookupError) throw state.lookupError; return { ...delivery, expires_at: new Date(Date.now() + (state.leaseExpired ? -1 : 60_000)).toISOString() }; },
     getAgreement: async () => ({ id: delivery.agreement_id, webhook_secret: "local-test-only-secret" }),
     nowIso: () => new Date().toISOString(),
     parseJson: (value: string | null, fallback: unknown) => value ? JSON.parse(value) : fallback,
@@ -27,6 +27,13 @@ export function retryFixture() {
   };
   const dependencies: Record<string, unknown> = {
     "node:crypto": { createHmac }, nanoid: { nanoid }, "../lib/db.js": database,
+    "../lib/webhookClaims.js": {
+      claimWebhook: async () => delivery.delivered_at || !delivery.next_retry_at || delivery.next_retry_at > new Date().toISOString() ? undefined : "fixture-token",
+      recordWebhookResult: async (input: { attempt: number; status: number | null; delivered: boolean; nextRetryAt: string | null; error: string | null }) => {
+        delivery.attempts = input.attempt; delivery.status_code = input.status; delivery.error = input.error; delivery.next_retry_at = input.nextRetryAt;
+        if (input.delivered) delivery.delivered_at = new Date().toISOString();
+      }
+    },
     "../lib/env.js": { env: { baseUrl: "https://provider.example.test" } },
     "../lib/safeWebhook.js": { postWebhook: async () => { state.deliveredPosts++; return state.post(); } },
   };

@@ -48,6 +48,7 @@ test("a failed delivery remains retryable and a later success clears the error",
   assert.equal(state.delivery.error, "HTTP 503");
   assert.ok(state.delivery.next_retry_at);
   state.post = async () => 204;
+  state.delivery.next_retry_at = "2026-01-01T00:00:00.000Z";
   await webhooks.deliverWebhook(state.delivery.id);
   assert.equal(state.delivery.attempts, 2);
   assert.ok(state.delivery.delivered_at);
@@ -79,4 +80,13 @@ test("a due-query outage does not prevent a healthy later scheduled retry", asyn
   assert.equal(state.deliveredPosts, 1);
   assert.equal(state.delivery.attempts, 1);
   assert.ok(state.delivery.delivered_at);
+});
+
+test("a lease that elapsed during the claimed-row lookup cannot start a provider request", async () => {
+  const { state, webhooks } = retryFixture();
+  state.leaseExpired = true;
+  await webhooks.deliverWebhook(state.delivery.id);
+  assert.equal(state.deliveredPosts, 0);
+  assert.equal(state.delivery.attempts, 0);
+  assert.equal(state.delivery.delivered_at, null);
 });

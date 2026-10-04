@@ -15,8 +15,8 @@ test("verified markdown certificate remains available", async () => {
   const { state, artifacts, storage } = signingAuditFixture();
   const original = Buffer.from("signed-pdf");
   Object.assign(state.agreement, { status: "completed", signed_pdf_base64: original.toString("base64"), signed_pdf_sha256: storage.pdfSha256(original), signed_pdf_bytes: original.length });
-  assert.equal((await artifacts.certificateBufferForAgreement(state.agreement)).toString(), "certificate-pdf");
-  assert.equal(state.renders, 1);
+  assert.equal((await artifacts.certificateBufferForAgreement(state.agreement)).toString(), "signed-pdf");
+  assert.equal(state.renders, 0);
 });
 
 test("completed embedded preview cannot disclose signed fields through a session bearer", async () => {
@@ -113,4 +113,20 @@ for (const corruption of ["hash", "length"]) test(`source download rejects ${cor
   Object.assign(state.agreement, { source_pdf_base64: bytes.toString("base64"), source_pdf_sha256: corruption === "hash" ? "0".repeat(64) : storage.pdfSha256(bytes), source_pdf_bytes: corruption === "length" ? bytes.length + 1 : bytes.length });
   assert.throws(() => storage.sourcePdfBufferForAgreement(state.agreement), /Stored source PDF/);
   assert.equal(state.writes, 0);
+});
+
+test("mutable Markdown fields and audit cannot alter an existing certificate artifact", async () => {
+  const { state, artifacts, storage } = signingAuditFixture();
+  const original = Buffer.from("committed-evidence");
+  Object.assign(state.agreement, { status: "completed", signed_pdf_base64: original.toString("base64"), signed_pdf_sha256: storage.pdfSha256(original), signed_pdf_bytes: original.length, document_markdown: "altered", signed_fields_json: '{"signature":{"typed_name":"altered"}}', document_title: "altered" });
+  state.audits.push({ event_type: "altered" });
+  assert.ok((await artifacts.certificateBufferForAgreement(state.agreement)).equals(original));
+  assert.equal(state.renders, 0);
+});
+
+test("a legacy certificate with no committed artifact refuses reconstruction from mutable fields", async () => {
+  const { state, artifacts } = signingAuditFixture();
+  Object.assign(state.agreement, { status: "completed", signed_pdf_base64: null, signed_pdf_path: null, signed_pdf_sha256: null, signed_pdf_bytes: null });
+  await assert.rejects(artifacts.certificateBufferForAgreement(state.agreement), /Stored signed PDF artifact is missing/);
+  assert.equal(state.renders, 0);
 });

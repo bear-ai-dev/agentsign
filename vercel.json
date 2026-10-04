@@ -1,5 +1,16 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/webhook-cron",
+      "schedule": "* * * * *"
+    }
+  ],
+  "functions": {
+    "api/webhook-cron.ts": {
+      "maxDuration": 60
+    }
+  }
 }
