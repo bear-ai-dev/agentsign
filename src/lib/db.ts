@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import pg from "pg";
 import { env } from "./env.js";
 import { verifiedPostgresSsl } from "./postgres.js";
+import { createDatabaseReadiness } from "./databaseReadiness.js";
 import { webhookLeasePrivilegesSql } from "./webhookLeaseSchema.js";
 import { hashSigningToken, isEmbedded, type SigningSession, ProviderRequestError } from "./embeddedSigning.js";
 import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
@@ -22,7 +23,7 @@ if (sqlite) {
   sqlite.pragma("foreign_keys = ON");
 }
 
-export const dbReady = ensureSchema();
+export const dbReady = createDatabaseReadiness(ensureSchema);
 
 export function nowIso() {
   return new Date().toISOString();
