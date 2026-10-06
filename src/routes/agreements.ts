@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { nanoid } from "nanoid";
-import { addAuditEvent, all, get, getAgreement, getAuditEvents, nowIso, parseJson, run } from "../lib/db.js";
+import { addAuditEvent, all, get, getAgreement, getAuditEvents, insertAgreementWithIdempotency, nowIso, parseJson, run } from "../lib/db.js";
 import { env } from "../lib/env.js";
 import { creationHash, isEmbedded, inactiveAgreement, newSigningToken, hashSigningToken, ProviderRequestError, validatedEmbeddedOptions, validateSessionRequest, type EmbeddedOptions } from "../lib/embeddedSigning.js";
 import { certificateBufferForAgreement, sourceDocumentBufferForAgreement } from "../lib/agreementArtifacts.js";
@@ -48,6 +48,7 @@ type CreateOptions = {
   ownerEmail?: string | null;
   authenticatedScope?: string;
   idempotencyScope?: string;
+  globalIdempotency?: boolean;
 };
 
 const maxSourcePdfBytes = 6 * 1024 * 1024;
@@ -282,13 +283,13 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     ...(requiresSenderSignature ? { sender_signature_required: true, signing_order: signingOrder } : {})
   };
 
-  const inserted = await run(
-    `INSERT INTO agreements (
+  const insertSql = `INSERT INTO agreements (
       id, status, recipient_name, recipient_email, document_markdown, document_title, fields_json,
       webhook_url, webhook_secret, metadata_json, owner_email, signing_token, sender_signing_token, created_at, sent_at,
       source_pdf_base64, source_pdf_sha256, source_pdf_bytes, source_pdf_filename,
       signing_mode, allowed_parent_origins_json, prefill_fields_json, idempotency_scope, idempotency_key, creation_request_sha256
-    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+    ) VALUES (?, 'sent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`;
+  const insertParams = [
     id,
     body.recipient!.name,
     body.recipient!.email,
@@ -313,12 +314,11 @@ export async function createAgreement(body: CreateBody, baseUrl = env.baseUrl, o
     scope,
     body.idempotency_key ?? null,
     requestHash
-  );
-  if (!inserted.changes) {
-    const existing = await get<Agreement>("SELECT * FROM agreements WHERE idempotency_scope = ? AND idempotency_key = ?", scope, body.idempotency_key ?? null);
-    if (!existing || existing.creation_request_sha256 !== requestHash) throw new ProviderRequestError("idempotency_key was already used with a different request", 409);
-    return creationResult(existing, baseUrl);
-  }
+  ];
+  if (body.idempotency_key !== undefined) {
+    const inserted = await insertAgreementWithIdempotency({ sql: insertSql, params: insertParams, key: body.idempotency_key, scope, requestHash, global: options.globalIdempotency, metadataParamIndex: 8 });
+    if (inserted.existing) return creationResult(inserted.existing, baseUrl);
+  } else if (!(await run(insertSql, ...insertParams)).changes) throw new Error("Agreement insert did not create a record");
 
   const deliveryErrors: string[] = [];
   const safeAuditEvent = async (input: Parameters<typeof addAuditEvent>[0]) => {
@@ -451,13 +451,15 @@ async function getAgreementForOwner(id: string, ownerEmail: string | null, c: Co
   return get<Agreement>("SELECT * FROM agreements WHERE id = ? AND owner_email = ?", id, ownerEmail);
 }
 
-function agreementForApi(agreement: Agreement, options: { includeSignedFields?: boolean } = {}) {
+function agreementForApi(agreement: Agreement, options: { includeSignedFields?: boolean; includeDocument?: boolean } = {}) {
   const signedFields = parseJson<SignedFields | null>(agreement.signed_fields_json, null);
   return {
     id: agreement.id,
+    idempotency_key: agreement.idempotency_key,
     status: agreement.status,
     recipient: { name: agreement.recipient_name, email: agreement.recipient_email },
     document_title: agreement.document_title,
+    ...(options.includeDocument ? { document_markdown: agreement.document_markdown } : {}),
     fields: parseJson<FieldDefinition[]>(agreement.fields_json, []),
     ...(options.includeSignedFields ? { signed_fields: signedFields } : { signed_fields_saved: Boolean(signedFields) }),
     webhook_url: agreement.webhook_url,
@@ -495,6 +497,7 @@ agreements.post("/v1/agreements", async (c) => {
   try {
     const result = await createAgreement(await c.req.json<CreateBody>(), new URL(c.req.url).origin, {
       ownerEmail: currentOwnerEmail(c),
+      globalIdempotency: c.req.header("X-AgentContract-Global-Idempotency") === "1",
       authenticatedScope: authenticatedCreationScope(c)
     });
     return c.json(result, 201);
@@ -557,7 +560,7 @@ agreements.post("/v1/agreements/bulk", async (c) => {
 
     const results = [];
     for (const agreementBody of agreementBodies) {
-      results.push(await createAgreement(agreementBody, new URL(c.req.url).origin, { ownerEmail, authenticatedScope: scope, idempotencyScope: memberScope }));
+      results.push(await createAgreement(agreementBody, new URL(c.req.url).origin, { ownerEmail, authenticatedScope: scope, idempotencyScope: memberScope, globalIdempotency: c.req.header("X-AgentContract-Global-Idempotency") === "1" }));
     }
     return c.json({ agreements: results }, 201);
   } catch (error) {
@@ -599,10 +602,29 @@ agreements.get("/v1/agreements", async (c) => {
   });
 });
 
+agreements.get("/v1/agreements/by-idempotency/:key", async (c) => {
+  const key = c.req.param("key");
+  if (!/^[a-f0-9]{64}$/.test(key)) return c.json({ error: "idempotency key must be 64 lowercase hexadecimal characters" }, 400);
+  const agreement = await get<Agreement>(
+    "SELECT * FROM agreements WHERE idempotency_scope = ? AND idempotency_key = ?",
+    authenticatedCreationScope(c), key
+  );
+  if (!agreement && await get<{ id: string }>("SELECT id FROM agreements WHERE idempotency_key = ? LIMIT 1", key)) {
+    return c.json({ error: "cannot-confirm-original-send" }, 409);
+  }
+  return c.json({
+    idempotency_key: key,
+    durable_idempotency: true,
+    globally_serialized_creation: true,
+    global_absence: !agreement,
+    agreement: agreement ? agreementForApi(agreement, { includeSignedFields: true, includeDocument: true }) : null
+  });
+});
+
 agreements.get("/v1/agreements/:id", async (c) => {
   const agreement = await getAgreementForOwner(c.req.param("id"), currentOwnerEmail(c), c);
   if (!agreement) return c.json({ error: "Agreement not found" }, 404);
-  return c.json({ ...agreementForApi(agreement, { includeSignedFields: true }), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
+  return c.json({ ...agreementForApi(agreement, { includeSignedFields: true, includeDocument: true }), audit_events: auditEventsForApi(await getAuditEvents(agreement.id)) });
 });
 
 agreements.get("/v1/agreements/:id/document", async (c) => {
