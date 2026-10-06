@@ -9,6 +9,7 @@ import { createDatabaseReadiness } from "./databaseReadiness.js";
 import { webhookLeasePrivilegesSql } from "./webhookLeaseSchema.js";
 import { hashSigningToken, isEmbedded, type SigningSession, ProviderRequestError } from "./embeddedSigning.js";
 import type { Agreement, AuditEvent, AgreementStatus, SignerRole } from "./types.js";
+import { serializedAgreementInsert, type AgreementInsert } from "./serializedAgreementCreation.js";
 
 mkdirSync(dirname(env.databasePath), { recursive: true });
 
@@ -32,6 +33,11 @@ export function nowIso() {
 export type RunResult = {
   changes: number;
 };
+
+export async function insertAgreementWithIdempotency(input: AgreementInsert) {
+  await dbReady;
+  return serializedAgreementInsert({ sqlite, pool, toPg }, input);
+}
 
 export async function run(sql: string, ...params: unknown[]) {
   await dbReady;
